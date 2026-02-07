@@ -1,0 +1,37 @@
+[template]
+name = "basic-test"
+version = "0.1.0"
+description = "A basic test template"
+
+[variables.project_name]
+type = "string"
+prompt = "Project name"
+default = "my-project"
+
+[variables.author]
+type = "string"
+prompt = "Author name"
+default = "Test Author"
+
+[variables.use_docker]
+type = "bool"
+prompt = "Include Docker support?"
+default = false
+
+[variables.license]
+type = "select"
+prompt = "License"
+choices = ["MIT", "Apache-2.0"]
+default = "MIT"
+
+[variables.project_slug]
+type = "string"
+computed = "{{ project_name | slugify }}"
+
+[files]
+exclude = [".DS_Store"]
+copy_without_render = ["assets/**"]
+
+[[files.conditional]]
+pattern = "**/Dockerfile"
+when = "use_docker"
