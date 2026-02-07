@@ -1,0 +1,7 @@
+# {{ project_name }}
+
+By {{ author }}
+
+License: {{ license }}
+
+Slug: {{ project_slug }}

@@ -1,0 +1,98 @@
+use std::path::PathBuf;
+
+use miette::Diagnostic;
+use thiserror::Error;
+
+#[derive(Debug, Error, Diagnostic)]
+pub enum DicecutError {
+    #[error("Template config not found at {path}")]
+    #[diagnostic(help("Ensure the template directory contains a diecut.toml file"))]
+    ConfigNotFound { path: PathBuf },
+
+    #[error("Failed to parse diecut.toml")]
+    #[diagnostic(help("Check the TOML syntax in your diecut.toml file"))]
+    ConfigParse {
+        #[source]
+        source: toml::de::Error,
+    },
+
+    #[error("Invalid variable definition for '{name}'")]
+    ConfigInvalidVariable { name: String, reason: String },
+
+    #[error("Validation failed for variable '{name}': {message}")]
+    ValidationFailed { name: String, message: String },
+
+    #[error("Template rendering failed")]
+    #[diagnostic(help("Check your Tera template syntax"))]
+    RenderError {
+        #[source]
+        source: tera::Error,
+    },
+
+    #[error("Failed to render filename: {filename}")]
+    FilenameRenderError {
+        filename: String,
+        #[source]
+        source: tera::Error,
+    },
+
+    #[error("Output directory already exists: {path}")]
+    #[diagnostic(help("Use --overwrite to replace the existing directory"))]
+    OutputExists { path: PathBuf },
+
+    #[error("Template directory not found: {path}")]
+    #[diagnostic(help("The template must contain a 'template/' subdirectory"))]
+    TemplateDirectoryMissing { path: PathBuf },
+
+    #[error("IO error: {context}")]
+    Io {
+        context: String,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("Glob pattern error: {pattern}")]
+    GlobPattern {
+        pattern: String,
+        #[source]
+        source: globset::Error,
+    },
+
+    #[error("Prompt cancelled by user")]
+    PromptCancelled,
+
+    #[error("Invalid 'when' expression for variable '{name}'")]
+    WhenEvaluation {
+        name: String,
+        #[source]
+        source: tera::Error,
+    },
+
+    #[error("Invalid computed expression for variable '{name}'")]
+    ComputedEvaluation {
+        name: String,
+        #[source]
+        source: tera::Error,
+    },
+
+    #[error("Failed to parse cookiecutter.json")]
+    #[diagnostic(help("Check the JSON syntax in your cookiecutter.json file"))]
+    ConfigParseCookiecutter {
+        #[source]
+        source: serde_json::Error,
+    },
+
+    #[error("Cookiecutter template directory not found in {path}")]
+    #[diagnostic(help(
+        "Cookiecutter templates must contain a directory named {{{{cookiecutter.*}}}}"
+    ))]
+    CookiecutterTemplateDir { path: PathBuf },
+
+    #[error("No supported template config found in {path}")]
+    #[diagnostic(help(
+        "The directory must contain diecut.toml (native) or cookiecutter.json (cookiecutter)"
+    ))]
+    UnsupportedFormat { path: PathBuf },
+}
+
+pub type Result<T> = std::result::Result<T, DicecutError>;

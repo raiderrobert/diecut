@@ -1,0 +1,17 @@
+[package]
+name = "diecut"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "A language-agnostic project template generator"
+
+[[bin]]
+name = "diecut"
+path = "src/main.rs"
+
+[dependencies]
+diecut-core = { workspace = true }
+clap = { workspace = true }
+miette = { workspace = true }
+console = { workspace = true }

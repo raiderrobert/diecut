@@ -1,0 +1,8 @@
+{
+    "full_name": "Your Name",
+    "project_name": "My Project",
+    "project_slug": "{{ cookiecutter.project_name | lower | replace(' ', '-') }}",
+    "description": "A short description",
+    "license": ["MIT", "BSD-3", "Apache-2.0"],
+    "_copy_without_render": ["*.csv"]
+}

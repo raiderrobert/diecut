@@ -1,0 +1,5 @@
+// {{ project_name }} - created by {{ author }}
+
+fn main() {
+    println!("Hello from {{ project_name }}!");
+}
