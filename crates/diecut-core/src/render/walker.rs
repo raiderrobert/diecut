@@ -106,18 +106,34 @@ pub fn walk_and_render(
 
             let mut tera = Tera::default();
             let template_name = rel_str.to_string();
-            tera.add_raw_template(&template_name, &content)
-                .map_err(|e| DicecutError::RenderError { source: e })?;
+            let parse_result = tera.add_raw_template(&template_name, &content);
+            let render_result = parse_result.and_then(|_| tera.render(&template_name, context));
 
-            let rendered = tera
-                .render(&template_name, context)
-                .map_err(|e| DicecutError::RenderError { source: e })?;
-
-            std::fs::write(&dest_path, rendered).map_err(|e| DicecutError::Io {
-                context: format!("writing {}", dest_path.display()),
-                source: e,
-            })?;
-            files_created.push(rendered_rel);
+            match render_result {
+                Ok(rendered) => {
+                    std::fs::write(&dest_path, rendered).map_err(|e| DicecutError::Io {
+                        context: format!("writing {}", dest_path.display()),
+                        source: e,
+                    })?;
+                    files_created.push(rendered_rel);
+                }
+                Err(e) if resolved.render_all => {
+                    // Foreign templates may contain unsupported syntax (e.g. Jinja2
+                    // extensions). Fall back to copying verbatim with a warning.
+                    eprintln!(
+                        "warning: failed to render {}, copying verbatim: {}",
+                        rel_str, e
+                    );
+                    std::fs::write(&dest_path, &content).map_err(|e| DicecutError::Io {
+                        context: format!("writing {}", dest_path.display()),
+                        source: e,
+                    })?;
+                    files_copied.push(rendered_rel);
+                }
+                Err(e) => {
+                    return Err(DicecutError::RenderError { source: e });
+                }
+            }
         }
     }
 
