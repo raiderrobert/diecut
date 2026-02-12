@@ -290,6 +290,11 @@ fn unix_timestamp_secs() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Tests that set DIECUT_CACHE_DIR must hold this lock to avoid racing
+    /// each other (env vars are process-global).
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn cache_key_deterministic() {
@@ -340,12 +345,15 @@ mod tests {
 
     #[test]
     fn get_cache_dir_returns_xdg_path() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        std::env::remove_var("DIECUT_CACHE_DIR");
         let dir = get_cache_dir().unwrap();
         assert!(dir.ends_with("diecut/templates"));
     }
 
     #[test]
     fn get_cache_dir_respects_env_var() {
+        let _lock = ENV_LOCK.lock().unwrap();
         std::env::set_var("DIECUT_CACHE_DIR", "/tmp/test-diecut-cache");
         let dir = get_cache_dir().unwrap();
         std::env::remove_var("DIECUT_CACHE_DIR");
@@ -370,10 +378,365 @@ mod tests {
 
     #[test]
     fn list_cached_empty_when_no_cache() {
-        // With a non-existent cache dir, list_cached should return empty
+        let _lock = ENV_LOCK.lock().unwrap();
+        // Point at a non-existent dir so the result is deterministic
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("DIECUT_CACHE_DIR", tmp.path().join("empty"));
         let entries = list_cached();
-        // This may or may not have entries depending on system state,
-        // but it should not error
         assert!(entries.is_ok());
+        assert!(entries.unwrap().is_empty());
+    }
+
+    /// Helper: acquire the env lock, set DIECUT_CACHE_DIR to a temp directory,
+    /// and return both guards. The lock is held until both are dropped.
+    fn setup_cache_env() -> (std::sync::MutexGuard<'static, ()>, tempfile::TempDir) {
+        let lock = ENV_LOCK.lock().unwrap();
+        let tmp = tempfile::tempdir().expect("failed to create temp dir");
+        std::env::set_var("DIECUT_CACHE_DIR", tmp.path());
+        (lock, tmp)
+    }
+
+    /// Helper: create a fake cached template entry with metadata.
+    fn create_fake_cache_entry(
+        cache_dir: &Path,
+        key: &str,
+        url: &str,
+        git_ref: Option<&str>,
+    ) -> PathBuf {
+        let entry_dir = cache_dir.join(key);
+        std::fs::create_dir_all(&entry_dir).unwrap();
+        let metadata = CacheMetadata {
+            url: url.to_string(),
+            git_ref: git_ref.map(String::from),
+            cached_at: "1700000000".to_string(),
+        };
+        let toml_str = toml::to_string_pretty(&metadata).unwrap();
+        std::fs::write(entry_dir.join(CACHE_METADATA_FILE), toml_str).unwrap();
+        entry_dir
+    }
+
+    // ── copy_dir_all tests ──────────────────────────────────────────
+
+    #[test]
+    fn copy_dir_all_copies_flat_directory() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        let dst_target = dst.path().join("output");
+
+        std::fs::write(src.path().join("a.txt"), "alpha").unwrap();
+        std::fs::write(src.path().join("b.txt"), "bravo").unwrap();
+
+        copy_dir_all(src.path(), &dst_target).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dst_target.join("a.txt")).unwrap(),
+            "alpha"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dst_target.join("b.txt")).unwrap(),
+            "bravo"
+        );
+    }
+
+    #[test]
+    fn copy_dir_all_copies_nested_directories() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        let dst_target = dst.path().join("output");
+
+        std::fs::create_dir_all(src.path().join("sub/deep")).unwrap();
+        std::fs::write(src.path().join("root.txt"), "root").unwrap();
+        std::fs::write(src.path().join("sub/mid.txt"), "mid").unwrap();
+        std::fs::write(src.path().join("sub/deep/leaf.txt"), "leaf").unwrap();
+
+        copy_dir_all(src.path(), &dst_target).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dst_target.join("root.txt")).unwrap(),
+            "root"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dst_target.join("sub/mid.txt")).unwrap(),
+            "mid"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dst_target.join("sub/deep/leaf.txt")).unwrap(),
+            "leaf"
+        );
+    }
+
+    #[test]
+    fn copy_dir_all_skips_symlinks() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        let dst_target = dst.path().join("output");
+
+        std::fs::write(src.path().join("real.txt"), "real").unwrap();
+
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(src.path().join("real.txt"), src.path().join("link.txt"))
+            .unwrap();
+
+        copy_dir_all(src.path(), &dst_target).unwrap();
+
+        assert!(dst_target.join("real.txt").exists());
+        #[cfg(unix)]
+        assert!(!dst_target.join("link.txt").exists());
+    }
+
+    #[test]
+    fn copy_dir_all_creates_destination_if_missing() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        let dst_target = dst.path().join("a/b/c");
+
+        std::fs::write(src.path().join("file.txt"), "content").unwrap();
+
+        copy_dir_all(src.path(), &dst_target).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dst_target.join("file.txt")).unwrap(),
+            "content"
+        );
+    }
+
+    #[test]
+    fn copy_dir_all_empty_directory() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        let dst_target = dst.path().join("output");
+
+        copy_dir_all(src.path(), &dst_target).unwrap();
+
+        assert!(dst_target.exists());
+        assert!(dst_target.is_dir());
+        let count = std::fs::read_dir(&dst_target).unwrap().count();
+        assert_eq!(count, 0);
+    }
+
+    // ── clear_cache tests ───────────────────────────────────────────
+
+    #[test]
+    fn clear_cache_all_removes_entire_directory() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        create_fake_cache_entry(&cache_dir, "repo-abc123", "https://github.com/u/repo", None);
+        create_fake_cache_entry(
+            &cache_dir,
+            "other-def456",
+            "https://github.com/u/other",
+            None,
+        );
+
+        assert!(cache_dir.join("repo-abc123").exists());
+        assert!(cache_dir.join("other-def456").exists());
+
+        clear_cache(None).unwrap();
+
+        assert!(!cache_dir.exists());
+    }
+
+    #[test]
+    fn clear_cache_by_url_removes_only_matching_entries() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        create_fake_cache_entry(&cache_dir, "repo-abc123", "https://github.com/u/repo", None);
+        create_fake_cache_entry(
+            &cache_dir,
+            "repo-main-def456",
+            "https://github.com/u/repo",
+            Some("main"),
+        );
+        create_fake_cache_entry(
+            &cache_dir,
+            "other-ghi789",
+            "https://github.com/u/other",
+            None,
+        );
+
+        clear_cache(Some("https://github.com/u/repo")).unwrap();
+
+        // Both entries for /u/repo should be gone
+        assert!(!cache_dir.join("repo-abc123").exists());
+        assert!(!cache_dir.join("repo-main-def456").exists());
+        // The unrelated entry should remain
+        assert!(cache_dir.join("other-ghi789").exists());
+    }
+
+    #[test]
+    fn clear_cache_by_url_normalizes_trailing_git() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        // Cached with bare URL
+        create_fake_cache_entry(&cache_dir, "repo-abc123", "https://github.com/u/repo", None);
+
+        // Clear using .git suffix — should still match
+        clear_cache(Some("https://github.com/u/repo.git")).unwrap();
+
+        assert!(!cache_dir.join("repo-abc123").exists());
+    }
+
+    #[test]
+    fn clear_cache_noop_when_cache_dir_missing() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let nonexistent = tmp.path().join("does-not-exist");
+        std::env::set_var("DIECUT_CACHE_DIR", &nonexistent);
+
+        // Should succeed without error even though the dir doesn't exist
+        assert!(clear_cache(None).is_ok());
+        assert!(clear_cache(Some("https://example.com/repo")).is_ok());
+    }
+
+    // ── list_cached tests ───────────────────────────────────────────
+
+    #[test]
+    fn list_cached_returns_entries_with_metadata() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        create_fake_cache_entry(&cache_dir, "repo-abc", "https://github.com/u/repo", None);
+        create_fake_cache_entry(
+            &cache_dir,
+            "repo-main-def",
+            "https://github.com/u/repo",
+            Some("main"),
+        );
+
+        let entries = list_cached().unwrap();
+        assert_eq!(entries.len(), 2);
+
+        let keys: Vec<&str> = entries.iter().map(|e| e.key.as_str()).collect();
+        assert!(keys.contains(&"repo-abc"));
+        assert!(keys.contains(&"repo-main-def"));
+
+        for entry in &entries {
+            assert_eq!(entry.metadata.url, "https://github.com/u/repo");
+            assert_eq!(entry.metadata.cached_at, "1700000000");
+        }
+
+        // Check that the entry with ref has it recorded
+        let with_ref = entries.iter().find(|e| e.key == "repo-main-def").unwrap();
+        assert_eq!(with_ref.metadata.git_ref.as_deref(), Some("main"));
+
+        let without_ref = entries.iter().find(|e| e.key == "repo-abc").unwrap();
+        assert!(without_ref.metadata.git_ref.is_none());
+    }
+
+    #[test]
+    fn list_cached_skips_dirs_without_metadata() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        create_fake_cache_entry(&cache_dir, "valid-entry", "https://github.com/u/repo", None);
+
+        // Directory without metadata file
+        std::fs::create_dir_all(cache_dir.join("orphan-dir")).unwrap();
+        std::fs::write(cache_dir.join("orphan-dir/some-file.txt"), "data").unwrap();
+
+        let entries = list_cached().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].key, "valid-entry");
+    }
+
+    #[test]
+    fn list_cached_skips_plain_files() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        create_fake_cache_entry(&cache_dir, "valid-entry", "https://github.com/u/repo", None);
+
+        // Plain file in the cache dir (not a directory)
+        std::fs::write(cache_dir.join("stray-file.txt"), "oops").unwrap();
+
+        let entries = list_cached().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].key, "valid-entry");
+    }
+
+    #[test]
+    fn list_cached_empty_when_dir_does_not_exist() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let nonexistent = tmp.path().join("no-such-dir");
+        std::env::set_var("DIECUT_CACHE_DIR", &nonexistent);
+
+        let entries = list_cached().unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn list_cached_path_points_to_entry_dir() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        let expected = create_fake_cache_entry(
+            &cache_dir,
+            "myrepo-abc",
+            "https://github.com/u/myrepo",
+            None,
+        );
+
+        let entries = list_cached().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].path, expected);
+    }
+
+    // ── get_or_clone cache-hit path ─────────────────────────────────
+
+    #[test]
+    fn get_or_clone_returns_cached_path_on_hit() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        let url = "https://github.com/u/repo";
+        let key = cache_key(url, None);
+
+        // Pre-populate cache with a fake entry including metadata
+        create_fake_cache_entry(&cache_dir, &key, url, None);
+        std::fs::write(cache_dir.join(&key).join("diecut.toml"), "[template]").unwrap();
+
+        let result = get_or_clone(url, None).unwrap();
+
+        assert_eq!(result, cache_dir.join(&key));
+        assert_eq!(
+            std::fs::read_to_string(result.join("diecut.toml")).unwrap(),
+            "[template]"
+        );
+    }
+
+    #[test]
+    fn get_or_clone_does_not_use_stale_entry_without_metadata() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        let url = "https://github.com/u/repo";
+        let key = cache_key(url, None);
+
+        // Create directory but WITHOUT metadata file
+        std::fs::create_dir_all(cache_dir.join(&key)).unwrap();
+        std::fs::write(cache_dir.join(&key).join("some-file.txt"), "old").unwrap();
+
+        // Should NOT return the stale entry — will try to clone and fail
+        let result = get_or_clone(url, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn get_or_clone_cache_hit_with_ref() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        let url = "https://github.com/u/repo";
+        let git_ref = Some("v1.0");
+        let key = cache_key(url, git_ref);
+
+        create_fake_cache_entry(&cache_dir, &key, url, git_ref);
+
+        let result = get_or_clone(url, git_ref).unwrap();
+        assert_eq!(result, cache_dir.join(&key));
     }
 }
