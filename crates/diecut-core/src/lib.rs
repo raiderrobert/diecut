@@ -7,6 +7,7 @@ pub mod hooks;
 pub mod prompt;
 pub mod render;
 pub mod template;
+pub mod update;
 
 use std::path::Path;
 
