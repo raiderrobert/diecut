@@ -1,4 +1,5 @@
 pub mod schema;
+pub mod user;
 pub mod variable;
 
 use std::path::Path;
@@ -6,6 +7,7 @@ use std::path::Path;
 use crate::error::{DicecutError, Result};
 
 pub use schema::TemplateConfig;
+pub use user::{load_user_config, UserConfig};
 
 /// Load and validate a TemplateConfig from a diecut.toml file.
 pub fn load_config(path: &Path) -> Result<TemplateConfig> {
