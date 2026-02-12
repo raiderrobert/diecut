@@ -7,11 +7,22 @@ use tera::Value;
 use crate::config::schema::TemplateConfig;
 use crate::error::{DicecutError, Result};
 
+/// Provenance info about the template source.
+pub struct SourceInfo {
+    /// The original git URL, if cloned from a remote.
+    pub url: Option<String>,
+    /// The git ref (branch/tag) requested, if any.
+    pub git_ref: Option<String>,
+    /// The resolved commit SHA at clone time.
+    pub commit_sha: Option<String>,
+}
+
 /// Metadata and variable values saved alongside a generated project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedAnswers {
     pub template_source: String,
     pub template_ref: Option<String>,
+    pub commit_sha: Option<String>,
     pub diecut_version: String,
     pub answers: HashMap<String, toml::Value>,
 }
@@ -49,6 +60,8 @@ pub fn load_answers(project_path: &Path) -> Result<SavedAnswers> {
 
     let template_ref = get_str("template_ref").map(String::from);
 
+    let commit_sha = get_str("commit_sha").map(String::from);
+
     let diecut_version = get_str("diecut_version").unwrap_or("0.0.0").to_string();
 
     let vars_table = table
@@ -62,6 +75,7 @@ pub fn load_answers(project_path: &Path) -> Result<SavedAnswers> {
     Ok(SavedAnswers {
         template_source,
         template_ref,
+        commit_sha,
         diecut_version,
         answers,
     })
@@ -73,8 +87,16 @@ pub fn write_answers(
     output_dir: &Path,
     config: &TemplateConfig,
     variables: &BTreeMap<String, Value>,
+    source_info: &SourceInfo,
 ) -> Result<()> {
-    write_answers_with_source(output_dir, config, variables, None, None)
+    write_answers_with_source(
+        output_dir,
+        config,
+        variables,
+        source_info.url.as_deref(),
+        source_info.git_ref.as_deref(),
+        source_info.commit_sha.as_deref(),
+    )
 }
 
 /// Write answers file with explicit template source information.
@@ -84,6 +106,7 @@ pub fn write_answers_with_source(
     variables: &BTreeMap<String, Value>,
     template_source: Option<&str>,
     template_ref: Option<&str>,
+    commit_sha: Option<&str>,
 ) -> Result<()> {
     let answers_path = output_dir.join(&config.answers.file);
 
@@ -108,6 +131,12 @@ pub fn write_answers_with_source(
         meta.insert(
             "template_ref".to_string(),
             toml::Value::String(git_ref.to_string()),
+        );
+    }
+    if let Some(sha) = commit_sha {
+        meta.insert(
+            "commit_sha".to_string(),
+            toml::Value::String(sha.to_string()),
         );
     }
     meta.insert(

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{{ project_name }}"
+version = "0.1.0"
+description = "{{ description }}"
+{% if author %}authors = [{ name = "{{ author }}" }]
+{% endif %}requires-python = ">={{ python_version }}"
+{% if use_cli %}
+[project.scripts]
+{{ project_name }} = "{{ project_name | replace(from="-", to="_") }}.cli:main"
+{% endif %}

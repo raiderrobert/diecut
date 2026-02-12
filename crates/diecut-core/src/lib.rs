@@ -5,6 +5,7 @@ pub mod config;
 pub mod error;
 pub mod hooks;
 pub mod prompt;
+pub mod ready;
 pub mod render;
 pub mod template;
 pub mod update;
@@ -14,6 +15,7 @@ use std::path::Path;
 use console::style;
 
 use crate::adapter::resolve_template;
+use crate::answers::SourceInfo;
 use crate::error::{DicecutError, Result};
 use crate::prompt::{collect_variables, PromptOptions};
 use crate::render::{build_context_with_namespace, walk_and_render, GeneratedProject};
@@ -31,15 +33,34 @@ pub struct GenerateOptions {
     pub defaults: bool,
     /// Overwrite output directory if it exists.
     pub overwrite: bool,
+    /// Skip running hooks.
+    pub no_hooks: bool,
 }
 
 /// Main entry point: generate a project from a template.
 pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     // 1. Resolve source
     let source = resolve_source(&options.template)?;
-    let template_dir = match &source {
-        TemplateSource::Local(path) => path.clone(),
-        TemplateSource::Git { url, git_ref } => get_or_clone(url, git_ref.as_deref())?,
+    let (template_dir, source_info) = match &source {
+        TemplateSource::Local(path) => (
+            path.clone(),
+            SourceInfo {
+                url: None,
+                git_ref: None,
+                commit_sha: None,
+            },
+        ),
+        TemplateSource::Git { url, git_ref } => {
+            let (path, commit_sha) = get_or_clone(url, git_ref.as_deref())?;
+            (
+                path,
+                SourceInfo {
+                    url: Some(url.clone()),
+                    git_ref: git_ref.clone(),
+                    commit_sha,
+                },
+            )
+        }
     };
 
     // 2. Resolve template (auto-detect format, parse config)
@@ -52,6 +73,19 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
             style("warning:").yellow().bold(),
             style(warning).yellow()
         );
+    }
+
+    // Warn about untrusted hooks from remote templates
+    if !options.no_hooks && source_info.url.is_some() && resolved.config.hooks.has_hooks() {
+        eprintln!(
+            "{} This template contains hooks that will execute code on your machine",
+            style("warning:").yellow().bold()
+        );
+        eprintln!(
+            "  source: {}",
+            source_info.url.as_deref().unwrap_or("unknown")
+        );
+        eprintln!("  use --no-hooks to skip hook execution");
     }
 
     // 3. Determine output directory
@@ -82,22 +116,37 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     };
     let variables = collect_variables(&resolved.config, &prompt_options)?;
 
-    // 5. Build Tera context (with optional namespace for foreign formats)
+    // 5. Run pre-generate hooks
+    if !options.no_hooks {
+        hooks::run_pre_generate(&resolved.config.hooks, &template_dir, &variables)?;
+    }
+
+    // 6. Build Tera context (with optional namespace for foreign formats)
     let context = build_context_with_namespace(&variables, &resolved.context_namespace);
 
-    // 6. Create output directory
+    // 7. Create output directory
     std::fs::create_dir_all(&output_dir).map_err(|e| DicecutError::Io {
         context: format!("creating output directory {}", output_dir.display()),
         source: e,
     })?;
 
-    // 7. Walk and render
+    // 8. Walk and render
     let result = walk_and_render(&resolved, &output_dir, &variables, &context)?;
 
-    // 8. Write answers file
-    answers::write_answers(&output_dir, &resolved.config, &variables)?;
+    // 9. Write answers file
+    answers::write_answers(&output_dir, &resolved.config, &variables, &source_info)?;
 
-    // 9. Print summary
+    // 10. Run post-generate hooks
+    if !options.no_hooks {
+        hooks::run_post_generate(
+            &resolved.config.hooks,
+            &template_dir,
+            &output_dir,
+            &variables,
+        )?;
+    }
+
+    // 11. Print summary
     println!(
         "\n{} Project generated at {}",
         style("✓").green().bold(),

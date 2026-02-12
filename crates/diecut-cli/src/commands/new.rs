@@ -7,7 +7,7 @@ pub fn run(
     data: Vec<String>,
     defaults: bool,
     overwrite: bool,
-    _no_hooks: bool,
+    no_hooks: bool,
 ) -> Result<()> {
     let data_pairs: Vec<(String, String)> = data
         .into_iter()
@@ -25,6 +25,7 @@ pub fn run(
         data: data_pairs,
         defaults,
         overwrite,
+        no_hooks,
     };
 
     diecut_core::generate(options)?;

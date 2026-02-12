@@ -72,6 +72,13 @@ pub struct HooksConfig {
     pub post_generate: Vec<String>,
 }
 
+impl HooksConfig {
+    /// Returns true if any hooks are configured.
+    pub fn has_hooks(&self) -> bool {
+        !self.pre_generate.is_empty() || !self.post_generate.is_empty()
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AnswersConfig {
     /// Filename for the answers file written into the generated project.
