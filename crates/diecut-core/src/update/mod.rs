@@ -115,7 +115,7 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
     let new_source = resolve_source(template_arg)?;
     let new_template_dir = match &new_source {
         TemplateSource::Local(path) => path.clone(),
-        TemplateSource::Git { url, git_ref: _ } => get_or_clone(url, new_ref)?,
+        TemplateSource::Git { url, git_ref: _ } => get_or_clone(url, new_ref)?.0,
     };
 
     // 3. Generate old snapshot (using old ref if available)
@@ -130,7 +130,7 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
             // For local templates, old and new are the same (no versioning)
             path.clone()
         }
-        TemplateSource::Git { url, .. } => get_or_clone(url, saved.template_ref.as_deref())?,
+        TemplateSource::Git { url, .. } => get_or_clone(url, saved.template_ref.as_deref())?.0,
     };
 
     // Resolve and render old snapshot
@@ -181,6 +181,7 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
         &new_variables,
         Some(template_arg),
         effective_ref,
+        None,
     )?;
 
     Ok(report)
@@ -281,8 +282,15 @@ mod tests {
             tera::Value::Number(serde_json::Number::from(8080)),
         );
 
-        write_answers_with_source(dir, &config, &vars, Some("gh:user/template"), Some("v2.0"))
-            .unwrap();
+        write_answers_with_source(
+            dir,
+            &config,
+            &vars,
+            Some("gh:user/template"),
+            Some("v2.0"),
+            None,
+        )
+        .unwrap();
 
         let loaded = load_answers(dir).unwrap();
         assert_eq!(loaded.template_source, "gh:user/template");

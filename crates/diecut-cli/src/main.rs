@@ -17,6 +17,7 @@ fn main() -> miette::Result<()> {
         Commands::List => commands::list::run(),
         Commands::Update { path, git_ref } => commands::update::run(path, git_ref),
         Commands::Check { path } => commands::check::run(path),
+        Commands::Ready { path } => commands::ready::run(path),
         Commands::Migrate {
             path,
             output,
