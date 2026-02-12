@@ -16,6 +16,9 @@ pub struct CacheMetadata {
     pub git_ref: Option<String>,
     /// When the template was cached (Unix timestamp in seconds).
     pub cached_at: String,
+    /// The resolved commit SHA at the time of cloning.
+    #[serde(default)]
+    pub commit_sha: Option<String>,
 }
 
 /// A cached template entry returned by `list_cached()`.
@@ -82,19 +85,21 @@ pub(crate) fn cache_key(url: &str, git_ref: Option<&str>) -> String {
     }
 }
 
-/// Check cache first, clone if missing, return path to the template.
+/// Check cache first, clone if missing, return path to the template
+/// and the resolved commit SHA (if available).
 ///
 /// Note: this function does not protect against concurrent access. If multiple
 /// processes call `get_or_clone` for the same URL simultaneously, they may
 /// both clone and race to populate the cache entry.
-pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
+pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option<String>)> {
     let cache_dir = get_cache_dir()?;
     let key = cache_key(url, git_ref);
     let cached_path = cache_dir.join(&key);
 
     // Check if we have a valid cached copy
     if cached_path.exists() && cached_path.join(CACHE_METADATA_FILE).exists() {
-        return Ok(cached_path);
+        let metadata = read_cache_metadata(&cached_path)?;
+        return Ok((cached_path, metadata.commit_sha));
     }
 
     // Ensure cache directory exists before cloning
@@ -104,24 +109,26 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
     })?;
 
     // Clone to a temp location, then move into cache.
-    // tmp_dir is kept alive so the temp directory is cleaned up on error.
-    let tmp_dir = clone_template(url, git_ref)?;
+    let clone_result = clone_template(url, git_ref)?;
 
     // Write cache metadata
     let metadata = CacheMetadata {
         url: url.to_string(),
         git_ref: git_ref.map(String::from),
         cached_at: unix_timestamp_secs(),
+        commit_sha: clone_result.commit_sha.clone(),
     };
     let metadata_toml =
         toml::to_string_pretty(&metadata).map_err(|e| DicecutError::CacheMetadata {
             context: format!("serializing cache metadata: {e}"),
         })?;
-    std::fs::write(tmp_dir.path().join(CACHE_METADATA_FILE), metadata_toml).map_err(|e| {
-        DicecutError::Io {
-            context: "writing cache metadata".into(),
-            source: e,
-        }
+    std::fs::write(
+        clone_result.dir.path().join(CACHE_METADATA_FILE),
+        metadata_toml,
+    )
+    .map_err(|e| DicecutError::Io {
+        context: "writing cache metadata".into(),
+        source: e,
     })?;
 
     // Remove any stale cache entry
@@ -134,9 +141,10 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
 
     // Move cloned directory into cache. Only persist (leak) the tempdir
     // after successful placement — on error, drop cleans it up.
-    std::fs::rename(tmp_dir.path(), &cached_path).or_else(|rename_err| {
+    let commit_sha = clone_result.commit_sha.clone();
+    std::fs::rename(clone_result.dir.path(), &cached_path).or_else(|rename_err| {
         // rename can fail across filesystems; fall back to copy + delete
-        copy_dir_all(tmp_dir.path(), &cached_path).map_err(|e| DicecutError::Io {
+        copy_dir_all(clone_result.dir.path(), &cached_path).map_err(|e| DicecutError::Io {
             context: format!("copying cloned template to cache (rename failed: {rename_err}): {e}"),
             source: std::io::Error::other(e.to_string()),
         })?;
@@ -145,9 +153,21 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
 
     // Successfully placed in cache — prevent TempDir from cleaning up
     // the source (it may already be gone after a successful rename).
-    let _ = tmp_dir.keep();
+    let _ = clone_result.dir.keep();
 
-    Ok(cached_path)
+    Ok((cached_path, commit_sha))
+}
+
+/// Read cache metadata from a cached template directory.
+fn read_cache_metadata(cached_path: &Path) -> Result<CacheMetadata> {
+    let metadata_path = cached_path.join(CACHE_METADATA_FILE);
+    let metadata_str = std::fs::read_to_string(&metadata_path).map_err(|e| DicecutError::Io {
+        context: format!("reading cache metadata {}", metadata_path.display()),
+        source: e,
+    })?;
+    toml::from_str(&metadata_str).map_err(|e| DicecutError::CacheMetadata {
+        context: format!("parsing cache metadata: {e}"),
+    })
 }
 
 /// List all cached templates.
@@ -403,12 +423,23 @@ mod tests {
         url: &str,
         git_ref: Option<&str>,
     ) -> PathBuf {
+        create_fake_cache_entry_with_sha(cache_dir, key, url, git_ref, None)
+    }
+
+    fn create_fake_cache_entry_with_sha(
+        cache_dir: &Path,
+        key: &str,
+        url: &str,
+        git_ref: Option<&str>,
+        commit_sha: Option<&str>,
+    ) -> PathBuf {
         let entry_dir = cache_dir.join(key);
         std::fs::create_dir_all(&entry_dir).unwrap();
         let metadata = CacheMetadata {
             url: url.to_string(),
             git_ref: git_ref.map(String::from),
             cached_at: "1700000000".to_string(),
+            commit_sha: commit_sha.map(String::from),
         };
         let toml_str = toml::to_string_pretty(&metadata).unwrap();
         std::fs::write(entry_dir.join(CACHE_METADATA_FILE), toml_str).unwrap();
@@ -699,13 +730,30 @@ mod tests {
         create_fake_cache_entry(&cache_dir, &key, url, None);
         std::fs::write(cache_dir.join(&key).join("diecut.toml"), "[template]").unwrap();
 
-        let result = get_or_clone(url, None).unwrap();
+        let (path, sha) = get_or_clone(url, None).unwrap();
 
-        assert_eq!(result, cache_dir.join(&key));
+        assert_eq!(path, cache_dir.join(&key));
+        assert!(sha.is_none()); // No SHA in legacy entries
         assert_eq!(
-            std::fs::read_to_string(result.join("diecut.toml")).unwrap(),
+            std::fs::read_to_string(path.join("diecut.toml")).unwrap(),
             "[template]"
         );
+    }
+
+    #[test]
+    fn get_or_clone_returns_commit_sha_from_cache() {
+        let (_lock, tmp) = setup_cache_env();
+        let cache_dir = tmp.path().to_path_buf();
+
+        let url = "https://github.com/u/repo";
+        let key = cache_key(url, None);
+        let expected_sha = "abc123def456";
+
+        create_fake_cache_entry_with_sha(&cache_dir, &key, url, None, Some(expected_sha));
+
+        let (path, sha) = get_or_clone(url, None).unwrap();
+        assert_eq!(path, cache_dir.join(&key));
+        assert_eq!(sha.as_deref(), Some(expected_sha));
     }
 
     #[test]
@@ -736,7 +784,19 @@ mod tests {
 
         create_fake_cache_entry(&cache_dir, &key, url, git_ref);
 
-        let result = get_or_clone(url, git_ref).unwrap();
-        assert_eq!(result, cache_dir.join(&key));
+        let (path, _sha) = get_or_clone(url, git_ref).unwrap();
+        assert_eq!(path, cache_dir.join(&key));
+    }
+
+    #[test]
+    fn cache_metadata_deserializes_without_commit_sha() {
+        // Old cache entries won't have commit_sha — verify backwards compat
+        let toml_str = r#"
+url = "https://github.com/u/repo"
+cached_at = "1700000000"
+"#;
+        let metadata: CacheMetadata = toml::from_str(toml_str).unwrap();
+        assert_eq!(metadata.url, "https://github.com/u/repo");
+        assert!(metadata.commit_sha.is_none());
     }
 }

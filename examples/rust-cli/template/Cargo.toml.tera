@@ -1,0 +1,10 @@
+[package]
+name = "{{ project_name }}"
+version = "0.1.0"
+edition = "{{ rust_edition }}"
+description = "{{ description }}"
+{% if author %}authors = ["{{ author }}"]
+{% endif %}license = "{{ license }}"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
