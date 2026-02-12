@@ -233,7 +233,18 @@ fn test_answers_file_written() {
     let output_dir = tempfile::tempdir().unwrap();
     walk_and_render(&resolved, output_dir.path(), &variables, &context).unwrap();
 
-    diecut_core::answers::write_answers(output_dir.path(), &resolved.config, &variables).unwrap();
+    let source_info = diecut_core::answers::SourceInfo {
+        url: None,
+        git_ref: None,
+        commit_sha: None,
+    };
+    diecut_core::answers::write_answers(
+        output_dir.path(),
+        &resolved.config,
+        &variables,
+        &source_info,
+    )
+    .unwrap();
 
     let answers_path = output_dir.path().join(".diecut-answers.toml");
     assert!(answers_path.exists(), "answers file should be written");
