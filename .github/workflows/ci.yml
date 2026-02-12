@@ -12,49 +12,29 @@ env:
 
 jobs:
   check:
-    name: Check & Lint
+    name: Check, Lint & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - uses: extractions/setup-just@v2
       - uses: Swatinem/rust-cache@v2
-      - name: Check formatting
-        run: cargo fmt --all --check
-      - name: Clippy
-        run: cargo clippy --all-targets --all-features
-
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Run unit tests
-        run: cargo test --lib --all
-
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Run integration tests
-        run: cargo test --test integration
+      - name: Run checks
+        run: just check
 
   external-templates:
     name: External Template Compatibility
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests]
+    needs: [check]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: extractions/setup-just@v2
       - uses: Swatinem/rust-cache@v2
       - name: Build diecut
-        run: cargo build --release
+        run: just build
       - name: Test cookiecutter-pypackage
         run: |
           git clone --depth 1 https://github.com/audreyfeldroy/cookiecutter-pypackage.git /tmp/cc-pypackage
