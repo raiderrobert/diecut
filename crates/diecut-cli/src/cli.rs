@@ -39,6 +39,9 @@ pub enum Commands {
         no_hooks: bool,
     },
 
+    /// List cached templates
+    List,
+
     /// Validate a template directory
     Check {
         /// Path to the template to check (default: current directory)
