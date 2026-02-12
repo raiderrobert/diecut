@@ -1,0 +1,63 @@
+---
+title: Getting Started
+description: Install diecut and generate your first project from a template.
+---
+
+## Installation
+
+Install from source using Cargo:
+
+```bash
+cargo install --path crates/diecut-cli
+```
+
+## Quick start
+
+Generate a project from a local template:
+
+```bash
+diecut new ./my-template --output my-project
+```
+
+Generate from a GitHub repository:
+
+```bash
+diecut new gh:user/template-repo --output my-project
+```
+
+Use defaults without interactive prompts:
+
+```bash
+diecut new gh:user/template-repo --defaults --output my-project
+```
+
+Override specific variables from the command line:
+
+```bash
+diecut new ./my-template -d project_name=foo -d license=MIT
+```
+
+## Template sources
+
+diecut can pull templates from local paths or any Git host:
+
+| Source | Example |
+|--------|---------|
+| Local path | `diecut new ./my-template` |
+| GitHub | `diecut new gh:user/repo` |
+| GitLab | `diecut new gl:user/repo` |
+| Bitbucket | `diecut new bb:user/repo` |
+| Sourcehut | `diecut new sr:user/repo` |
+| Any Git URL | `diecut new https://git.example.com/repo.git` |
+
+Git templates are cached locally at `~/.cache/diecut/templates/`. You can override this with the `DIECUT_CACHE_DIR` environment variable.
+
+## Cookiecutter compatibility
+
+diecut auto-detects cookiecutter templates and generates from them directly:
+
+```bash
+diecut new gh:audreyfeldroy/cookiecutter-pypackage --output my-package
+```
+
+The `cookiecutter.json` format is translated on the fly. For a permanent conversion, use [`diecut migrate`](/reference/commands/#diecut-migrate).
