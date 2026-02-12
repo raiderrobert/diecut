@@ -19,6 +19,7 @@ walkdir = { workspace = true }
 inquire = { workspace = true }
 indicatif = { workspace = true }
 console = { workspace = true }
+rhai = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
