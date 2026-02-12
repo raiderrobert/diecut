@@ -28,21 +28,20 @@ pub fn clone_template(url: &str, git_ref: Option<&str>) -> Result<tempfile::Temp
     })?;
 
     // Use prepare_clone (with worktree) so we get a checked-out working copy
-    let mut prepare = gix::prepare_clone(url, tmp_dir.path()).map_err(|e| {
-        DicecutError::GitClone {
+    let mut prepare =
+        gix::prepare_clone(url, tmp_dir.path()).map_err(|e| DicecutError::GitClone {
             url: url.to_string(),
             reason: e.to_string(),
-        }
-    })?;
+        })?;
 
     // If a specific ref is requested, configure it before fetching
     if let Some(ref_name) = git_ref {
-        prepare = prepare.with_ref_name(Some(ref_name)).map_err(|e| {
-            DicecutError::GitCheckout {
+        prepare = prepare
+            .with_ref_name(Some(ref_name))
+            .map_err(|e| DicecutError::GitCheckout {
                 git_ref: ref_name.to_string(),
                 reason: e.to_string(),
-            }
-        })?;
+            })?;
     }
 
     // Fetch and prepare for checkout
@@ -54,13 +53,12 @@ pub fn clone_template(url: &str, git_ref: Option<&str>) -> Result<tempfile::Temp
         })?;
 
     // Checkout the main worktree
-    let (_repo, _outcome) =
-        checkout
-            .main_worktree(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
-            .map_err(|e| DicecutError::GitClone {
-                url: url.to_string(),
-                reason: format!("worktree checkout failed: {e}"),
-            })?;
+    let (_repo, _outcome) = checkout
+        .main_worktree(gix::progress::Discard, &gix::interrupt::IS_INTERRUPTED)
+        .map_err(|e| DicecutError::GitClone {
+            url: url.to_string(),
+            reason: format!("worktree checkout failed: {e}"),
+        })?;
 
     Ok(tmp_dir)
 }
