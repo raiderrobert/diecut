@@ -49,6 +49,19 @@ pub enum Commands {
         path: String,
     },
 
+    /// Search for diecut templates on GitHub
+    Search {
+        /// Search query
+        query: String,
+    },
+
+    /// Validate a template and show publishing instructions
+    Publish {
+        /// Path to the template to publish (default: current directory)
+        #[arg(default_value = ".")]
+        path: String,
+    },
+
     /// Migrate a foreign template (e.g. cookiecutter) to native diecut format
     Migrate {
         /// Path to the template to migrate (default: current directory)

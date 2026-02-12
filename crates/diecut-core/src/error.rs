@@ -121,6 +121,16 @@ pub enum DicecutError {
     #[error("Git checkout failed for ref '{git_ref}'")]
     #[diagnostic(help("Ensure the branch, tag, or commit exists in the repository"))]
     GitCheckout { git_ref: String, reason: String },
+
+    #[error("Registry search failed: {message}")]
+    #[diagnostic(help("Check your network connection and try again"))]
+    RegistrySearchError { message: String },
+
+    #[error("GitHub API rate limit exceeded")]
+    #[diagnostic(help(
+        "GitHub allows 10 unauthenticated requests/minute. Wait a moment and try again."
+    ))]
+    RateLimited,
 }
 
 pub type Result<T> = std::result::Result<T, DicecutError>;

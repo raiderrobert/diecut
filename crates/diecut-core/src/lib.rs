@@ -5,6 +5,7 @@ pub mod config;
 pub mod error;
 pub mod hooks;
 pub mod prompt;
+pub mod registry;
 pub mod render;
 pub mod template;
 
