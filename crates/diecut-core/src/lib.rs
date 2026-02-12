@@ -38,9 +38,7 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     let source = resolve_source(&options.template)?;
     let template_dir = match &source {
         TemplateSource::Local(path) => path.clone(),
-        TemplateSource::Git { url, git_ref } => {
-            get_or_clone(url, git_ref.as_deref())?
-        }
+        TemplateSource::Git { url, git_ref } => get_or_clone(url, git_ref.as_deref())?,
     };
 
     // 2. Resolve template (auto-detect format, parse config)
