@@ -49,6 +49,17 @@ pub enum Commands {
         path: String,
     },
 
+    /// Update a previously generated project from its template
+    Update {
+        /// Path to the project to update (default: current directory)
+        #[arg(default_value = ".")]
+        path: String,
+
+        /// Git ref (branch, tag, commit) to update the template to
+        #[arg(long = "ref")]
+        git_ref: Option<String>,
+    },
+
     /// Migrate a foreign template (e.g. cookiecutter) to native diecut format
     Migrate {
         /// Path to the template to migrate (default: current directory)
