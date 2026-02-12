@@ -27,3 +27,4 @@ dirs = "6"
 rhai = { version = "1", features = ["sync"] }
 tempfile = "3"
 gix = { version = "0.72", default-features = false, features = ["blocking-network-client", "worktree-mutation"] }
+sha2 = "0.10"

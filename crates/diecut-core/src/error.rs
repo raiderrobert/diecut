@@ -18,7 +18,7 @@ pub enum DicecutError {
         source: toml::de::Error,
     },
 
-    #[error("Invalid variable definition for '{name}'")]
+    #[error("Invalid variable definition for '{name}': {reason}")]
     ConfigInvalidVariable { name: String, reason: String },
 
     #[error("Validation failed for variable '{name}': {message}")]
@@ -96,10 +96,6 @@ pub enum DicecutError {
     ))]
     UnsupportedFormat { path: PathBuf },
 
-    #[error("Git source not yet implemented: {url}")]
-    #[diagnostic(help("Git template sources will be available in a future release"))]
-    GitNotImplemented { url: String },
-
     #[error("Invalid template abbreviation: {input}")]
     #[diagnostic(help(
         "Supported abbreviations: gh:user/repo, gl:user/repo, bb:user/repo, sr:~user/repo"
@@ -109,6 +105,14 @@ pub enum DicecutError {
     #[error("Hook '{hook}' failed: {message}")]
     #[diagnostic(help("Check the Rhai script for errors"))]
     HookError { hook: String, message: String },
+
+    #[error("Cache metadata error: {context}")]
+    #[diagnostic(help("Try clearing the cache with `diecut cache clear`"))]
+    CacheMetadata { context: String },
+
+    #[error("Unsafe URL scheme in '{url}': {reason}")]
+    #[diagnostic(help("Use https:// URLs for remote templates"))]
+    UnsafeUrl { url: String, reason: String },
 
     #[error("Git clone failed for {url}")]
     #[diagnostic(help("Check the URL and your network connection"))]
