@@ -14,6 +14,7 @@ fn main() -> miette::Result<()> {
             overwrite,
             no_hooks,
         } => commands::new::run(template, output, data, defaults, overwrite, no_hooks),
+        Commands::Check { path } => commands::check::run(path),
         Commands::Migrate {
             path,
             output,

@@ -195,7 +195,7 @@ fn test_prompt_options_with_data_overrides() {
         variables.get("author"),
         Some(&tera::Value::String("Override Author".to_string()))
     );
-    assert!(variables.get("project_slug").is_some());
+    assert!(variables.contains_key("project_slug"));
 }
 
 #[test]
