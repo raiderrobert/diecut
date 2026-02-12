@@ -1,22 +1,34 @@
-use std::path::PathBuf;
-
 use crate::error::{DicecutError, Result};
 
-/// Clone a git repository to a temporary directory and return the path.
+/// Clone a git repository to a temporary directory.
 ///
 /// If `git_ref` is provided, the repository is checked out at that ref
-/// (branch, tag, or commit). The caller is responsible for cleaning up
-/// the temporary directory.
-pub fn clone_template(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
+/// (branch, tag, or commit). Returns the `TempDir` handle — the temporary
+/// directory is automatically cleaned up when the handle is dropped.
+///
+/// Rejects `file://` URLs to prevent local file access attacks.
+/// Prints a warning for `http://` URLs (non-TLS).
+pub fn clone_template(url: &str, git_ref: Option<&str>) -> Result<tempfile::TempDir> {
+    // Reject file:// URLs to prevent local filesystem access
+    if url.starts_with("file://") {
+        return Err(DicecutError::UnsafeUrl {
+            url: url.to_string(),
+            reason: "file:// URLs are not allowed for remote templates".into(),
+        });
+    }
+
+    // Warn on non-TLS http:// URLs
+    if url.starts_with("http://") {
+        eprintln!("warning: using insecure http:// URL; consider using https:// instead");
+    }
+
     let tmp_dir = tempfile::tempdir().map_err(|e| DicecutError::Io {
         context: "creating temporary directory for git clone".into(),
         source: e,
     })?;
 
-    let clone_path = tmp_dir.path().to_path_buf();
-
     // Use prepare_clone (with worktree) so we get a checked-out working copy
-    let mut prepare = gix::prepare_clone(url, &clone_path).map_err(|e| {
+    let mut prepare = gix::prepare_clone(url, tmp_dir.path()).map_err(|e| {
         DicecutError::GitClone {
             url: url.to_string(),
             reason: e.to_string(),
@@ -50,11 +62,7 @@ pub fn clone_template(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
                 reason: format!("worktree checkout failed: {e}"),
             })?;
 
-    // Persist the tempdir so it isn't deleted when this function returns.
-    // The caller (or a higher-level cleanup mechanism) owns the path.
-    let _ = tmp_dir.keep();
-
-    Ok(clone_path)
+    Ok(tmp_dir)
 }
 
 #[cfg(test)]
@@ -78,5 +86,17 @@ mod tests {
         // Network call that should fail quickly on a non-routable address
         let result = clone_template("https://nonexistent.invalid/repo.git", None);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn clone_rejects_file_url() {
+        let result = clone_template("file:///tmp/repo", None);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            DicecutError::UnsafeUrl { url, .. } => {
+                assert_eq!(url, "file:///tmp/repo");
+            }
+            other => panic!("expected UnsafeUrl error, got: {other:?}"),
+        }
     }
 }
