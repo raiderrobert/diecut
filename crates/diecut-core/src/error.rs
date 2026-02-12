@@ -109,6 +109,14 @@ pub enum DicecutError {
     #[error("Hook '{hook}' failed: {message}")]
     #[diagnostic(help("Check the Rhai script for errors"))]
     HookError { hook: String, message: String },
+
+    #[error("Git clone failed for {url}")]
+    #[diagnostic(help("Check the URL and your network connection"))]
+    GitClone { url: String, reason: String },
+
+    #[error("Git checkout failed for ref '{git_ref}'")]
+    #[diagnostic(help("Ensure the branch, tag, or commit exists in the repository"))]
+    GitCheckout { git_ref: String, reason: String },
 }
 
 pub type Result<T> = std::result::Result<T, DicecutError>;

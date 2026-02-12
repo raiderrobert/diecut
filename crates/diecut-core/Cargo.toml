@@ -20,6 +20,6 @@ inquire = { workspace = true }
 indicatif = { workspace = true }
 console = { workspace = true }
 rhai = { workspace = true }
-
-[dev-dependencies]
+dirs = { workspace = true }
+gix = { workspace = true }
 tempfile = { workspace = true }
