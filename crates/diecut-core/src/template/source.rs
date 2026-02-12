@@ -34,8 +34,9 @@ fn expand_abbreviation(input: &str) -> Result<String> {
             return Ok(format!("{base_url}{rest}{suffix}"));
         }
     }
-    // Not an abbreviation at all — caller should handle this.
-    unreachable!("expand_abbreviation called on non-abbreviation input");
+    Err(DicecutError::InvalidAbbreviation {
+        input: input.to_string(),
+    })
 }
 
 /// Returns `true` when the argument looks like a known abbreviation prefix.

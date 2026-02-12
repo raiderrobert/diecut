@@ -26,3 +26,5 @@ console = "0.15"
 dirs = "6"
 rhai = { version = "1", features = ["sync"] }
 tempfile = "3"
+gix = { version = "0.72", default-features = false, features = ["blocking-network-client", "blocking-http-transport-reqwest-rust-tls", "worktree-mutation"] }
+sha2 = "0.10"

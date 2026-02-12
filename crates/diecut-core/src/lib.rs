@@ -16,7 +16,7 @@ use crate::adapter::resolve_template;
 use crate::error::{DicecutError, Result};
 use crate::prompt::{collect_variables, PromptOptions};
 use crate::render::{build_context_with_namespace, walk_and_render, GeneratedProject};
-use crate::template::{resolve_source, TemplateSource};
+use crate::template::{get_or_clone, resolve_source, TemplateSource};
 
 /// Options for the `generate` operation.
 pub struct GenerateOptions {
@@ -38,8 +38,8 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     let source = resolve_source(&options.template)?;
     let template_dir = match &source {
         TemplateSource::Local(path) => path.clone(),
-        TemplateSource::Git { url, .. } => {
-            return Err(DicecutError::GitNotImplemented { url: url.clone() });
+        TemplateSource::Git { url, git_ref } => {
+            get_or_clone(url, git_ref.as_deref())?
         }
     };
 
