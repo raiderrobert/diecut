@@ -380,7 +380,7 @@ mod tests {
 
         let new_file_result = results
             .iter()
-            .find(|r| r.rel_path == PathBuf::from("new-file.txt"))
+            .find(|r| r.rel_path.as_os_str() == "new-file.txt")
             .expect("should have result for new-file.txt");
         assert_eq!(new_file_result.action, MergeAction::AddFromTemplate);
     }
@@ -405,7 +405,7 @@ mod tests {
 
         let removed_result = results
             .iter()
-            .find(|r| r.rel_path == PathBuf::from("removed.txt"))
+            .find(|r| r.rel_path.as_os_str() == "removed.txt")
             .expect("should have result for removed.txt");
         assert_eq!(removed_result.action, MergeAction::MarkForRemoval);
     }
