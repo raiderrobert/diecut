@@ -1,0 +1,35 @@
+---
+title: diecut
+description: A single-binary, language-agnostic project template generator — like cookiecutter, but in Rust.
+template: splash
+hero:
+  tagline: A single-binary, language-agnostic project template generator. No runtime dependencies required.
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/raiderrobert/diecut
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why diecut?
+
+<CardGrid>
+	<Card title="Single binary" icon="rocket">
+		No Python, no Node.js, no runtime dependencies. Install once and go.
+	</Card>
+	<Card title="Cookiecutter compatible" icon="puzzle">
+		Use existing cookiecutter templates directly — diecut auto-detects and translates them on the fly.
+	</Card>
+	<Card title="Template updates" icon="refresh">
+		Update previously generated projects when the upstream template changes, with three-way merge.
+	</Card>
+	<Card title="Cross-platform hooks" icon="setting">
+		Hooks run in Rhai, a sandboxed scripting language compiled into the binary. Same behavior everywhere.
+	</Card>
+</CardGrid>
