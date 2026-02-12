@@ -110,8 +110,9 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
         source: e,
     })?;
 
-    // Clone to a temp location, then move into cache
-    let cloned_path = clone_template(url, git_ref)?;
+    // Clone to a temp location, then move into cache.
+    // tmp_dir is kept alive so the temp directory is cleaned up on error.
+    let tmp_dir = clone_template(url, git_ref)?;
 
     // Write cache metadata
     let metadata = CacheMetadata {
@@ -122,7 +123,7 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
     let metadata_toml = toml::to_string_pretty(&metadata).map_err(|e| DicecutError::CacheMetadata {
         context: format!("serializing cache metadata: {e}"),
     })?;
-    std::fs::write(cloned_path.path().join(CACHE_METADATA_FILE), metadata_toml).map_err(|e| {
+    std::fs::write(tmp_dir.path().join(CACHE_METADATA_FILE), metadata_toml).map_err(|e| {
         DicecutError::Io {
             context: "writing cache metadata".into(),
             source: e,
@@ -137,20 +138,22 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
         })?;
     }
 
-    // Move cloned directory into cache
-    std::fs::rename(cloned_path.path(), &cached_path).or_else(|rename_err| {
+    // Move cloned directory into cache. Only persist (leak) the tempdir
+    // after successful placement — on error, drop cleans it up.
+    std::fs::rename(tmp_dir.path(), &cached_path).or_else(|rename_err| {
         // rename can fail across filesystems; fall back to copy + delete
-        copy_dir_all(cloned_path.path(), &cached_path).map_err(|e| DicecutError::Io {
+        copy_dir_all(tmp_dir.path(), &cached_path).map_err(|e| DicecutError::Io {
             context: format!(
                 "copying cloned template to cache (rename failed: {rename_err}): {e}"
             ),
             source: std::io::Error::other(e.to_string()),
         })?;
-        std::fs::remove_dir_all(cloned_path.path()).map_err(|e| DicecutError::Io {
-            context: "cleaning up temp clone directory".into(),
-            source: e,
-        })
+        Ok(())
     })?;
+
+    // Successfully placed in cache — prevent TempDir from cleaning up
+    // the source (it may already be gone after a successful rename).
+    let _ = tmp_dir.keep();
 
     Ok(cached_path)
 }
