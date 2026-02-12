@@ -93,6 +93,20 @@ pub enum DicecutError {
         "The directory must contain diecut.toml (native) or cookiecutter.json (cookiecutter)"
     ))]
     UnsupportedFormat { path: PathBuf },
+
+    #[error("Git source not yet implemented: {url}")]
+    #[diagnostic(help("Git template sources will be available in a future release"))]
+    GitNotImplemented { url: String },
+
+    #[error("Invalid template abbreviation: {input}")]
+    #[diagnostic(help(
+        "Supported abbreviations: gh:user/repo, gl:user/repo, bb:user/repo, sr:~user/repo"
+    ))]
+    InvalidAbbreviation { input: String },
+
+    #[error("Hook '{hook}' failed: {message}")]
+    #[diagnostic(help("Check the Rhai script for errors"))]
+    HookError { hook: String, message: String },
 }
 
 pub type Result<T> = std::result::Result<T, DicecutError>;

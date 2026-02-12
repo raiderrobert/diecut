@@ -1,5 +1,6 @@
 pub mod adapter;
 pub mod answers;
+pub mod check;
 pub mod config;
 pub mod error;
 pub mod hooks;
@@ -37,6 +38,9 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     let source = resolve_source(&options.template)?;
     let template_dir = match &source {
         TemplateSource::Local(path) => path.clone(),
+        TemplateSource::Git { url, .. } => {
+            return Err(DicecutError::GitNotImplemented { url: url.clone() });
+        }
     };
 
     // 2. Resolve template (auto-detect format, parse config)
