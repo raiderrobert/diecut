@@ -121,6 +121,14 @@ pub enum DicecutError {
     #[error("Git checkout failed for ref '{git_ref}'")]
     #[diagnostic(help("Ensure the branch, tag, or commit exists in the repository"))]
     GitCheckout { git_ref: String, reason: String },
+
+    #[error("Template composition error: {message}")]
+    #[diagnostic(help("Check the extends/includes configuration in diecut.toml"))]
+    CompositionError { message: String },
+
+    #[error("Circular extends detected: {}", chain.join(" -> "))]
+    #[diagnostic(help("Remove the circular dependency in your template extends chain"))]
+    CircularExtends { chain: Vec<String> },
 }
 
 pub type Result<T> = std::result::Result<T, DicecutError>;

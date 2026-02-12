@@ -34,6 +34,22 @@ pub struct TemplateMetadata {
     /// Suffix for template files (default: ".tera").
     #[serde(default = "default_templates_suffix")]
     pub templates_suffix: String,
+
+    /// Template source to inherit from (e.g. "gh:base/template").
+    pub extends: Option<String>,
+
+    /// Partial templates to include.
+    #[serde(default)]
+    pub includes: Option<Vec<IncludeConfig>>,
+}
+
+/// Configuration for an included partial template.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct IncludeConfig {
+    pub source: String,
+    pub git_ref: Option<String>,
+    /// Directory prefix in output.
+    pub prefix: Option<String>,
 }
 
 fn default_templates_suffix() -> String {

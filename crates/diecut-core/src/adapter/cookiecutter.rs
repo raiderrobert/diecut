@@ -128,6 +128,8 @@ pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
             description: None,
             min_diecut_version: None,
             templates_suffix: String::new(), // cookiecutter renders all files
+            extends: None,
+            includes: None,
         },
         variables,
         files: FilesConfig {

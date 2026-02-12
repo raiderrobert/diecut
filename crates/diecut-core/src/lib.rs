@@ -1,6 +1,7 @@
 pub mod adapter;
 pub mod answers;
 pub mod check;
+pub mod compose;
 pub mod config;
 pub mod error;
 pub mod hooks;
@@ -42,7 +43,28 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     };
 
     // 2. Resolve template (auto-detect format, parse config)
-    let resolved = resolve_template(&template_dir)?;
+    let mut resolved = resolve_template(&template_dir)?;
+
+    // 2b. Handle template composition (extends/includes)
+    let _composed_handle = if resolved.config.template.extends.is_some()
+        || resolved
+            .config
+            .template
+            .includes
+            .as_ref()
+            .is_some_and(|v| !v.is_empty())
+    {
+        match compose::compose_template(&template_dir, &resolved.config)? {
+            Some(composed) => {
+                resolved = resolve_template(composed.dir.path())?;
+                resolved.config = composed.config;
+                Some(composed.dir)
+            }
+            None => None,
+        }
+    } else {
+        None
+    };
 
     // Print any adapter warnings
     for warning in &resolved.warnings {
