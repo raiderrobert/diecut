@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::error::{DicecutError, Result};
@@ -39,6 +40,27 @@ fn expand_abbreviation(input: &str) -> Result<String> {
     })
 }
 
+/// Try to expand a user-defined abbreviation.
+///
+/// User abbreviations use the format `prefix:remainder`, where the prefix maps
+/// to a URL template containing `{}` as a placeholder for the remainder.
+fn expand_user_abbreviation(
+    input: &str,
+    abbreviations: &HashMap<String, String>,
+) -> Option<Result<String>> {
+    let (prefix, rest) = input.split_once(':')?;
+
+    let url_template = abbreviations.get(prefix)?;
+
+    if rest.is_empty() {
+        return Some(Err(DicecutError::InvalidAbbreviation {
+            input: input.to_string(),
+        }));
+    }
+
+    Some(Ok(url_template.replace("{}", rest)))
+}
+
 /// Returns `true` when the argument looks like a known abbreviation prefix.
 fn is_abbreviation(input: &str) -> bool {
     ABBREVIATIONS
@@ -65,11 +87,34 @@ pub fn resolve_source(template_arg: &str) -> Result<TemplateSource> {
 }
 
 /// Resolve a template argument to a source, with an optional git ref.
+///
+/// If `user_abbreviations` is provided, user-defined abbreviations are checked
+/// before falling back to built-in ones.
 pub fn resolve_source_with_ref(
     template_arg: &str,
     git_ref: Option<&str>,
 ) -> Result<TemplateSource> {
-    // 1. Abbreviation expansion
+    resolve_source_full(template_arg, git_ref, None)
+}
+
+/// Resolve a template argument to a source, with optional git ref and user abbreviations.
+pub fn resolve_source_full(
+    template_arg: &str,
+    git_ref: Option<&str>,
+    user_abbreviations: Option<&HashMap<String, String>>,
+) -> Result<TemplateSource> {
+    // 0. User-defined abbreviation expansion (checked first)
+    if let Some(abbrevs) = user_abbreviations {
+        if let Some(result) = expand_user_abbreviation(template_arg, abbrevs) {
+            let url = result?;
+            return Ok(TemplateSource::Git {
+                url,
+                git_ref: git_ref.map(String::from),
+            });
+        }
+    }
+
+    // 1. Built-in abbreviation expansion
     if is_abbreviation(template_arg) {
         let url = expand_abbreviation(template_arg)?;
         return Ok(TemplateSource::Git {
@@ -246,5 +291,95 @@ mod tests {
     fn resolve_nonexistent_local_path_errors() {
         let result = resolve_source("/nonexistent/path/that/does/not/exist");
         assert!(result.is_err());
+    }
+
+    // ── User abbreviations ──────────────────────────────────────────────
+
+    #[test]
+    fn user_abbreviation_expands_correctly() {
+        let mut abbrevs = HashMap::new();
+        abbrevs.insert(
+            "company".to_string(),
+            "https://git.company.com/{}.git".to_string(),
+        );
+        let source = resolve_source_full("company:team/project", None, Some(&abbrevs)).unwrap();
+        match source {
+            TemplateSource::Git { url, git_ref } => {
+                assert_eq!(url, "https://git.company.com/team/project.git");
+                assert!(git_ref.is_none());
+            }
+            _ => panic!("expected Git source"),
+        }
+    }
+
+    #[test]
+    fn user_abbreviation_with_ref() {
+        let mut abbrevs = HashMap::new();
+        abbrevs.insert(
+            "corp".to_string(),
+            "https://git.corp.com/{}.git".to_string(),
+        );
+        let source = resolve_source_full("corp:myrepo", Some("v2.0"), Some(&abbrevs)).unwrap();
+        match source {
+            TemplateSource::Git { url, git_ref } => {
+                assert_eq!(url, "https://git.corp.com/myrepo.git");
+                assert_eq!(git_ref.as_deref(), Some("v2.0"));
+            }
+            _ => panic!("expected Git source"),
+        }
+    }
+
+    #[test]
+    fn user_abbreviation_takes_priority_over_builtin() {
+        let mut abbrevs = HashMap::new();
+        abbrevs.insert(
+            "gh".to_string(),
+            "https://custom-github.example.com/{}.git".to_string(),
+        );
+        let source = resolve_source_full("gh:user/repo", None, Some(&abbrevs)).unwrap();
+        match source {
+            TemplateSource::Git { url, .. } => {
+                assert_eq!(url, "https://custom-github.example.com/user/repo.git");
+            }
+            _ => panic!("expected Git source"),
+        }
+    }
+
+    #[test]
+    fn user_abbreviation_empty_remainder_errors() {
+        let mut abbrevs = HashMap::new();
+        abbrevs.insert(
+            "company".to_string(),
+            "https://git.company.com/{}.git".to_string(),
+        );
+        let result = resolve_source_full("company:", None, Some(&abbrevs));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn unknown_user_abbreviation_falls_through_to_builtin() {
+        let mut abbrevs = HashMap::new();
+        abbrevs.insert(
+            "company".to_string(),
+            "https://git.company.com/{}.git".to_string(),
+        );
+        let source = resolve_source_full("gh:user/repo", None, Some(&abbrevs)).unwrap();
+        match source {
+            TemplateSource::Git { url, .. } => {
+                assert_eq!(url, "https://github.com/user/repo.git");
+            }
+            _ => panic!("expected Git source"),
+        }
+    }
+
+    #[test]
+    fn no_user_abbreviations_behaves_as_before() {
+        let source = resolve_source_full("gh:user/repo", None, None).unwrap();
+        match source {
+            TemplateSource::Git { url, .. } => {
+                assert_eq!(url, "https://github.com/user/repo.git");
+            }
+            _ => panic!("expected Git source"),
+        }
     }
 }
