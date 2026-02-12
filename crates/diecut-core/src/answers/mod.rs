@@ -1,17 +1,89 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
+use serde::{Deserialize, Serialize};
 use tera::Value;
 
 use crate::config::schema::TemplateConfig;
 use crate::error::{DicecutError, Result};
 
+/// Metadata and variable values saved alongside a generated project.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SavedAnswers {
+    pub template_source: String,
+    pub template_ref: Option<String>,
+    pub diecut_version: String,
+    pub answers: HashMap<String, toml::Value>,
+}
+
+/// Load a previously saved answers file from a project directory.
+pub fn load_answers(project_path: &Path) -> Result<SavedAnswers> {
+    let answers_path = project_path.join(".diecut-answers.toml");
+    if !answers_path.exists() {
+        return Err(DicecutError::NoAnswerFile {
+            path: project_path.to_path_buf(),
+        });
+    }
+
+    let content = std::fs::read_to_string(&answers_path).map_err(|e| DicecutError::Io {
+        context: format!("reading answers file {}", answers_path.display()),
+        source: e,
+    })?;
+
+    let table: toml::Value =
+        toml::from_str(&content).map_err(|e| DicecutError::AnswerFileParseError {
+            path: answers_path.clone(),
+            source: e,
+        })?;
+
+    let empty_table = toml::map::Map::new();
+    let diecut_section = table.get("_diecut").and_then(toml::Value::as_table);
+    let meta = diecut_section.unwrap_or(&empty_table);
+
+    let get_str = |key: &str| -> Option<&str> { meta.get(key).and_then(toml::Value::as_str) };
+
+    let template_source = get_str("template_source")
+        .or_else(|| get_str("template"))
+        .unwrap_or("")
+        .to_string();
+
+    let template_ref = get_str("template_ref").map(String::from);
+
+    let diecut_version = get_str("diecut_version").unwrap_or("0.0.0").to_string();
+
+    let vars_table = table
+        .get("variables")
+        .and_then(toml::Value::as_table)
+        .cloned()
+        .unwrap_or_default();
+
+    let answers: HashMap<String, toml::Value> = vars_table.into_iter().collect();
+
+    Ok(SavedAnswers {
+        template_source,
+        template_ref,
+        diecut_version,
+        answers,
+    })
+}
+
 /// Write the answers file into the generated project directory.
-/// Excludes secret variables.
+/// Excludes secret variables. Includes template source metadata for `diecut update`.
 pub fn write_answers(
     output_dir: &Path,
     config: &TemplateConfig,
     variables: &BTreeMap<String, Value>,
+) -> Result<()> {
+    write_answers_with_source(output_dir, config, variables, None, None)
+}
+
+/// Write answers file with explicit template source information.
+pub fn write_answers_with_source(
+    output_dir: &Path,
+    config: &TemplateConfig,
+    variables: &BTreeMap<String, Value>,
+    template_source: Option<&str>,
+    template_ref: Option<&str>,
 ) -> Result<()> {
     let answers_path = output_dir.join(&config.answers.file);
 
@@ -26,6 +98,22 @@ pub fn write_answers(
     if let Some(version) = &config.template.version {
         meta.insert("version".to_string(), toml::Value::String(version.clone()));
     }
+    if let Some(source) = template_source {
+        meta.insert(
+            "template_source".to_string(),
+            toml::Value::String(source.to_string()),
+        );
+    }
+    if let Some(git_ref) = template_ref {
+        meta.insert(
+            "template_ref".to_string(),
+            toml::Value::String(git_ref.to_string()),
+        );
+    }
+    meta.insert(
+        "diecut_version".to_string(),
+        toml::Value::String(env!("CARGO_PKG_VERSION").to_string()),
+    );
     table.insert("_diecut".to_string(), toml::Value::Table(meta));
 
     // Record variable values (skip secrets)
@@ -71,5 +159,24 @@ fn tera_value_to_toml(value: &Value) -> Option<toml::Value> {
             Some(toml::Value::Array(items))
         }
         _ => None,
+    }
+}
+
+/// Convert a `toml::Value` to a `tera::Value`.
+pub(crate) fn toml_value_to_tera(value: &toml::Value) -> Value {
+    match value {
+        toml::Value::String(s) => Value::String(s.clone()),
+        toml::Value::Integer(n) => Value::Number(serde_json::Number::from(*n)),
+        toml::Value::Float(f) => serde_json::to_value(f).unwrap_or(Value::Null),
+        toml::Value::Boolean(b) => Value::Bool(*b),
+        toml::Value::Array(arr) => Value::Array(arr.iter().map(toml_value_to_tera).collect()),
+        toml::Value::Table(t) => {
+            let map: serde_json::Map<String, Value> = t
+                .iter()
+                .map(|(k, v)| (k.clone(), toml_value_to_tera(v)))
+                .collect();
+            Value::Object(map)
+        }
+        toml::Value::Datetime(d) => Value::String(d.to_string()),
     }
 }
