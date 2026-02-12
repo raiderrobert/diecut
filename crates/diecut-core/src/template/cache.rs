@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 use serde::{Deserialize, Serialize};
 
@@ -71,17 +71,10 @@ pub(crate) fn cache_key(url: &str, git_ref: Option<&str>) -> String {
     let hash: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
 
     // Sanitize components to prevent path traversal
-    let sanitize = |s: &str| -> String {
-        s.replace(['/', '\\'], "_").replace("..", "_")
-    };
+    let sanitize = |s: &str| -> String { s.replace(['/', '\\'], "_").replace("..", "_") };
 
     // Build a human-readable prefix from the URL
-    let prefix = sanitize(
-        normalized
-            .rsplit('/')
-            .next()
-            .unwrap_or("template"),
-    );
+    let prefix = sanitize(normalized.rsplit('/').next().unwrap_or("template"));
 
     match git_ref {
         Some(r) => format!("{prefix}-{}-{hash}", sanitize(r)),
@@ -120,9 +113,10 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
         git_ref: git_ref.map(String::from),
         cached_at: unix_timestamp_secs(),
     };
-    let metadata_toml = toml::to_string_pretty(&metadata).map_err(|e| DicecutError::CacheMetadata {
-        context: format!("serializing cache metadata: {e}"),
-    })?;
+    let metadata_toml =
+        toml::to_string_pretty(&metadata).map_err(|e| DicecutError::CacheMetadata {
+            context: format!("serializing cache metadata: {e}"),
+        })?;
     std::fs::write(tmp_dir.path().join(CACHE_METADATA_FILE), metadata_toml).map_err(|e| {
         DicecutError::Io {
             context: "writing cache metadata".into(),
@@ -143,9 +137,7 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<PathBuf> {
     std::fs::rename(tmp_dir.path(), &cached_path).or_else(|rename_err| {
         // rename can fail across filesystems; fall back to copy + delete
         copy_dir_all(tmp_dir.path(), &cached_path).map_err(|e| DicecutError::Io {
-            context: format!(
-                "copying cloned template to cache (rename failed: {rename_err}): {e}"
-            ),
+            context: format!("copying cloned template to cache (rename failed: {rename_err}): {e}"),
             source: std::io::Error::other(e.to_string()),
         })?;
         Ok(())
@@ -187,20 +179,18 @@ pub fn list_cached() -> Result<Vec<CachedTemplate>> {
             continue;
         }
 
-        let metadata_str = std::fs::read_to_string(&metadata_path).map_err(|e| DicecutError::Io {
-            context: format!("reading cache metadata {}", metadata_path.display()),
-            source: e,
-        })?;
+        let metadata_str =
+            std::fs::read_to_string(&metadata_path).map_err(|e| DicecutError::Io {
+                context: format!("reading cache metadata {}", metadata_path.display()),
+                source: e,
+            })?;
 
         let metadata: CacheMetadata =
             toml::from_str(&metadata_str).map_err(|e| DicecutError::CacheMetadata {
                 context: format!("parsing cache metadata: {e}"),
             })?;
 
-        let key = entry
-            .file_name()
-            .to_string_lossy()
-            .into_owned();
+        let key = entry.file_name().to_string_lossy().into_owned();
 
         entries.push(CachedTemplate {
             key,
@@ -364,9 +354,18 @@ mod tests {
 
     #[test]
     fn normalize_url_strips_trailing_git_and_slash() {
-        assert_eq!(normalize_url("https://github.com/user/repo.git"), "https://github.com/user/repo");
-        assert_eq!(normalize_url("https://github.com/user/repo/"), "https://github.com/user/repo");
-        assert_eq!(normalize_url("https://github.com/user/repo"), "https://github.com/user/repo");
+        assert_eq!(
+            normalize_url("https://github.com/user/repo.git"),
+            "https://github.com/user/repo"
+        );
+        assert_eq!(
+            normalize_url("https://github.com/user/repo/"),
+            "https://github.com/user/repo"
+        );
+        assert_eq!(
+            normalize_url("https://github.com/user/repo"),
+            "https://github.com/user/repo"
+        );
     }
 
     #[test]
