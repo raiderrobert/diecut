@@ -24,4 +24,5 @@ walkdir = "2"
 indicatif = "0.17"
 console = "0.15"
 dirs = "6"
+rhai = { version = "1", features = ["sync"] }
 tempfile = "3"

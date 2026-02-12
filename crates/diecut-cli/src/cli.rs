@@ -39,6 +39,13 @@ pub enum Commands {
         no_hooks: bool,
     },
 
+    /// Validate a template directory
+    Check {
+        /// Path to the template to check (default: current directory)
+        #[arg(default_value = ".")]
+        path: String,
+    },
+
     /// Migrate a foreign template (e.g. cookiecutter) to native diecut format
     Migrate {
         /// Path to the template to migrate (default: current directory)
