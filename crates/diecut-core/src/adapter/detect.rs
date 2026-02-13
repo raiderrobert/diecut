@@ -3,7 +3,6 @@ use std::path::Path;
 use crate::adapter::TemplateFormat;
 use crate::error::{DicecutError, Result};
 
-/// Detect the template format by checking for config file presence.
 /// Priority: diecut.toml > cookiecutter.json (so a migrated project uses native).
 pub fn detect_format(template_dir: &Path) -> Result<TemplateFormat> {
     if template_dir.join("diecut.toml").exists() {

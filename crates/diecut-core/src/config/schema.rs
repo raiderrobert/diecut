@@ -5,12 +5,10 @@ use serde::{Deserialize, Serialize};
 use super::variable::{VariableConfig, VariableType};
 use crate::error::{DicecutError, Result};
 
-/// Root config structure deserialized from diecut.toml.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TemplateConfig {
     pub template: TemplateMetadata,
 
-    /// Variables in declaration order (BTreeMap preserves insertion order from TOML).
     #[serde(default)]
     pub variables: BTreeMap<String, VariableConfig>,
 
@@ -31,7 +29,6 @@ pub struct TemplateMetadata {
     pub description: Option<String>,
     pub min_diecut_version: Option<String>,
 
-    /// Suffix for template files (default: ".tera").
     #[serde(default = "default_templates_suffix")]
     pub templates_suffix: String,
 }
@@ -42,24 +39,19 @@ fn default_templates_suffix() -> String {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct FilesConfig {
-    /// Glob patterns for files to exclude from output.
     #[serde(default)]
     pub exclude: Vec<String>,
 
-    /// Glob patterns for files to copy without rendering.
     #[serde(default)]
     pub copy_without_render: Vec<String>,
 
-    /// Conditional file inclusion rules.
     #[serde(default)]
     pub conditional: Vec<ConditionalFile>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ConditionalFile {
-    /// Glob pattern matching files affected by this rule.
     pub pattern: String,
-
     /// Tera expression — if false, matched files are excluded.
     pub when: String,
 }
@@ -73,7 +65,6 @@ pub struct HooksConfig {
 }
 
 impl HooksConfig {
-    /// Returns true if any hooks are configured.
     pub fn has_hooks(&self) -> bool {
         !self.pre_generate.is_empty() || !self.post_generate.is_empty()
     }
@@ -81,7 +72,6 @@ impl HooksConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AnswersConfig {
-    /// Filename for the answers file written into the generated project.
     #[serde(default = "default_answers_file")]
     pub file: String,
 }
@@ -99,7 +89,6 @@ impl Default for AnswersConfig {
 }
 
 impl TemplateConfig {
-    /// Validate the config for internal consistency.
     pub fn validate(&self) -> Result<()> {
         for (name, var) in &self.variables {
             // select/multiselect must have choices

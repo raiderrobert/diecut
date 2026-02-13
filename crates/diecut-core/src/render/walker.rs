@@ -10,7 +10,6 @@ use crate::config::schema::FilesConfig;
 use crate::error::{DicecutError, Result};
 use crate::render::file::{is_binary_file, render_path_component};
 
-/// The result of walking and rendering a template directory.
 pub struct GeneratedProject {
     pub output_dir: PathBuf,
     pub files_created: Vec<PathBuf>,
@@ -52,16 +51,13 @@ pub fn walk_and_render(
 
         let rel_str = rel_path.to_string_lossy();
 
-        // Check static excludes
         if exclude_set.is_match(rel_str.as_ref()) {
             continue;
         }
 
-        // Render the output path (each component through Tera)
         let rendered_rel = render_relative_path(rel_path, context, suffix)?;
         let rendered_str = rendered_rel.to_string_lossy();
 
-        // Check conditional excludes against the rendered path
         if conditional_excludes.is_match(rendered_str.as_ref()) {
             continue;
         }
@@ -76,7 +72,6 @@ pub fn walk_and_render(
             continue;
         }
 
-        // Ensure parent directory exists
         if let Some(parent) = dest_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| DicecutError::Io {
                 context: format!("creating directory {}", parent.display()),
@@ -84,7 +79,6 @@ pub fn walk_and_render(
             })?;
         }
 
-        // Decide: copy verbatim or render?
         let should_copy = copy_set.is_match(rendered_str.as_ref())
             || is_binary_file(src_path)
             || (!resolved.render_all
@@ -98,7 +92,6 @@ pub fn walk_and_render(
             })?;
             files_copied.push(rendered_rel);
         } else {
-            // Read and render through Tera
             let content = std::fs::read_to_string(src_path).map_err(|e| DicecutError::Io {
                 context: format!("reading {}", src_path.display()),
                 source: e,

@@ -4,11 +4,9 @@ use std::path::Path;
 use rhai::{Engine, Scope};
 use tera::Value;
 
-/// Create a sandboxed Rhai engine with diecut-specific functions.
 pub fn create_engine() -> Engine {
     let mut engine = Engine::new();
 
-    // Limit recursion and operations for safety
     engine.set_max_call_levels(32);
     engine.set_max_operations(100_000);
     engine.set_max_string_size(10 * 1024 * 1024); // 10MB
@@ -16,7 +14,6 @@ pub fn create_engine() -> Engine {
     engine
 }
 
-/// Build a Rhai scope from template variables.
 pub fn build_scope<'a>(
     variables: &BTreeMap<String, Value>,
     output_dir: Option<&Path>,

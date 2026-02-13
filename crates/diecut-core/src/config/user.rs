@@ -5,25 +5,18 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{DicecutError, Result};
 
-/// User-level configuration loaded from `~/.config/diecut/config.toml`.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct UserConfig {
-    /// Custom abbreviation mappings. Keys are prefixes (e.g. `"company"`),
-    /// values are URL templates with `{}` as placeholder (e.g.
-    /// `"https://git.company.com/{}.git"`).
+    /// Prefix → URL template with `{}` placeholder (e.g. `"https://git.company.com/{}.git"`).
     #[serde(default)]
     pub abbreviations: HashMap<String, String>,
 }
 
-/// Get the path to the user config file.
 fn config_path() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("diecut").join("config.toml"))
 }
 
-/// Load user configuration from the XDG config directory.
-///
 /// Returns `Ok(None)` if the config file does not exist.
-/// Returns `Err` if the file exists but cannot be read or parsed.
 pub fn load_user_config() -> Result<Option<UserConfig>> {
     let path = match config_path() {
         Some(p) => p,

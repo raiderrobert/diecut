@@ -11,7 +11,6 @@ pub fn run(path: String, output: Option<String>, dry_run: bool) -> Result<()> {
 
     let plan = plan_migration(&template_dir)?;
 
-    // Print warnings
     for warning in &plan.warnings {
         eprintln!(
             "{} {}",
@@ -20,7 +19,6 @@ pub fn run(path: String, output: Option<String>, dry_run: bool) -> Result<()> {
         );
     }
 
-    // Print plan summary
     println!(
         "\n{} Migration plan for {} template:",
         style("==>").cyan().bold(),
@@ -74,14 +72,12 @@ pub fn run(path: String, output: Option<String>, dry_run: bool) -> Result<()> {
             style("ℹ").blue().bold()
         );
 
-        // Show the generated diecut.toml
         println!("\n{} Generated diecut.toml:\n", style("==>").cyan().bold());
         println!("{}", plan.diecut_toml_content);
 
         return Ok(());
     }
 
-    // Determine output directory
     let output_dir = if let Some(out) = &output {
         Path::new(out).to_path_buf()
     } else {

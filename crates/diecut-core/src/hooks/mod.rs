@@ -10,7 +10,6 @@ use crate::error::{DicecutError, Result};
 
 pub use rhai_runtime::create_engine;
 
-/// Run pre-generation hooks.
 pub fn run_pre_generate(
     hooks: &HooksConfig,
     template_dir: &Path,
@@ -22,7 +21,6 @@ pub fn run_pre_generate(
     Ok(())
 }
 
-/// Run post-generation hooks.
 pub fn run_post_generate(
     hooks: &HooksConfig,
     template_dir: &Path,
