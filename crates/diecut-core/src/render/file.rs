@@ -26,10 +26,21 @@ pub fn render_path_component(component: &str, context: &Context) -> Result<Strin
         })
 }
 
+/// Detect binary files by checking for null bytes in the first 8KB.
+///
+/// Only reads the first 8KB rather than the entire file, avoiding
+/// unnecessary memory allocation for large binary assets.
 pub fn is_binary_file(path: &Path) -> bool {
-    let Ok(bytes) = std::fs::read(path) else {
+    use std::io::Read;
+
+    let Ok(file) = std::fs::File::open(path) else {
         return false;
     };
-    let check_len = bytes.len().min(8192);
-    bytes[..check_len].contains(&0)
+
+    let mut buf = [0u8; 8192];
+    let Ok(n) = file.take(8192).read(&mut buf) else {
+        return false;
+    };
+
+    buf[..n].contains(&0)
 }
