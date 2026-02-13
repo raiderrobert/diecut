@@ -163,31 +163,42 @@ pub fn apply_merge(
             }
 
             MergeAction::Conflict => {
-                // Write a .rej file with the diff
+                // Write a .rej file with diff3-style output showing all three versions
                 let new_path = new_snapshot_dir.join(&result.rel_path);
 
                 let user_content = std::fs::read_to_string(&proj_path).unwrap_or_default();
                 let new_content = std::fs::read_to_string(&new_path).unwrap_or_default();
 
-                // If the file existed in old snapshot, also include context
                 let old_path = old_snapshot_dir.join(&result.rel_path);
                 let rej_content = if old_path.exists() {
                     let old_content = std::fs::read_to_string(&old_path).unwrap_or_default();
                     format!(
-                        "# Conflict in {}\n\
-                         # Your file differs from both the old and new template versions.\n\n\
-                         ## Template changes (old -> new):\n{}\n\n\
-                         ## Your version vs new template:\n{}\n",
-                        result.rel_path.display(),
-                        diff::unified_diff(&old_content, &new_content, &result.rel_path),
-                        diff::unified_diff(&user_content, &new_content, &result.rel_path),
+                        "# Conflict in {path}\n\
+                         # Three-way diff: base (old template) vs yours vs new template\n\n\
+                         ## Base version (old template):\n{base}\n\n\
+                         ## Your version:\n{user}\n\n\
+                         ## New template version:\n{new}\n\n\
+                         ## Diff: base -> new template:\n{diff_old_new}\n\n\
+                         ## Diff: your version -> new template:\n{diff_user_new}\n",
+                        path = result.rel_path.display(),
+                        base = old_content,
+                        user = user_content,
+                        new = new_content,
+                        diff_old_new =
+                            diff::unified_diff(&old_content, &new_content, &result.rel_path),
+                        diff_user_new =
+                            diff::unified_diff(&user_content, &new_content, &result.rel_path),
                     )
                 } else {
                     format!(
                         "# Conflict in {}\n\
                          # Both you and the template created/modified this file differently.\n\n\
-                         ## Diff (your version vs template):\n{}\n",
+                         ## Your version:\n{}\n\n\
+                         ## New template version:\n{}\n\n\
+                         ## Diff (yours -> template):\n{}\n",
                         result.rel_path.display(),
+                        user_content,
+                        new_content,
                         diff::unified_diff(&user_content, &new_content, &result.rel_path),
                     )
                 };
