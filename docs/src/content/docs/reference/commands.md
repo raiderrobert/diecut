@@ -7,53 +7,124 @@ description: Complete reference for all diecut CLI commands.
 
 Generate a new project from a template.
 
+### Synopsis
+
 ```bash
 diecut new <TEMPLATE> [OPTIONS]
 ```
 
-### Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `<TEMPLATE>` | Template source — local path, Git URL, or abbreviation (`gh:`, `gl:`, `bb:`, `sr:`) |
-
 ### Options
 
-| Option | Description |
-|--------|-------------|
-| `-o, --output <PATH>` | Output directory |
-| `-d, --data <KEY=VALUE>` | Override variable values (repeatable) |
-| `--defaults` | Use default values without prompting |
-| `--overwrite` | Overwrite output directory if it exists |
-| `--no-hooks` | Skip running hooks |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `<TEMPLATE>` | — | Template source: local path, `gh:user/repo`, `gl:user/repo`, `bb:user/repo`, `sr:user/repo`, or any Git URL |
+| `-o, --output <PATH>` | — | Output directory |
+| `-d, --data <KEY=VALUE>` | — | Override variable values (repeatable) |
+| `--defaults` | `false` | Use default values without prompting |
+| `--overwrite` | `false` | Overwrite output directory if it exists |
+| `--no-hooks` | `false` | Skip running hooks |
 
 ### Examples
 
 ```bash
-# Local template
+# From a local template
 diecut new ./my-template --output my-project
 
-# GitHub shorthand
+# From a GitHub shorthand
 diecut new gh:user/template-repo --output my-project
 
-# Skip prompts with defaults
+# Use defaults without prompting
 diecut new gh:user/repo --defaults --output my-project
 
 # Override specific variables
 diecut new ./my-template -d project_name=foo -d license=MIT
 ```
 
+### Notes
+
+- Git-hosted templates are cloned and cached locally on first use.
+- The `--data` flag can be repeated to set multiple variables.
+- When `--defaults` is set, any variable without a default value causes an error.
+
+---
+
+## diecut list
+
+List cached templates.
+
+### Synopsis
+
+```bash
+diecut list
+```
+
+### Options
+
+None.
+
+### Examples
+
+```bash
+diecut list
+```
+
+### Notes
+
+- Templates are cached at `~/.cache/diecut/templates/`. Override with the `DIECUT_CACHE_DIR` environment variable.
+
+---
+
+## diecut update
+
+Update a previously generated project from its template.
+
+### Synopsis
+
+```bash
+diecut update [PATH] [OPTIONS]
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `[PATH]` | `.` | Path to the project |
+| `--ref <REF>` | latest | Git ref (branch, tag, commit) to update to |
+
+### Examples
+
+```bash
+# Update the project in the current directory
+diecut update
+
+# Update a project at a specific path
+diecut update ./my-project
+
+# Pin the update to a tag
+diecut update ./my-project --ref v2.0.0
+```
+
+### Notes
+
+- Requires a `.diecut-answers.toml` file in the project directory. This file is written during `diecut new` and records the template source and variable values.
+
 ---
 
 ## diecut check
 
-Validate a template directory. Reports format detection, variable definitions, and any warnings or errors.
+Validate a template directory.
+
+### Synopsis
 
 ```bash
 diecut check [PATH]
 ```
 
-Exits with code 1 if errors are found.
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `[PATH]` | `.` | Path to the template |
 
 ### Examples
 
@@ -61,41 +132,39 @@ Exits with code 1 if errors are found.
 diecut check ./my-template
 ```
 
+### Notes
+
+- Exits with code 1 if errors are found.
+- Reports format detection, variable definitions, and any warnings.
+
 ---
 
 ## diecut ready
 
-Check if a template is ready for distribution. Validates template structure and provides distribution-specific warnings.
+Check if a template is ready for distribution.
+
+### Synopsis
 
 ```bash
 diecut ready [PATH]
 ```
 
-Exits with code 1 if issues are found that would prevent distribution.
-
----
-
-## diecut update
-
-Update a previously generated project when the upstream template has changed. Reads `.diecut-answers.toml` from the project to recover original template choices, then performs a three-way merge.
-
-```bash
-diecut update <PATH> [OPTIONS]
-```
-
 ### Options
 
-| Option | Description |
-|--------|-------------|
-| `--ref <TAG>` | Update to a specific Git ref (tag, branch, or commit) |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `[PATH]` | `.` | Path to the template |
 
-### How it works
+### Examples
 
-1. Reads `.diecut-answers.toml` to find the original template source and variables
-2. Re-renders the template at the original ref (old snapshot)
-3. Re-renders at the new ref (new snapshot)
-4. Three-way merges against your actual files
-5. Reports files updated, added, removed, and any conflicts (saved as `.rej` files)
+```bash
+diecut ready ./my-template
+```
+
+### Notes
+
+- Stricter than `check`. Includes additional distribution-specific validations.
+- Exits with code 1 if issues are found.
 
 ---
 
@@ -103,35 +172,34 @@ diecut update <PATH> [OPTIONS]
 
 Convert a cookiecutter template to native diecut format.
 
+### Synopsis
+
 ```bash
 diecut migrate <PATH> [OPTIONS]
 ```
 
 ### Options
 
-| Option | Description |
-|--------|-------------|
-| `--output <DIR>` | Write to a new directory instead of migrating in-place |
-| `--dry-run` | Show what would change without writing |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `<PATH>` | — | Path to the cookiecutter template |
+| `-o, --output <DIR>` | — | Write to a new directory instead of migrating in-place |
+| `--dry-run` | `false` | Show planned changes without writing |
 
 ### Examples
 
 ```bash
-# Preview changes
+# Preview what would change
 diecut migrate ./cookiecutter-template --dry-run
 
 # Migrate to a new directory
 diecut migrate ./cookiecutter-template --output ./diecut-template
+
+# Migrate in-place
+diecut migrate ./cookiecutter-template
 ```
 
----
+### Notes
 
-## diecut list
-
-List all cached templates.
-
-```bash
-diecut list
-```
-
-Templates cloned from Git are cached at `~/.cache/diecut/templates/` (overridable via `DIECUT_CACHE_DIR`).
+- Use `--dry-run` first to review planned changes before writing.
+- Without `--output`, the template is converted in-place.

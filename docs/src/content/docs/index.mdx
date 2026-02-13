@@ -1,9 +1,9 @@
 ---
 title: diecut
-description: A single-binary, language-agnostic project template generator — like cookiecutter, but in Rust.
+description: A single-binary project template generator. No Python, no Node — just one file and go.
 template: splash
 hero:
-  tagline: A single-binary, language-agnostic project template generator. No runtime dependencies required.
+  tagline: Make templates. Start projects. Skip the setup.
   actions:
     - text: Get Started
       link: /getting-started/
@@ -17,19 +17,21 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Why diecut?
-
 <CardGrid>
 	<Card title="Single binary" icon="rocket">
-		No Python, no Node.js, no runtime dependencies. Install once and go.
+		No Python, no Node, no runtime dependencies. Download one file and go.
+	</Card>
+	<Card title="Easy to make" icon="pencil">
+		A diecut.toml and a folder — that's a template. You just made one.
 	</Card>
 	<Card title="Cookiecutter compatible" icon="puzzle">
-		Use existing cookiecutter templates directly — diecut auto-detects and translates them on the fly.
+		Use existing cookiecutter templates directly. diecut auto-detects and translates them.
 	</Card>
-	<Card title="Template updates" icon="refresh">
-		Update previously generated projects when the upstream template changes, with three-way merge.
-	</Card>
-	<Card title="Cross-platform hooks" icon="setting">
-		Hooks run in Rhai, a sandboxed scripting language compiled into the binary. Same behavior everywhere.
+	<Card title="Updates built in" icon="refresh">
+		Upstream template changed? Update your project with a three-way merge.
 	</Card>
 </CardGrid>
+
+## Why diecut?
+
+I built diecut so my son could skip the setup and get to the fun part of programming. Every language has its own scaffolding ritual, but none of them hand you a real starting point with good defaults. A template does. And making a template shouldn't require a PhD in Jinja2.

@@ -1,71 +1,79 @@
 ---
 title: Getting Started
-description: Install diecut and generate your first project from a template.
+description: Install diecut and generate your first project in under a minute.
 ---
 
-## Installation
+import { LinkCard } from '@astrojs/starlight/components';
 
-The quickest way to install diecut:
+## Install
+
+The quickest way:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/raiderrobert/diecut/main/install.sh | sh
 ```
 
-This auto-detects your OS and architecture, downloads the right binary, and installs to `/usr/local/bin`. Set `DIECUT_INSTALL_DIR` to change the install location.
+Auto-detects your OS and architecture. Set `DIECUT_INSTALL_DIR` to change the install location.
 
-You can also download a binary manually from [GitHub Releases](https://github.com/raiderrobert/diecut/releases), or build from source with Cargo:
+Build from source:
 
 ```bash
 cargo install --path crates/diecut-cli
 ```
 
-## Quick start
+Or grab a binary from [GitHub Releases](https://github.com/raiderrobert/diecut/releases).
 
-Generate a project from a local template:
+## Your first project
 
-```bash
-diecut new ./my-template --output my-project
-```
-
-Generate from a GitHub repository:
+Use the built-in `rust-cli` example template:
 
 ```bash
-diecut new gh:user/template-repo --output my-project
+diecut new ./examples/rust-cli -o my-cli
 ```
 
-Use defaults without interactive prompts:
+diecut reads the template config and prompts you for five variables:
 
-```bash
-diecut new gh:user/template-repo --defaults --output my-project
+```text
+Project name [my-cli]: my-cli
+Short description [A command-line application]:
+Author name: Jane Doe
+License [MIT]: MIT
+  1. MIT
+  2. Apache-2.0
+  3. MIT OR Apache-2.0
+Rust edition [2021]: 2021
+  1. 2021
+  2. 2024
 ```
 
-Override specific variables from the command line:
+Press Enter to accept the defaults. Once done, you get a ready-to-build project:
 
-```bash
-diecut new ./my-template -d project_name=foo -d license=MIT
+```text
+my-cli/
+  Cargo.toml
+  src/
+    main.rs
+  .gitignore
+  .diecut-answers.toml
 ```
 
-## Template sources
+The generated `Cargo.toml` has your variables applied:
 
-diecut can pull templates from local paths or any Git host:
-
-| Source | Example |
-|--------|---------|
-| Local path | `diecut new ./my-template` |
-| GitHub | `diecut new gh:user/repo` |
-| GitLab | `diecut new gl:user/repo` |
-| Bitbucket | `diecut new bb:user/repo` |
-| Sourcehut | `diecut new sr:user/repo` |
-| Any Git URL | `diecut new https://git.example.com/repo.git` |
-
-Git templates are cached locally at `~/.cache/diecut/templates/`. You can override this with the `DIECUT_CACHE_DIR` environment variable.
-
-## Cookiecutter compatibility
-
-diecut auto-detects cookiecutter templates and generates from them directly:
-
-```bash
-diecut new gh:audreyfeldroy/cookiecutter-pypackage --output my-package
+```toml
+[package]
+name = "my-cli"
+version = "0.1.0"
+edition = "2021"
+description = "A command-line application"
+authors = ["Jane Doe"]
+license = "MIT"
 ```
 
-The `cookiecutter.json` format is translated on the fly. For a permanent conversion, use [`diecut migrate`](/reference/commands/#diecut-migrate).
+## What just happened?
+
+diecut read the `diecut.toml` config, prompted you for variables, and rendered every `.tera` file through the Tera template engine. The `.tera` suffix was stripped from output filenames. Files without `.tera` were copied as-is. Your answers were saved to `.diecut-answers.toml` for future updates.
+
+## Next steps
+
+<LinkCard title="Using Templates" description="Pull templates from GitHub, override variables, update projects." href="/using-templates/" />
+<LinkCard title="Creating Templates" description="Build your own templates. It's easier than you think." href="/creating-templates/" />
