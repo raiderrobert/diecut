@@ -1,6 +1,6 @@
 # diecut
 
-A single-binary project template generator written in Rust.
+A project template generator written in Rust.
 
 ## Install
 
@@ -31,14 +31,14 @@ diecut new gh:user/template-repo --defaults --output my-project
 
 ## Documentation
 
-Full documentation: **[diecut docs](https://raiderrobert.github.io/diecut/)**
+Full documentation: **[diecut docs](https://diecut.dev/)**
 
-- [Getting Started](https://raiderrobert.github.io/diecut/getting-started/) — install and generate your first project
-- [Using Templates](https://raiderrobert.github.io/diecut/using-templates/) — sources, overrides, updates, cookiecutter compatibility
-- [Creating Templates](https://raiderrobert.github.io/diecut/creating-templates/) — build your own templates
-- [Commands Reference](https://raiderrobert.github.io/diecut/reference/commands/) — all CLI commands and options
-- [diecut.toml Reference](https://raiderrobert.github.io/diecut/reference/diecut-toml/) — complete config file reference
-- [Hooks Reference](https://raiderrobert.github.io/diecut/reference/hooks/) — Rhai scripting for templates
+- [Getting Started](https://diecut.dev/diecut/getting-started/) — install and generate your first project
+- [Using Templates](https://diecut.dev/getting-started/) — sources, overrides, updates, cookiecutter compatibility
+- [Creating Templates](https://diecut.dev/creating-templates/) — build your own templates
+- [Commands Reference](https://diecut.dev/reference/commands/) — all CLI commands and options
+- [diecut.toml Reference](https://diecut.dev/diecut/reference/diecut-toml/) — complete config file reference
+- [Hooks Reference](https://diecut.dev/diecut/reference/hooks/) — Rhai scripting for templates
 
 ## Development
 
