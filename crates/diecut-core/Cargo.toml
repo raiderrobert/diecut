@@ -25,3 +25,4 @@ tempfile = { workspace = true }
 sha2 = { workspace = true }
 similar = { workspace = true }
 fs4 = { workspace = true }
+content_inspector = { workspace = true }

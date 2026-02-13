@@ -29,10 +29,9 @@ pub fn render_path_component(component: &str, context: &Context) -> Result<Strin
         })
 }
 
-/// Detect binary files by checking for null bytes in the first 8KB.
+/// Detect binary files using content_inspector (BOM-aware, null-byte scanning).
 ///
-/// Only reads the first 8KB rather than the entire file, avoiding
-/// unnecessary memory allocation for large binary assets.
+/// Reads only the first 8KB to avoid unnecessary allocation for large files.
 pub fn is_binary_file(path: &Path) -> bool {
     use std::io::Read;
 
@@ -45,5 +44,5 @@ pub fn is_binary_file(path: &Path) -> bool {
         return false;
     };
 
-    buf[..n].contains(&0)
+    !content_inspector::inspect(&buf[..n]).is_text()
 }

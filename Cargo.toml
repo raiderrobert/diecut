@@ -29,3 +29,4 @@ gix = { version = "0.72", default-features = false, features = ["blocking-networ
 sha2 = "0.10"
 similar = "2"
 fs4 = "0.12"
+content_inspector = "0.2"
