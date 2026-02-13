@@ -5,7 +5,15 @@ description: Install diecut and generate your first project from a template.
 
 ## Installation
 
-Install from source using Cargo:
+The quickest way to install diecut:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/raiderrobert/diecut/main/install.sh | sh
+```
+
+This auto-detects your OS and architecture, downloads the right binary, and installs to `/usr/local/bin`. Set `DIECUT_INSTALL_DIR` to change the install location.
+
+You can also download a binary manually from [GitHub Releases](https://github.com/raiderrobert/diecut/releases), or build from source with Cargo:
 
 ```bash
 cargo install --path crates/diecut-cli

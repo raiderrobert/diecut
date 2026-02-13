@@ -5,6 +5,14 @@ A single-binary, language-agnostic project template generator — like cookiecut
 ## Install
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/raiderrobert/diecut/main/install.sh | sh
+```
+
+Or download a binary manually from [GitHub Releases](https://github.com/raiderrobert/diecut/releases).
+
+Build from source:
+
+```bash
 cargo install --path crates/diecut-cli
 ```
 
