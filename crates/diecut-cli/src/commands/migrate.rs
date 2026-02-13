@@ -85,18 +85,61 @@ pub fn run(path: String, output: Option<String>, dry_run: bool) -> Result<()> {
     };
 
     if output_dir == template_dir {
-        return Err(miette::miette!(
-            "in-place migration not yet supported — please use --output to specify a new directory"
+        // In-place migration: stage to temp dir, then rename-swap
+        let parent = template_dir.parent().ok_or_else(|| {
+            miette::miette!(
+                "cannot determine parent directory of {}",
+                template_dir.display()
+            )
+        })?;
+
+        let backup_dir = template_dir.with_file_name(format!(
+            "{}.pre-migrate",
+            template_dir
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
         ));
+
+        if backup_dir.exists() {
+            return Err(miette::miette!(
+                "backup directory already exists: {} — remove it first or use --output",
+                backup_dir.display()
+            ));
+        }
+
+        let staging = tempfile::tempdir_in(parent)
+            .map_err(|e| miette::miette!("failed to create staging directory: {e}"))?;
+
+        execute_migration(&plan, &template_dir, staging.path())?;
+
+        // Atomic swap: rename original → backup, rename staging → original
+        std::fs::rename(&template_dir, &backup_dir)
+            .map_err(|e| miette::miette!("failed to move original to backup: {e}"))?;
+
+        std::fs::rename(staging.keep(), &template_dir)
+            .map_err(|e| miette::miette!("failed to move staged migration into place: {e}"))?;
+
+        println!(
+            "\n{} Backed up original to {}",
+            style("ℹ").blue().bold(),
+            style(backup_dir.display()).cyan()
+        );
+
+        println!(
+            "\n{} Template migrated in place at {}",
+            style("✓").green().bold(),
+            style(template_dir.display()).cyan()
+        );
+    } else {
+        execute_migration(&plan, &template_dir, &output_dir)?;
+
+        println!(
+            "\n{} Template migrated to {}",
+            style("✓").green().bold(),
+            style(output_dir.display()).cyan()
+        );
     }
-
-    execute_migration(&plan, &template_dir, &output_dir)?;
-
-    println!(
-        "\n{} Template migrated to {}",
-        style("✓").green().bold(),
-        style(output_dir.display()).cyan()
-    );
 
     Ok(())
 }

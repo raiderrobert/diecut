@@ -460,6 +460,7 @@ dependencies = [
  "console",
  "diecut-core",
  "miette",
+ "tempfile",
 ]
 
 [[package]]
