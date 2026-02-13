@@ -33,8 +33,8 @@ diecut new gh:user/template-repo --defaults --output my-project
 
 Full documentation: **[diecut docs](https://diecut.dev/)**
 
-- [Getting Started](https://diecut.dev/diecut/getting-started/) — install and generate your first project
-- [Using Templates](https://diecut.dev/getting-started/) — sources, overrides, updates, cookiecutter compatibility
+- [Getting Started](https://diecut.dev/getting-started/) — install and generate your first project
+- [Using Templates](https://diecut.dev/using-templates/) — sources, overrides, updates, cookiecutter compatibility
 - [Creating Templates](https://diecut.dev/creating-templates/) — build your own templates
 - [Commands Reference](https://diecut.dev/reference/commands/) — all CLI commands and options
 - [diecut.toml Reference](https://diecut.dev/diecut/reference/diecut-toml/) — complete config file reference
