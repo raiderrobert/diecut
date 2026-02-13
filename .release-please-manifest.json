@@ -1,4 +1,4 @@
 {
-  "crates/diecut-cli": "0.1.1",
-  "crates/diecut-core": "0.1.1"
+  "crates/diecut-cli": "0.1.2",
+  "crates/diecut-core": "0.1.2"
 }
