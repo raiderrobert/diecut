@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
@@ -6,6 +7,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{DicecutError, Result};
 use crate::template::clone::clone_template;
+
+/// Maximum age (in seconds) before a lock file is considered stale and can be broken.
+const LOCK_STALE_SECS: u64 = 600; // 10 minutes
+const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(500);
+const LOCK_TIMEOUT: Duration = Duration::from_secs(120); // 2 minutes
 
 /// Metadata stored alongside a cached template.
 #[derive(Debug, Serialize, Deserialize)]
@@ -81,17 +87,101 @@ pub(crate) fn cache_key(url: &str, git_ref: Option<&str>) -> String {
     }
 }
 
+/// A guard that removes the lock file when dropped.
+struct CacheLock {
+    lock_path: PathBuf,
+}
+
+impl Drop for CacheLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.lock_path);
+    }
+}
+
+/// Acquire a file-based lock for a cache entry, with stale lock detection.
+///
+/// If the lock file exists and is older than `LOCK_STALE_SECS`, it is considered
+/// stale (left behind by a crashed process) and broken automatically.
+///
+/// Returns a guard that releases the lock when dropped.
+fn acquire_cache_lock(cache_dir: &Path, key: &str) -> Result<CacheLock> {
+    let lock_path = cache_dir.join(format!("{key}.lock"));
+    let deadline = std::time::Instant::now() + LOCK_TIMEOUT;
+
+    loop {
+        // Try to create the lock file exclusively
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&lock_path)
+        {
+            Ok(mut f) => {
+                // Write PID for debugging
+                use std::io::Write;
+                let _ = write!(f, "{}", std::process::id());
+                return Ok(CacheLock {
+                    lock_path: lock_path.clone(),
+                });
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                // Lock exists — check if it's stale
+                if is_stale_lock(&lock_path) {
+                    eprintln!("warning: breaking stale cache lock {}", lock_path.display());
+                    let _ = std::fs::remove_file(&lock_path);
+                    continue;
+                }
+
+                if std::time::Instant::now() >= deadline {
+                    return Err(DicecutError::Io {
+                        context: format!(
+                            "timed out waiting for cache lock {} (held by another process — \
+                             delete manually if stale)",
+                            lock_path.display()
+                        ),
+                        source: std::io::Error::new(
+                            std::io::ErrorKind::TimedOut,
+                            "cache lock timeout",
+                        ),
+                    });
+                }
+
+                std::thread::sleep(LOCK_POLL_INTERVAL);
+            }
+            Err(e) => {
+                return Err(DicecutError::Io {
+                    context: format!("creating cache lock {}", lock_path.display()),
+                    source: e,
+                });
+            }
+        }
+    }
+}
+
+/// Check whether a lock file is stale based on its modification time.
+fn is_stale_lock(lock_path: &Path) -> bool {
+    let Ok(metadata) = std::fs::metadata(lock_path) else {
+        return false;
+    };
+    let Ok(modified) = metadata.modified() else {
+        return false;
+    };
+    let Ok(age) = modified.elapsed() else {
+        return false;
+    };
+    age.as_secs() > LOCK_STALE_SECS
+}
+
 /// Check cache first, clone if missing, return path to the template
 /// and the resolved commit SHA (if available).
 ///
-/// Note: this function does not protect against concurrent access. If multiple
-/// processes call `get_or_clone` for the same URL simultaneously, they may
-/// both clone and race to populate the cache entry.
+/// Uses a file-based lock to prevent concurrent clones for the same cache key.
+/// Stale locks (older than 10 minutes) are broken automatically.
 pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option<String>)> {
     let cache_dir = get_cache_dir()?;
     let key = cache_key(url, git_ref);
     let cached_path = cache_dir.join(&key);
 
+    // Fast path: cache hit — no lock needed
     if cached_path.exists() && cached_path.join(CACHE_METADATA_FILE).exists() {
         let metadata = read_cache_metadata(&cached_path)?;
         return Ok((cached_path, metadata.commit_sha));
@@ -101,6 +191,15 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
         context: format!("creating cache directory {}", cache_dir.display()),
         source: e,
     })?;
+
+    // Acquire lock before cloning
+    let _lock = acquire_cache_lock(&cache_dir, &key)?;
+
+    // Re-check after acquiring lock — another process may have populated it
+    if cached_path.exists() && cached_path.join(CACHE_METADATA_FILE).exists() {
+        let metadata = read_cache_metadata(&cached_path)?;
+        return Ok((cached_path, metadata.commit_sha));
+    }
 
     let clone_result = clone_template(url, git_ref)?;
 
@@ -770,6 +869,62 @@ mod tests {
 
         let (path, _sha) = get_or_clone(url, git_ref).unwrap();
         assert_eq!(path, cache_dir.join(&key));
+    }
+
+    // ── cache lock tests ────────────────────────────────────────────
+
+    #[test]
+    fn acquire_cache_lock_creates_lock_file() {
+        let (_lock_env, tmp) = setup_cache_env();
+        let cache_dir = tmp.path();
+
+        let lock = acquire_cache_lock(cache_dir, "test-key").unwrap();
+        assert!(cache_dir.join("test-key.lock").exists());
+
+        drop(lock);
+        assert!(!cache_dir.join("test-key.lock").exists());
+    }
+
+    #[test]
+    fn stale_lock_is_detected_and_broken() {
+        let (_lock_env, tmp) = setup_cache_env();
+        let cache_dir = tmp.path();
+
+        // Create a lock file and backdate it
+        let lock_path = cache_dir.join("stale-key.lock");
+        std::fs::write(&lock_path, "99999").unwrap();
+
+        // Set modification time far in the past
+        let old_time =
+            std::time::SystemTime::now() - std::time::Duration::from_secs(LOCK_STALE_SECS + 60);
+        filetime::set_file_mtime(&lock_path, filetime::FileTime::from_system_time(old_time))
+            .unwrap();
+
+        assert!(is_stale_lock(&lock_path));
+
+        // Should be able to acquire despite existing lock
+        let lock = acquire_cache_lock(cache_dir, "stale-key").unwrap();
+        assert!(cache_dir.join("stale-key.lock").exists());
+        drop(lock);
+    }
+
+    #[test]
+    fn fresh_lock_is_not_stale() {
+        let tmp = tempfile::tempdir().unwrap();
+        let lock_path = tmp.path().join("fresh.lock");
+        std::fs::write(&lock_path, "12345").unwrap();
+        assert!(!is_stale_lock(&lock_path));
+    }
+
+    #[test]
+    fn lock_file_contains_pid() {
+        let (_lock_env, tmp) = setup_cache_env();
+        let cache_dir = tmp.path();
+
+        let lock = acquire_cache_lock(cache_dir, "pid-test").unwrap();
+        let content = std::fs::read_to_string(cache_dir.join("pid-test.lock")).unwrap();
+        assert_eq!(content, std::process::id().to_string());
+        drop(lock);
     }
 
     #[test]

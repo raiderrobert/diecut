@@ -25,3 +25,6 @@ gix = { workspace = true }
 tempfile = { workspace = true }
 sha2 = { workspace = true }
 similar = { workspace = true }
+
+[dev-dependencies]
+filetime = { workspace = true }
