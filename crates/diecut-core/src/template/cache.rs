@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use fs4::fs_std::FileExt;
 use sha2::{Digest, Sha256};
 
 use serde::{Deserialize, Serialize};
@@ -84,14 +85,15 @@ pub(crate) fn cache_key(url: &str, git_ref: Option<&str>) -> String {
 /// Check cache first, clone if missing, return path to the template
 /// and the resolved commit SHA (if available).
 ///
-/// Note: this function does not protect against concurrent access. If multiple
-/// processes call `get_or_clone` for the same URL simultaneously, they may
-/// both clone and race to populate the cache entry.
+/// Uses OS-level advisory file locks (via `fs4`) to prevent concurrent
+/// processes from cloning the same template simultaneously. The lock is
+/// automatically released when the process exits, even on crashes.
 pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option<String>)> {
     let cache_dir = get_cache_dir()?;
     let key = cache_key(url, git_ref);
     let cached_path = cache_dir.join(&key);
 
+    // Fast path: cache hit without locking
     if cached_path.exists() && cached_path.join(CACHE_METADATA_FILE).exists() {
         let metadata = read_cache_metadata(&cached_path)?;
         return Ok((cached_path, metadata.commit_sha));
@@ -101,6 +103,24 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
         context: format!("creating cache directory {}", cache_dir.display()),
         source: e,
     })?;
+
+    // Acquire an exclusive advisory lock for this cache key.
+    // Blocks until the lock is available; automatically released on drop/exit.
+    let lock_path = cache_dir.join(format!("{key}.lock"));
+    let lock_file = std::fs::File::create(&lock_path).map_err(|e| DicecutError::Io {
+        context: format!("creating lock file {}", lock_path.display()),
+        source: e,
+    })?;
+    lock_file.lock_exclusive().map_err(|e| DicecutError::Io {
+        context: format!("acquiring cache lock for {key}"),
+        source: e,
+    })?;
+
+    // Re-check cache after acquiring lock — another process may have populated it.
+    if cached_path.exists() && cached_path.join(CACHE_METADATA_FILE).exists() {
+        let metadata = read_cache_metadata(&cached_path)?;
+        return Ok((cached_path, metadata.commit_sha));
+    }
 
     let clone_result = clone_template(url, git_ref)?;
 
