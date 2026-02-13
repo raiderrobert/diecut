@@ -124,7 +124,10 @@ pub fn walk_and_render(
                     files_copied.push(rendered_rel);
                 }
                 Err(e) => {
-                    return Err(DicecutError::RenderError { source: e });
+                    return Err(DicecutError::RenderError {
+                        file: rel_str.to_string(),
+                        source: e,
+                    });
                 }
             }
         }
@@ -198,7 +201,10 @@ fn evaluate_when_expr(when_expr: &str, variables: &BTreeMap<String, Value>) -> R
     let mut tera = Tera::default();
     let template_str = format!("{{% if {when_expr} %}}true{{% else %}}false{{% endif %}}");
     tera.add_raw_template("__when__", &template_str)
-        .map_err(|e| DicecutError::RenderError { source: e })?;
+        .map_err(|e| DicecutError::RenderError {
+            file: format!("(when expression: {when_expr})"),
+            source: e,
+        })?;
 
     let mut context = Context::new();
     for (k, v) in variables {
@@ -207,7 +213,10 @@ fn evaluate_when_expr(when_expr: &str, variables: &BTreeMap<String, Value>) -> R
 
     let result = tera
         .render("__when__", &context)
-        .map_err(|e| DicecutError::RenderError { source: e })?;
+        .map_err(|e| DicecutError::RenderError {
+            file: format!("(when expression: {when_expr})"),
+            source: e,
+        })?;
 
     Ok(result.trim() == "true")
 }

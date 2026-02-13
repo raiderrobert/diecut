@@ -17,7 +17,6 @@ thiserror = { workspace = true }
 miette = { workspace = true }
 walkdir = { workspace = true }
 inquire = { workspace = true }
-indicatif = { workspace = true }
 console = { workspace = true }
 rhai = { workspace = true }
 dirs = { workspace = true }
@@ -25,3 +24,4 @@ gix = { workspace = true }
 tempfile = { workspace = true }
 sha2 = { workspace = true }
 similar = { workspace = true }
+fs4 = { workspace = true }
