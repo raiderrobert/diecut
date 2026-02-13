@@ -3,4 +3,87 @@ title: "Using Templates"
 description: "Generate projects from existing diecut and cookiecutter templates."
 ---
 
-(Content coming soon)
+## Template sources
+
+diecut pulls templates from local paths or any Git host.
+
+| Source | Example |
+|--------|---------|
+| Local path | `diecut new ./my-template` |
+| GitHub | `diecut new gh:user/repo` |
+| GitLab | `diecut new gl:user/repo` |
+| Bitbucket | `diecut new bb:user/repo` |
+| Sourcehut | `diecut new sr:user/repo` |
+| Any Git URL | `diecut new https://git.example.com/repo.git` |
+
+Git templates are cached at `~/.cache/diecut/templates/`. Override with `DIECUT_CACHE_DIR`.
+
+## Overriding variables
+
+Pass `-d key=value` to skip prompts for specific variables:
+
+```bash
+diecut new gh:user/template -d project_name=foo -d license=MIT -o my-project
+```
+
+Variables passed with `-d` skip the interactive prompt. You can mix — pass some via `-d` and diecut prompts for the rest.
+
+## Non-interactive mode
+
+For CI pipelines or scripting, use `--defaults`:
+
+```bash
+diecut new gh:user/template --defaults -o my-project
+```
+
+Every variable uses its default value. No prompts. Combine with `-d` to override specific ones:
+
+```bash
+diecut new gh:user/template --defaults -d project_name=ci-test -o output
+```
+
+## Updating a project
+
+You generated a project three months ago. The template author added a new CI config and updated the README. Instead of starting over:
+
+```bash
+diecut update ./my-project
+```
+
+Here is what happens:
+
+1. Reads `.diecut-answers.toml` from your project. This file stores the template source and your original variable choices.
+2. Renders the template at the original version (old snapshot).
+3. Renders at the latest version (new snapshot).
+4. Three-way merges against your actual files.
+5. Reports files updated, added, removed, and any conflicts.
+
+Pin to a specific version:
+
+```bash
+diecut update ./my-project --ref v2.0.0
+```
+
+Conflicts are saved as `.rej` files. You resolve them manually, like `patch` conflicts.
+
+## Cookiecutter compatibility
+
+diecut auto-detects cookiecutter templates:
+
+```bash
+diecut new gh:audreyfeldroy/cookiecutter-pypackage -o my-package
+```
+
+It finds `cookiecutter.json`, translates the format on the fly, and prompts you as usual. No migration needed.
+
+For a permanent conversion to native diecut format, see [Migrating from Cookiecutter](/migrating-from-cookiecutter/).
+
+## Managing the cache
+
+List cached templates:
+
+```bash
+diecut list
+```
+
+Templates live at `~/.cache/diecut/templates/`. Set `DIECUT_CACHE_DIR` to change the location. Delete the directory to clear the cache.
