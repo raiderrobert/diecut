@@ -4,12 +4,30 @@ use std::path::Path;
 use rhai::{Engine, Scope};
 use tera::Value;
 
+/// Create a sandboxed Rhai engine with explicit resource limits.
+///
+/// Uses `Engine::new_raw()` + `StandardPackage` to avoid registering
+/// `FileModuleResolver`, which would let scripts `import` arbitrary
+/// Rhai modules from the filesystem.
 pub fn create_engine() -> Engine {
-    let mut engine = Engine::new();
+    use rhai::packages::Package;
+
+    let mut engine = Engine::new_raw();
+
+    // Register only the standard computation packages (math, logic, strings,
+    // arrays, maps, time). This explicitly excludes file-based module resolution.
+    engine.register_global_module(rhai::packages::StandardPackage::new().as_shared_module());
 
     engine.set_max_call_levels(32);
     engine.set_max_operations(100_000);
     engine.set_max_string_size(10 * 1024 * 1024); // 10MB
+
+    // print/debug go to stderr so hooks can emit diagnostics
+    engine.on_print(|s| eprintln!("[hook] {s}"));
+    engine.on_debug(|s, source, _pos| match source {
+        Some(source) => eprintln!("[hook:{source}] {s}"),
+        None => eprintln!("[hook] {s}"),
+    });
 
     engine
 }
@@ -104,5 +122,16 @@ mod tests {
         // This should fail due to max operations limit
         let result = engine.run("let x = 0; while true { x += 1; }");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_engine_rejects_import() {
+        let engine = create_engine();
+        // Without FileModuleResolver, import should fail
+        let result = engine.run(r#"import "some_module";"#);
+        assert!(
+            result.is_err(),
+            "import should fail without module resolver"
+        );
     }
 }
