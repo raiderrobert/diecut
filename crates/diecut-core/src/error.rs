@@ -24,9 +24,10 @@ pub enum DicecutError {
     #[error("Validation failed for variable '{name}': {message}")]
     ValidationFailed { name: String, message: String },
 
-    #[error("Template rendering failed")]
+    #[error("Template rendering failed for '{file}'")]
     #[diagnostic(help("Check your Tera template syntax"))]
     RenderError {
+        file: String,
         #[source]
         source: tera::Error,
     },

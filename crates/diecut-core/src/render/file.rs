@@ -6,7 +6,10 @@ use crate::error::{DicecutError, Result};
 
 pub fn render_file_content(tera: &Tera, template_name: &str, context: &Context) -> Result<String> {
     tera.render(template_name, context)
-        .map_err(|e| DicecutError::RenderError { source: e })
+        .map_err(|e| DicecutError::RenderError {
+            file: template_name.to_string(),
+            source: e,
+        })
 }
 
 /// Render template expressions in a path component (e.g. `{{project_name}}`).
