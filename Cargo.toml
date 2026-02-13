@@ -1,15 +1,22 @@
 [workspace]
-members = ["crates/diecut-cli", "crates/diecut-core"]
-resolver = "2"
 
-[workspace.package]
+[package]
+name = "diecut"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.75"
+description = "A language-agnostic project template generator"
 
-[workspace.dependencies]
-diecut-core = { path = "crates/diecut-core" }
+[lib]
+name = "diecut"
+path = "src/lib.rs"
+
+[[bin]]
+name = "diecut"
+path = "src/main.rs"
+
+[dependencies]
 tera = "1"
 clap = { version = "4", features = ["derive"] }
 inquire = "0.7"

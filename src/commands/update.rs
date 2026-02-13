@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use console::style;
-use diecut_core::update::{update_project, UpdateOptions};
+use diecut::update::{update_project, UpdateOptions};
 use miette::Result;
 
 pub fn run(path: String, git_ref: Option<String>) -> Result<()> {

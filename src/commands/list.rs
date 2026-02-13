@@ -1,7 +1,7 @@
 use console::style;
 use miette::Result;
 
-use diecut_core::template::{list_cached, CachedTemplate};
+use diecut::template::{list_cached, CachedTemplate};
 
 pub fn run() -> Result<()> {
     let entries = list_cached()?;

@@ -1,4 +1,4 @@
-use diecut_core::GenerateOptions;
+use diecut::GenerateOptions;
 use miette::Result;
 
 pub fn run(
@@ -28,7 +28,7 @@ pub fn run(
         no_hooks,
     };
 
-    diecut_core::generate(options)?;
+    diecut::generate(options)?;
 
     Ok(())
 }

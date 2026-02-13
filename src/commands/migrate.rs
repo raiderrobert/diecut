@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use console::style;
-use diecut_core::adapter::migrate::{execute_migration, plan_migration, FileOp};
+use diecut::adapter::migrate::{execute_migration, plan_migration, FileOp};
 use miette::Result;
 
 pub fn run(path: String, output: Option<String>, dry_run: bool) -> Result<()> {

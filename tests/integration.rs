@@ -1,17 +1,17 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use diecut_core::adapter::migrate::{execute_migration, plan_migration, FileOp};
-use diecut_core::adapter::{self, TemplateFormat};
-use diecut_core::config::load_config;
-use diecut_core::prompt::PromptOptions;
-use diecut_core::render::{build_context, build_context_with_namespace, walk_and_render};
-use diecut_core::template::source::{resolve_source, resolve_source_full};
-use diecut_core::update::merge::{three_way_merge, MergeAction};
+use diecut::adapter::migrate::{execute_migration, plan_migration, FileOp};
+use diecut::adapter::{self, TemplateFormat};
+use diecut::config::load_config;
+use diecut::prompt::PromptOptions;
+use diecut::render::{build_context, build_context_with_namespace, walk_and_render};
+use diecut::template::source::{resolve_source, resolve_source_full};
+use diecut::update::merge::{three_way_merge, MergeAction};
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../tests/fixtures")
+        .join("tests/fixtures")
         .join(name)
 }
 
@@ -56,7 +56,7 @@ name = "bad"
 type = "select"
 prompt = "Pick one"
 "#;
-    let config: diecut_core::config::schema::TemplateConfig = toml::from_str(toml_str).unwrap();
+    let config: diecut::config::schema::TemplateConfig = toml::from_str(toml_str).unwrap();
     let result = config.validate();
     assert!(result.is_err());
 }
@@ -187,7 +187,7 @@ fn test_prompt_options_with_data_overrides() {
     };
 
     let config = load_config(&fixture_path("basic-template")).unwrap();
-    let variables = diecut_core::prompt::collect_variables(&config, &options).unwrap();
+    let variables = diecut::prompt::collect_variables(&config, &options).unwrap();
 
     assert_eq!(
         variables.get("project_name"),
@@ -208,7 +208,7 @@ fn test_prompt_options_with_defaults() {
     };
 
     let config = load_config(&fixture_path("basic-template")).unwrap();
-    let variables = diecut_core::prompt::collect_variables(&config, &options).unwrap();
+    let variables = diecut::prompt::collect_variables(&config, &options).unwrap();
 
     assert_eq!(
         variables.get("project_name"),
@@ -235,12 +235,12 @@ fn test_answers_file_written() {
     let output_dir = tempfile::tempdir().unwrap();
     walk_and_render(&resolved, output_dir.path(), &variables, &context).unwrap();
 
-    let source_info = diecut_core::answers::SourceInfo {
+    let source_info = diecut::answers::SourceInfo {
         url: None,
         git_ref: None,
         commit_sha: None,
     };
-    diecut_core::answers::write_answers(
+    diecut::answers::write_answers(
         output_dir.path(),
         &resolved.config,
         &variables,
@@ -314,7 +314,7 @@ fn test_cookiecutter_generate_with_defaults() {
         data_overrides: std::collections::HashMap::new(),
         use_defaults: true,
     };
-    let variables = diecut_core::prompt::collect_variables(&resolved.config, &options).unwrap();
+    let variables = diecut::prompt::collect_variables(&resolved.config, &options).unwrap();
 
     // Build context with cookiecutter namespace
     let context = build_context_with_namespace(&variables, &resolved.context_namespace);
@@ -384,7 +384,7 @@ fn test_cookiecutter_computed_variable() {
         data_overrides: std::collections::HashMap::new(),
         use_defaults: true,
     };
-    let variables = diecut_core::prompt::collect_variables(&resolved.config, &options).unwrap();
+    let variables = diecut::prompt::collect_variables(&resolved.config, &options).unwrap();
 
     // project_slug should be computed from project_name "My Project"
     let slug = variables.get("project_slug").unwrap();
@@ -404,7 +404,7 @@ fn test_cookiecutter_choice_variable() {
     let license_var = resolved.config.variables.get("license").unwrap();
     assert_eq!(
         license_var.var_type,
-        diecut_core::config::variable::VariableType::Select
+        diecut::config::variable::VariableType::Select
     );
     assert_eq!(
         license_var.choices.as_ref().unwrap(),

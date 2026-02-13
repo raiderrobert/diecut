@@ -1,19 +1,17 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "release-type": "rust",
-  "bump-minor-pre-major": false,
-  "bump-patch-for-minor-pre-major": true,
-  "bootstrap-sha": "6a264718a3e9bd18802c16dc85504457d2bbfc90",
-  "plugins": ["cargo-workspace"],
   "packages": {
-    "crates/diecut-cli": {},
-    "crates/diecut-core": {}
-  },
-  "changelog-sections": [
-    { "type": "feat", "section": "Features" },
-    { "type": "fix", "section": "Bug Fixes" },
-    { "type": "chore", "section": "Miscellaneous" },
-    { "type": "docs", "section": "Documentation" },
-    { "type": "refactor", "section": "Code Refactoring" }
-  ]
+    ".": {
+      "release-type": "rust",
+      "bump-minor-pre-major": false,
+      "bump-patch-for-minor-pre-major": true,
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" },
+        { "type": "chore", "section": "Miscellaneous" },
+        { "type": "docs", "section": "Documentation" },
+        { "type": "refactor", "section": "Code Refactoring" }
+      ]
+    }
+  }
 }
