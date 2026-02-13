@@ -12,13 +12,23 @@ export default defineConfig({
 				{
 					label: 'Getting Started',
 					items: [
-						{ label: 'Installation', slug: 'getting-started' },
+						{ label: 'Installation & Quick Start', slug: 'getting-started' },
+					],
+				},
+				{
+					label: 'Guides',
+					items: [
+						{ label: 'Using Templates', slug: 'using-templates' },
+						{ label: 'Creating Templates', slug: 'creating-templates' },
+						{ label: 'Migrating from Cookiecutter', slug: 'migrating-from-cookiecutter' },
 					],
 				},
 				{
 					label: 'Reference',
 					items: [
 						{ label: 'Commands', slug: 'reference/commands' },
+						{ label: 'diecut.toml', slug: 'reference/diecut-toml' },
+						{ label: 'Hooks', slug: 'reference/hooks' },
 					],
 				},
 			],
