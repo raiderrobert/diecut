@@ -629,7 +629,7 @@ fn test_three_way_merge_nested_new_file() {
     let results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
     let new_file = results
         .iter()
-        .find(|r| r.rel_path.to_string_lossy().contains("new.txt"));
+        .find(|r| r.rel_path.ends_with("sub/deep/new.txt"));
     assert!(new_file.is_some(), "should detect new nested file");
     assert_eq!(new_file.unwrap().action, MergeAction::AddFromTemplate);
 }
@@ -650,8 +650,8 @@ fn test_three_way_merge_convergent_changes() {
     let results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
     // Should detect convergence → no conflict
     assert!(
-        results.is_empty() || results.iter().all(|r| r.action == MergeAction::Unchanged),
-        "convergent changes should not produce a conflict"
+        results.is_empty(),
+        "convergent changes should produce no merge results"
     );
 }
 
@@ -706,4 +706,27 @@ fn test_render_with_special_characters() {
     let output_dir = tempfile::tempdir().unwrap();
     let result = walk_and_render(&resolved, output_dir.path(), &variables, &context);
     assert!(result.is_ok(), "should handle special characters in values");
+
+    // Verify the rendered output actually contains the special character value
+    let project_dir = output_dir.path().join("my-project_v2.0");
+    assert!(
+        project_dir.exists(),
+        "project directory with special characters should exist"
+    );
+
+    let readme = project_dir.join("README.md");
+    assert!(readme.exists(), "README.md should exist");
+    let readme_content = std::fs::read_to_string(&readme).unwrap();
+    assert!(
+        readme_content.contains("my-project_v2.0"),
+        "README should contain the special character project name, got: {readme_content}"
+    );
+
+    let cargo_toml = project_dir.join("Cargo.toml");
+    assert!(cargo_toml.exists(), "Cargo.toml should exist");
+    let cargo_content = std::fs::read_to_string(&cargo_toml).unwrap();
+    assert!(
+        cargo_content.contains("my-project_v2.0"),
+        "Cargo.toml should contain the special character project name, got: {cargo_content}"
+    );
 }
