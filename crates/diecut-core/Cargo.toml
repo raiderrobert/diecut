@@ -17,7 +17,6 @@ thiserror = { workspace = true }
 miette = { workspace = true }
 walkdir = { workspace = true }
 inquire = { workspace = true }
-indicatif = { workspace = true }
 console = { workspace = true }
 rhai = { workspace = true }
 dirs = { workspace = true }
