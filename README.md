@@ -1,6 +1,6 @@
 # diecut
 
-A single-binary project template generator. No Python, no Node — just one file and go.
+A single-binary project template generator.
 
 ## Install
 
