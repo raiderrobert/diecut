@@ -1,6 +1,306 @@
 ---
-title: "Creating Templates"
-description: "Build your own project templates with diecut."
+title: Creating Templates
+description: Build your own project templates with diecut.
 ---
 
-(Content coming soon)
+## Your first template
+
+Three files. That's all you need.
+
+```text
+hello/
+  diecut.toml
+  template/
+    hello.txt.tera
+```
+
+The config — `diecut.toml`:
+
+```toml
+[template]
+name = "hello"
+
+[variables.name]
+type = "string"
+prompt = "Your name"
+default = "world"
+```
+
+The template file — `template/hello.txt.tera`:
+
+```text
+Hello, {{ name }}!
+```
+
+Run it:
+
+```bash
+diecut new ./hello -o output
+```
+
+```text
+Your name [world]: Alice
+```
+
+```text
+output/
+  hello.txt
+```
+
+```text title="output/hello.txt"
+Hello, Alice!
+```
+
+That's a template. You just made one.
+
+The `template/` directory contains your project files. Files ending in `.tera` are rendered through the Tera template engine, then have the `.tera` suffix stripped. Everything else is copied as-is.
+
+## Variable types
+
+diecut supports six variable types.
+
+### string
+
+Text input.
+
+```toml
+[variables.project_name]
+type = "string"
+prompt = "Project name"
+default = "my-project"
+```
+
+### bool
+
+Yes or no.
+
+```toml
+[variables.use_ci]
+type = "bool"
+prompt = "Set up CI?"
+default = true
+```
+
+### int
+
+Integer.
+
+```toml
+[variables.port]
+type = "int"
+prompt = "Default port"
+default = 8080
+```
+
+### float
+
+Decimal number.
+
+```toml
+[variables.version]
+type = "float"
+prompt = "Initial version"
+default = 0.1
+```
+
+### select
+
+Pick one from a list.
+
+```toml
+[variables.license]
+type = "select"
+prompt = "License"
+choices = ["MIT", "Apache-2.0", "GPL-3.0"]
+default = "MIT"
+```
+
+### multiselect
+
+Pick multiple from a list.
+
+```toml
+[variables.features]
+type = "multiselect"
+prompt = "Features to include"
+choices = ["logging", "docker", "ci"]
+default = ["logging"]
+```
+
+## Conditional prompts
+
+Use `when` to only ask a question when a previous answer makes it relevant.
+
+```toml
+[variables.use_ci]
+type = "bool"
+prompt = "Set up CI?"
+default = true
+
+[variables.ci_provider]
+type = "select"
+prompt = "CI provider"
+choices = ["github-actions", "gitlab-ci"]
+when = "{{ use_ci }}"
+```
+
+`ci_provider` is only prompted when `use_ci` is true. The `when` field takes a Tera expression.
+
+## Conditional files
+
+Include or exclude entire files based on variable values.
+
+```toml
+[files]
+conditional = [
+    { pattern = ".github/**", when = "use_ci and ci_provider == 'github-actions'" },
+    { pattern = ".gitlab-ci.yml", when = "use_ci and ci_provider == 'gitlab-ci'" },
+]
+```
+
+Files matching the pattern are only included when the expression is true.
+
+A real-world example from a Python template:
+
+```toml
+[files]
+conditional = [
+    { pattern = "src/cli.py*", when = "use_cli" },
+]
+```
+
+This excludes `src/cli.py.tera` when the user says no to the CLI entry point. The glob matches both the `.tera` source and any related files.
+
+## Computed variables
+
+Variables derived from other variables. Never prompted.
+
+```toml
+[variables.project_slug]
+type = "string"
+computed = "{{ project_name | slugify }}"
+```
+
+Computed variables are available in templates but never shown to the user. Use them for derived values like slugs, lowercase versions, or formatted strings.
+
+A computed variable must not have a `prompt` field. If it does, diecut will report an error.
+
+## File handling
+
+### Excluding files
+
+Keep files out of the generated output:
+
+```toml
+[files]
+exclude = ["*.pyc", ".DS_Store", "__pycache__/**"]
+```
+
+### Copying without rendering
+
+Some files contain `{{ }}` or `{% %}` syntax that isn't meant for Tera. Binary files, images, or files with their own template syntax.
+
+```toml
+[files]
+copy_without_render = ["assets/**/*.png", "fonts/**"]
+```
+
+Files matching these patterns are copied verbatim. Tera syntax inside them is left alone.
+
+## Tera template basics
+
+Five things you'll actually use.
+
+### Variables
+
+Insert a value:
+
+```text
+{{ project_name }}
+```
+
+### Conditionals
+
+Include a block only when a condition is true:
+
+```text
+{% if use_ci %}
+ci: true
+{% endif %}
+```
+
+### Loops
+
+Iterate over a list:
+
+```text
+{% for feature in features %}
+- {{ feature }}
+{% endfor %}
+```
+
+### Filters
+
+Transform values inline:
+
+```text
+{{ project_name | slugify }}
+{{ name | upper }}
+{{ description | truncate(length=50) }}
+```
+
+`slugify` turns "My Project" into "my-project". `upper` uppercases. `truncate` cuts to length.
+
+### Comments
+
+```text
+{# This won't appear in output #}
+```
+
+### A complete example
+
+A `Cargo.toml.tera` from a Rust CLI template:
+
+```toml
+[package]
+name = "{{ project_name }}"
+version = "0.1.0"
+edition = "{{ rust_edition }}"
+description = "{{ description }}"
+{% if author %}authors = ["{{ author }}"]
+{% endif %}license = "{{ license }}"
+```
+
+Tera has much more. See the [full Tera documentation](https://keats.github.io/tera/docs/) for everything else.
+
+## Validating your template
+
+### Check for errors
+
+```bash
+diecut check ./my-template
+```
+
+Reports format detection, variable definitions, and any issues it finds.
+
+### Ready for distribution
+
+```bash
+diecut ready ./my-template
+```
+
+`ready` is stricter. It checks whether the template is suitable for sharing: description present, variables have prompts, no orphaned references.
+
+### Variable validation
+
+Add a regex to constrain user input:
+
+```toml
+[variables.project_name]
+type = "string"
+prompt = "Project name"
+validation = '^[a-z][a-z0-9_-]*$'
+validation_message = "Must start with a letter. Only lowercase letters, numbers, hyphens, underscores."
+```
+
+If the input doesn't match, the user is re-prompted with the validation message. No bad data gets through.
