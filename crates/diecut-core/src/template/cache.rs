@@ -128,7 +128,7 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
         clone_result.dir.path(),
         url,
         git_ref,
-        &clone_result.commit_sha,
+        clone_result.commit_sha.as_deref(),
     )?;
 
     let commit_sha = clone_result.commit_sha.clone();
@@ -142,13 +142,13 @@ fn write_cache_metadata(
     dir: &Path,
     url: &str,
     git_ref: Option<&str>,
-    commit_sha: &Option<String>,
+    commit_sha: Option<&str>,
 ) -> Result<()> {
     let metadata = CacheMetadata {
         url: url.to_string(),
         git_ref: git_ref.map(String::from),
         cached_at: unix_timestamp_secs(),
-        commit_sha: commit_sha.clone(),
+        commit_sha: commit_sha.map(String::from),
     };
     let metadata_toml =
         toml::to_string_pretty(&metadata).map_err(|e| DicecutError::CacheMetadata {
