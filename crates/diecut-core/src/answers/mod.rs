@@ -7,17 +7,12 @@ use tera::Value;
 use crate::config::schema::TemplateConfig;
 use crate::error::{DicecutError, Result};
 
-/// Provenance info about the template source.
 pub struct SourceInfo {
-    /// The original git URL, if cloned from a remote.
     pub url: Option<String>,
-    /// The git ref (branch/tag) requested, if any.
     pub git_ref: Option<String>,
-    /// The resolved commit SHA at clone time.
     pub commit_sha: Option<String>,
 }
 
-/// Metadata and variable values saved alongside a generated project.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SavedAnswers {
     pub template_source: String,
@@ -27,7 +22,6 @@ pub struct SavedAnswers {
     pub answers: HashMap<String, toml::Value>,
 }
 
-/// Load a previously saved answers file from a project directory.
 pub fn load_answers(project_path: &Path) -> Result<SavedAnswers> {
     let answers_path = project_path.join(".diecut-answers.toml");
     if !answers_path.exists() {
@@ -81,7 +75,6 @@ pub fn load_answers(project_path: &Path) -> Result<SavedAnswers> {
     })
 }
 
-/// Write the answers file into the generated project directory.
 /// Excludes secret variables. Includes template source metadata for `diecut update`.
 pub fn write_answers(
     output_dir: &Path,
@@ -99,7 +92,6 @@ pub fn write_answers(
     )
 }
 
-/// Write answers file with explicit template source information.
 pub fn write_answers_with_source(
     output_dir: &Path,
     config: &TemplateConfig,
@@ -112,7 +104,6 @@ pub fn write_answers_with_source(
 
     let mut table = toml::map::Map::new();
 
-    // Record the template source info
     let mut meta = toml::map::Map::new();
     meta.insert(
         "template".to_string(),
@@ -145,7 +136,6 @@ pub fn write_answers_with_source(
     );
     table.insert("_diecut".to_string(), toml::Value::Table(meta));
 
-    // Record variable values (skip secrets)
     let mut vars = toml::map::Map::new();
     for (name, value) in variables {
         if let Some(var_config) = config.variables.get(name) {
@@ -191,7 +181,6 @@ fn tera_value_to_toml(value: &Value) -> Option<toml::Value> {
     }
 }
 
-/// Convert a `toml::Value` to a `tera::Value`.
 pub(crate) fn toml_value_to_tera(value: &toml::Value) -> Value {
     match value {
         toml::Value::String(s) => Value::String(s.clone()),

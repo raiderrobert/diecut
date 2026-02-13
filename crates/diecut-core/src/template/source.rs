@@ -20,10 +20,6 @@ const ABBREVIATIONS: &[(&str, &str, &str)] = &[
     ("sr:", "https://git.sr.ht/", ""),
 ];
 
-/// Expand a shorthand abbreviation (e.g. `gh:user/repo`) into a full git URL.
-///
-/// Returns `Ok(url)` on successful expansion, or `Err` if the prefix is
-/// recognized but the remainder is empty/invalid.
 fn expand_abbreviation(input: &str) -> Result<String> {
     for &(prefix, base_url, suffix) in ABBREVIATIONS {
         if let Some(rest) = input.strip_prefix(prefix) {
@@ -40,10 +36,6 @@ fn expand_abbreviation(input: &str) -> Result<String> {
     })
 }
 
-/// Try to expand a user-defined abbreviation.
-///
-/// User abbreviations use the format `prefix:remainder`, where the prefix maps
-/// to a URL template containing `{}` as a placeholder for the remainder.
 fn expand_user_abbreviation(
     input: &str,
     abbreviations: &HashMap<String, String>,
@@ -61,14 +53,12 @@ fn expand_user_abbreviation(
     Some(Ok(url_template.replace("{}", rest)))
 }
 
-/// Returns `true` when the argument looks like a known abbreviation prefix.
 fn is_abbreviation(input: &str) -> bool {
     ABBREVIATIONS
         .iter()
         .any(|&(prefix, _, _)| input.starts_with(prefix))
 }
 
-/// Returns `true` when the argument looks like an explicit git URL.
 fn is_git_url(input: &str) -> bool {
     input.starts_with("https://")
         || input.starts_with("http://")
@@ -76,20 +66,11 @@ fn is_git_url(input: &str) -> bool {
         || input.ends_with(".git")
 }
 
-/// Resolve a template argument to a source.
-///
-/// Detection order:
-/// 1. Known abbreviation prefix (`gh:`, `gl:`, `bb:`, `sr:`) -> expand -> Git source
-/// 2. Explicit git URL (`https://`, `git@`, or `.git` suffix) -> Git source
-/// 3. Otherwise -> local path (existing behavior)
+/// Resolve a template argument to a source: abbreviation -> git URL -> local path.
 pub fn resolve_source(template_arg: &str) -> Result<TemplateSource> {
     resolve_source_with_ref(template_arg, None)
 }
 
-/// Resolve a template argument to a source, with an optional git ref.
-///
-/// If `user_abbreviations` is provided, user-defined abbreviations are checked
-/// before falling back to built-in ones.
 pub fn resolve_source_with_ref(
     template_arg: &str,
     git_ref: Option<&str>,
@@ -97,13 +78,11 @@ pub fn resolve_source_with_ref(
     resolve_source_full(template_arg, git_ref, None)
 }
 
-/// Resolve a template argument to a source, with optional git ref and user abbreviations.
 pub fn resolve_source_full(
     template_arg: &str,
     git_ref: Option<&str>,
     user_abbreviations: Option<&HashMap<String, String>>,
 ) -> Result<TemplateSource> {
-    // 0. User-defined abbreviation expansion (checked first)
     if let Some(abbrevs) = user_abbreviations {
         if let Some(result) = expand_user_abbreviation(template_arg, abbrevs) {
             let url = result?;
@@ -114,7 +93,6 @@ pub fn resolve_source_full(
         }
     }
 
-    // 1. Built-in abbreviation expansion
     if is_abbreviation(template_arg) {
         let url = expand_abbreviation(template_arg)?;
         return Ok(TemplateSource::Git {
@@ -123,7 +101,6 @@ pub fn resolve_source_full(
         });
     }
 
-    // 2. Explicit git URL
     if is_git_url(template_arg) {
         return Ok(TemplateSource::Git {
             url: template_arg.to_string(),
@@ -131,7 +108,6 @@ pub fn resolve_source_full(
         });
     }
 
-    // 3. Local path fallback
     let path = Path::new(template_arg);
     if path.exists() {
         Ok(TemplateSource::Local(path.canonicalize().map_err(|e| {

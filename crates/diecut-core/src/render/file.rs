@@ -4,14 +4,12 @@ use tera::{Context, Tera};
 
 use crate::error::{DicecutError, Result};
 
-/// Render a single template file's content through Tera.
 pub fn render_file_content(tera: &Tera, template_name: &str, context: &Context) -> Result<String> {
     tera.render(template_name, context)
         .map_err(|e| DicecutError::RenderError { source: e })
 }
 
-/// Render a path component (filename or dirname) through Tera.
-/// This handles template expressions in directory and file names, like `{{project_name}}`.
+/// Render template expressions in a path component (e.g. `{{project_name}}`).
 pub fn render_path_component(component: &str, context: &Context) -> Result<String> {
     let mut tera = Tera::default();
     tera.add_raw_template("__path__", component).map_err(|e| {
@@ -28,7 +26,6 @@ pub fn render_path_component(component: &str, context: &Context) -> Result<Strin
         })
 }
 
-/// Detect if a file is likely binary by reading the first few kilobytes.
 pub fn is_binary_file(path: &Path) -> bool {
     let Ok(bytes) = std::fs::read(path) else {
         return false;

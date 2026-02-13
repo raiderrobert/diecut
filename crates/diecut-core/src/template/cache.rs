@@ -10,13 +10,11 @@ use crate::template::clone::clone_template;
 /// Metadata stored alongside a cached template.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CacheMetadata {
-    /// The original git URL.
     pub url: String,
-    /// The git ref (branch, tag, or commit) if specified.
+    /// Branch, tag, or commit if specified.
     pub git_ref: Option<String>,
-    /// When the template was cached (Unix timestamp in seconds).
+    /// Unix timestamp in seconds.
     pub cached_at: String,
-    /// The resolved commit SHA at the time of cloning.
     #[serde(default)]
     pub commit_sha: Option<String>,
 }
@@ -26,9 +24,7 @@ pub struct CacheMetadata {
 pub struct CachedTemplate {
     /// The cache key (directory name).
     pub key: String,
-    /// The path to the cached template.
     pub path: PathBuf,
-    /// Metadata about the cached template.
     pub metadata: CacheMetadata,
 }
 
@@ -96,22 +92,18 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
     let key = cache_key(url, git_ref);
     let cached_path = cache_dir.join(&key);
 
-    // Check if we have a valid cached copy
     if cached_path.exists() && cached_path.join(CACHE_METADATA_FILE).exists() {
         let metadata = read_cache_metadata(&cached_path)?;
         return Ok((cached_path, metadata.commit_sha));
     }
 
-    // Ensure cache directory exists before cloning
     std::fs::create_dir_all(&cache_dir).map_err(|e| DicecutError::Io {
         context: format!("creating cache directory {}", cache_dir.display()),
         source: e,
     })?;
 
-    // Clone to a temp location, then move into cache.
     let clone_result = clone_template(url, git_ref)?;
 
-    // Write cache metadata
     let metadata = CacheMetadata {
         url: url.to_string(),
         git_ref: git_ref.map(String::from),
@@ -131,7 +123,6 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
         source: e,
     })?;
 
-    // Remove any stale cache entry
     if cached_path.exists() {
         std::fs::remove_dir_all(&cached_path).map_err(|e| DicecutError::Io {
             context: format!("removing stale cache entry {}", cached_path.display()),
@@ -139,8 +130,8 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
         })?;
     }
 
-    // Move cloned directory into cache. Only persist (leak) the tempdir
-    // after successful placement — on error, drop cleans it up.
+    // Only persist (leak) the tempdir after successful placement —
+    // on error, drop cleans it up.
     let commit_sha = clone_result.commit_sha.clone();
     std::fs::rename(clone_result.dir.path(), &cached_path).or_else(|rename_err| {
         // rename can fail across filesystems; fall back to copy + delete
@@ -151,14 +142,12 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
         Ok(())
     })?;
 
-    // Successfully placed in cache — prevent TempDir from cleaning up
-    // the source (it may already be gone after a successful rename).
+    // Source may already be gone after a successful rename.
     let _ = clone_result.dir.keep();
 
     Ok((cached_path, commit_sha))
 }
 
-/// Read cache metadata from a cached template directory.
 fn read_cache_metadata(cached_path: &Path) -> Result<CacheMetadata> {
     let metadata_path = cached_path.join(CACHE_METADATA_FILE);
     let metadata_str = std::fs::read_to_string(&metadata_path).map_err(|e| DicecutError::Io {
@@ -230,7 +219,6 @@ pub fn clear_cache(url: Option<&str>) -> Result<()> {
     let cache_dir = get_cache_dir()?;
 
     if let Some(url) = url {
-        // Clear specific entries matching this URL (any ref)
         if !cache_dir.exists() {
             return Ok(());
         }
@@ -244,14 +232,11 @@ pub fn clear_cache(url: Option<&str>) -> Result<()> {
                 })?;
             }
         }
-    } else {
-        // Clear entire cache
-        if cache_dir.exists() {
-            std::fs::remove_dir_all(&cache_dir).map_err(|e| DicecutError::Io {
-                context: format!("removing cache directory {}", cache_dir.display()),
-                source: e,
-            })?;
-        }
+    } else if cache_dir.exists() {
+        std::fs::remove_dir_all(&cache_dir).map_err(|e| DicecutError::Io {
+            context: format!("removing cache directory {}", cache_dir.display()),
+            source: e,
+        })?;
     }
 
     Ok(())
@@ -299,12 +284,11 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Get the current time as a Unix timestamp in seconds.
 fn unix_timestamp_secs() -> String {
     let duration = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
-    format!("{}", duration.as_secs())
+    duration.as_secs().to_string()
 }
 
 #[cfg(test)]

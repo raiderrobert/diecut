@@ -10,7 +10,6 @@ use crate::config::schema::{
 use crate::config::variable::{VariableConfig, VariableType};
 use crate::error::{DicecutError, Result};
 
-/// Resolve a cookiecutter template into a `ResolvedTemplate`.
 pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
     let json_path = template_dir.join("cookiecutter.json");
     let content = std::fs::read_to_string(&json_path).map_err(|e| DicecutError::Io {
@@ -32,7 +31,6 @@ pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
     let mut warnings = Vec::new();
     let mut prompts: BTreeMap<String, String> = BTreeMap::new();
 
-    // First pass: extract special keys
     for (key, value) in obj {
         match key.as_str() {
             "_copy_without_render" => {
@@ -69,14 +67,12 @@ pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
         }
     }
 
-    // Apply __prompts__ to matching variables
     for (name, prompt_text) in &prompts {
         if let Some(var) = variables.get_mut(name) {
             var.prompt = Some(prompt_text.clone());
         }
     }
 
-    // Check for hooks directory
     if template_dir.join("hooks").exists() {
         warnings.push(
             "Python hooks directory detected — hooks are not supported and will be skipped"
@@ -84,11 +80,9 @@ pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
         );
     }
 
-    // The content_dir is the template root. Only directories matching {{cookiecutter.*}}
-    // are actual template content. Everything else at root level gets excluded.
     let content_dir = template_dir.to_path_buf();
 
-    // Build excludes: everything at root except {{cookiecutter.*}} directories
+    // Exclude everything at root except {{cookiecutter.*}} directories
     let mut exclude = vec![
         "cookiecutter.json".to_string(),
         "hooks".to_string(),
@@ -97,7 +91,6 @@ pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
         ".git/**".to_string(),
     ];
 
-    // Exclude all root-level entries that are NOT the {{cookiecutter.*}} template directory
     if let Ok(entries) = std::fs::read_dir(template_dir) {
         for entry in entries.filter_map(|e| e.ok()) {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -114,7 +107,6 @@ pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
         }
     }
 
-    // Derive a template name from the directory name
     let name = template_dir
         .file_name()
         .and_then(|n| n.to_str())
@@ -149,7 +141,6 @@ pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
     })
 }
 
-/// Convert a cookiecutter.json value into a diecut VariableConfig.
 fn json_value_to_variable(
     key: &str,
     value: &serde_json::Value,
@@ -276,13 +267,11 @@ fn json_value_to_variable(
     }
 }
 
-/// Check if a string value contains Jinja2/Tera template expressions referencing cookiecutter.
 fn is_computed_expression(s: &str) -> bool {
     s.contains("{{") && s.contains("cookiecutter.")
 }
 
-/// Rewrite `cookiecutter.X` references to just `X` in a template expression.
-/// Also translates Jinja2 filter/method syntax to Tera syntax.
+/// Rewrite `cookiecutter.X` → `X` and translate Jinja2 syntax to Tera.
 fn rewrite_cookiecutter_refs(expr: &str) -> String {
     let ns_re = Regex::new(r"cookiecutter\.(\w+)").expect("valid regex");
     let result = ns_re.replace_all(expr, "$1").to_string();
@@ -290,10 +279,8 @@ fn rewrite_cookiecutter_refs(expr: &str) -> String {
     rewrite_jinja2_filters(&result)
 }
 
-/// Rewrite Jinja2 string method calls to Tera filter syntax.
-/// Jinja2: `var.replace('x', 'y')` → Tera: `var | replace(from="x", to="y")`
+/// `var.replace('x', 'y')` → `var | replace(from="x", to="y")`
 fn rewrite_jinja2_method_calls(expr: &str) -> String {
-    // Match var.replace('arg1', 'arg2') or var.replace("arg1", "arg2")
     let sq_re =
         Regex::new(r"(\w+)\.replace\(\s*'([^']*)'\s*,\s*'([^']*)'\s*\)").expect("valid regex");
     let result = sq_re
@@ -307,16 +294,13 @@ fn rewrite_jinja2_method_calls(expr: &str) -> String {
         .to_string()
 }
 
-/// Rewrite Jinja2-style filter calls to Tera syntax.
-/// Jinja2: `| replace('x', 'y')` → Tera: `| replace(from="x", to="y")`
+/// `| replace('x', 'y')` → `| replace(from="x", to="y")`
 fn rewrite_jinja2_filters(expr: &str) -> String {
-    // Match replace('arg1', 'arg2') with single quotes (as filter, no dot-prefix)
     let sq_re = Regex::new(r"replace\(\s*'([^']*)'\s*,\s*'([^']*)'\s*\)").expect("valid regex");
     let result = sq_re
         .replace_all(expr, r#"replace(from="$1", to="$2")"#)
         .to_string();
 
-    // Match replace("arg1", "arg2") with double quotes
     let dq_re = Regex::new(r#"replace\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\)"#).expect("valid regex");
     dq_re
         .replace_all(&result, r#"replace(from="$1", to="$2")"#)

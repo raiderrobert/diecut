@@ -6,44 +6,35 @@ use crate::config::schema::TemplateConfig;
 use crate::config::variable::{VariableConfig, VariableType};
 use crate::error::{DicecutError, Result};
 
-/// Options controlling how variables are collected.
 #[derive(Default)]
 pub struct PromptOptions {
-    /// Pre-supplied key=value overrides (from --data flags).
     pub data_overrides: HashMap<String, String>,
-    /// If true, use defaults without prompting.
     pub use_defaults: bool,
 }
 
-/// Collect all variable values by prompting the user (or using overrides/defaults).
-/// Returns a map of variable name → Tera Value.
 pub fn collect_variables(
     config: &TemplateConfig,
     options: &PromptOptions,
 ) -> Result<BTreeMap<String, Value>> {
     let mut values: BTreeMap<String, Value> = BTreeMap::new();
 
-    // First pass: collect prompted variables
     for (name, var) in &config.variables {
         if var.computed.is_some() {
             continue; // computed vars are handled in second pass
         }
 
-        // Evaluate `when` condition if present
         if let Some(when_expr) = &var.when {
             if !evaluate_when(name, when_expr, &values)? {
                 continue; // condition is false, skip
             }
         }
 
-        // Check for --data override
         if let Some(override_val) = options.data_overrides.get(name) {
             let value = parse_override(override_val, var);
             values.insert(name.clone(), value);
             continue;
         }
 
-        // Use defaults if --defaults flag is set
         if options.use_defaults {
             if let Some(default) = &var.default {
                 values.insert(name.clone(), toml_to_tera_value(default));
@@ -51,13 +42,11 @@ pub fn collect_variables(
             }
         }
 
-        // Interactive prompt
         let value = prompt_variable(name, var)?;
         values.insert(name.clone(), value);
     }
 
-    // Second pass: evaluate computed variables iteratively.
-    // Some computed variables depend on others, so we keep trying until all are resolved.
+    // Evaluate computed variables iteratively (they may depend on each other)
     let computed_vars: Vec<_> = config
         .variables
         .iter()

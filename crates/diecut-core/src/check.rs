@@ -3,7 +3,6 @@ use std::path::Path;
 use crate::adapter::{resolve_template, TemplateFormat};
 use crate::error::Result;
 
-/// Result of validating a template.
 pub struct CheckResult {
     pub format: TemplateFormat,
     pub template_name: String,
@@ -12,7 +11,6 @@ pub struct CheckResult {
     pub errors: Vec<String>,
 }
 
-/// Validate a template directory.
 pub fn check_template(template_dir: &Path) -> Result<CheckResult> {
     let resolved = resolve_template(template_dir)?;
     let config = &resolved.config;
@@ -20,12 +18,10 @@ pub fn check_template(template_dir: &Path) -> Result<CheckResult> {
     let mut warnings = resolved.warnings.clone();
     let mut errors = Vec::new();
 
-    // Validate variables
     if let Err(e) = config.validate() {
         errors.push(format!("Config validation: {e}"));
     }
 
-    // Check template directory exists
     if !resolved.content_dir.exists() {
         errors.push(format!(
             "Template content directory not found: {}",
@@ -33,7 +29,6 @@ pub fn check_template(template_dir: &Path) -> Result<CheckResult> {
         ));
     }
 
-    // Check hooks reference valid files
     for hook in &config.hooks.pre_generate {
         let hook_path = template_dir.join(hook);
         if !hook_path.exists() {
@@ -47,13 +42,11 @@ pub fn check_template(template_dir: &Path) -> Result<CheckResult> {
         }
     }
 
-    // Validate Tera syntax in template files
     let suffix = &config.template.templates_suffix;
     if resolved.content_dir.exists() {
         validate_tera_files(&resolved.content_dir, suffix, &mut warnings, &mut errors);
     }
 
-    // Check conditional expressions are parseable
     for cond in &config.files.conditional {
         if let Err(e) = validate_tera_expression(&cond.when) {
             errors.push(format!(
@@ -63,7 +56,6 @@ pub fn check_template(template_dir: &Path) -> Result<CheckResult> {
         }
     }
 
-    // Check 'when' expressions on variables
     for (name, var) in &config.variables {
         if let Some(when) = &var.when {
             if let Err(e) = validate_tera_expression(when) {
@@ -106,12 +98,10 @@ fn validate_tera_files(
         let path = entry.path();
         let path_str = path.to_string_lossy();
 
-        // Only check files with the template suffix
         if !suffix.is_empty() && !path_str.ends_with(suffix) {
             continue;
         }
 
-        // Skip binary files
         if crate::render::file::is_binary_file(path) {
             continue;
         }

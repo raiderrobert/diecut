@@ -13,15 +13,11 @@ use crate::template::{get_or_clone, resolve_source, TemplateSource};
 
 use merge::{three_way_merge, FileMergeResult, MergeAction};
 
-/// Options for the `update_project` operation.
 pub struct UpdateOptions {
-    /// Override the template source (if None, read from answers file).
     pub template_source: Option<String>,
-    /// Git ref to update to (branch, tag, or commit).
     pub git_ref: Option<String>,
 }
 
-/// Report of what happened during an update.
 pub struct UpdateReport {
     pub files_updated: Vec<PathBuf>,
     pub files_added: Vec<PathBuf>,
@@ -85,19 +81,11 @@ impl fmt::Display for UpdateReport {
     }
 }
 
-/// Update a project by re-applying its template with the latest version.
-///
-/// This performs a three-way merge:
-/// 1. Load old answers from the project's `.diecut-answers.toml`
-/// 2. Clone/fetch the latest template
-/// 3. Generate "old snapshot" (template at old ref + old answers)
-/// 4. Generate "new snapshot" (template at new ref + old answers)
-/// 5. Three-way merge: old snapshot vs new snapshot vs user's project
+/// Three-way merge: old snapshot (old ref + old answers) vs new snapshot (new ref + old answers)
+/// vs user's project.
 pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<UpdateReport> {
-    // 1. Load saved answers
     let saved = load_answers(project_path)?;
 
-    // Determine template source
     let template_arg = options
         .template_source
         .as_deref()
@@ -111,29 +99,22 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
 
     let new_ref = options.git_ref.as_deref();
 
-    // 2. Resolve template source for the new version
     let new_source = resolve_source(template_arg)?;
     let new_template_dir = match &new_source {
         TemplateSource::Local(path) => path.clone(),
         TemplateSource::Git { url, git_ref: _ } => get_or_clone(url, new_ref)?.0,
     };
 
-    // 3. Generate old snapshot (using old ref if available)
     let old_snapshot = tempfile::tempdir().map_err(|e| DicecutError::Io {
         context: "creating temp dir for old snapshot".into(),
         source: e,
     })?;
 
-    // For old snapshot, we need to get the template at the old ref
     let old_template_dir = match &new_source {
-        TemplateSource::Local(path) => {
-            // For local templates, old and new are the same (no versioning)
-            path.clone()
-        }
+        TemplateSource::Local(path) => path.clone(),
         TemplateSource::Git { url, .. } => get_or_clone(url, saved.template_ref.as_deref())?.0,
     };
 
-    // Resolve and render old snapshot
     let old_resolved = resolve_template(&old_template_dir)?;
     let old_variables = build_variables_from_answers(&saved.answers, &old_resolved);
     let old_context = build_context_with_namespace(&old_variables, &old_resolved.context_namespace);
@@ -144,7 +125,6 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
         &old_context,
     )?;
 
-    // 4. Generate new snapshot
     let new_snapshot = tempfile::tempdir().map_err(|e| DicecutError::Io {
         context: "creating temp dir for new snapshot".into(),
         source: e,
@@ -160,12 +140,10 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
         &new_context,
     )?;
 
-    // 5. Three-way merge
     let merge_results = three_way_merge(project_path, old_snapshot.path(), new_snapshot.path())?;
 
     let report = UpdateReport::from_results(&merge_results);
 
-    // 6. Apply the merge
     merge::apply_merge(
         project_path,
         new_snapshot.path(),
@@ -173,7 +151,6 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
         &merge_results,
     )?;
 
-    // 7. Update the answers file with new ref
     let effective_ref = new_ref.or(saved.template_ref.as_deref());
     write_answers_with_source(
         project_path,
@@ -187,27 +164,24 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
     Ok(report)
 }
 
-/// Build a BTreeMap of tera variables from saved TOML answer values,
-/// using defaults from the config for any missing variables.
+/// Uses defaults from config for any missing variables.
 fn build_variables_from_answers(
     answers: &std::collections::HashMap<String, toml::Value>,
     resolved: &crate::adapter::ResolvedTemplate,
 ) -> BTreeMap<String, tera::Value> {
     let mut variables = BTreeMap::new();
 
-    // First, apply defaults from the template config
     for (name, var_config) in &resolved.config.variables {
         if let Some(default) = &var_config.default {
             variables.insert(name.clone(), toml_value_to_tera(default));
         }
     }
 
-    // Then override with saved answers
     for (name, value) in answers {
         variables.insert(name.clone(), toml_value_to_tera(value));
     }
 
-    // Evaluate computed variables (we can't use collect_variables since it prompts interactively)
+    // Can't use collect_variables here since it prompts interactively
     let computed_vars: Vec<_> = resolved
         .config
         .variables

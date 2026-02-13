@@ -8,20 +8,14 @@ use crate::adapter::TemplateFormat;
 use crate::config::schema::TemplateConfig;
 use crate::error::{DicecutError, Result};
 
-/// A planned file operation for migration.
 #[derive(Debug, Clone)]
 pub enum FileOp {
-    /// Move a file from src to dest.
     Move { src: PathBuf, dest: PathBuf },
-    /// Create a new file with the given content.
     Create { path: PathBuf, content: String },
-    /// Delete a file.
     Delete { path: PathBuf },
-    /// Rewrite a file's contents (src path, with description of what changed).
     Rewrite { path: PathBuf, description: String },
 }
 
-/// A migration plan that can be previewed (dry-run) or executed.
 #[derive(Debug)]
 pub struct MigrationPlan {
     pub source_format: TemplateFormat,
@@ -30,7 +24,6 @@ pub struct MigrationPlan {
     pub warnings: Vec<String>,
 }
 
-/// Plan a migration from a foreign template format to native diecut format.
 pub fn plan_migration(template_dir: &Path) -> Result<MigrationPlan> {
     let format = detect_format(template_dir)?;
 
@@ -52,18 +45,13 @@ fn plan_cookiecutter_migration(template_dir: &Path) -> Result<MigrationPlan> {
     let mut operations = Vec::new();
     let mut warnings = resolved.warnings;
 
-    // Find the {{cookiecutter.*}} directory
     let cc_dir = find_cookiecutter_dir(template_dir)?;
     let cc_dir_name = cc_dir.file_name().unwrap().to_string_lossy().to_string();
 
-    // Rewrite the directory name: {{cookiecutter.X}} → {{X}}
     let new_dir_name = rewrite_cc_dirname(&cc_dir_name);
-
-    // Plan: create template/ directory and move the content there
     let template_subdir = PathBuf::from("template");
     let new_content_path = template_subdir.join(&new_dir_name);
 
-    // Walk the {{cookiecutter.*}} directory and plan file moves
     for entry in walkdir::WalkDir::new(&cc_dir)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -77,12 +65,10 @@ fn plan_cookiecutter_migration(template_dir: &Path) -> Result<MigrationPlan> {
             continue;
         }
 
-        // Rewrite the relative path: remove cookiecutter. prefix from directory components
         let new_rel = rewrite_cc_path(rel_path);
 
         let dest = new_content_path.join(&new_rel);
 
-        // Check if file contains template syntax that needs .tera suffix
         let needs_tera_suffix = if src_path.is_file() {
             if let Ok(content) = std::fs::read_to_string(src_path) {
                 content.contains("{{") || content.contains("{%")
@@ -106,7 +92,6 @@ fn plan_cookiecutter_migration(template_dir: &Path) -> Result<MigrationPlan> {
             dest,
         });
 
-        // Check if the file content needs cookiecutter.X → X rewriting
         if src_path.is_file() {
             if let Ok(content) = std::fs::read_to_string(src_path) {
                 if content.contains("cookiecutter.") {
@@ -126,21 +111,17 @@ fn plan_cookiecutter_migration(template_dir: &Path) -> Result<MigrationPlan> {
         }
     }
 
-    // Generate diecut.toml content
     let diecut_toml = generate_diecut_toml(&resolved.config);
 
-    // Plan: create diecut.toml
     operations.push(FileOp::Create {
         path: PathBuf::from("diecut.toml"),
         content: diecut_toml.clone(),
     });
 
-    // Plan: delete cookiecutter.json
     operations.push(FileOp::Delete {
         path: PathBuf::from("cookiecutter.json"),
     });
 
-    // Check for hooks directory
     if template_dir.join("hooks").exists() {
         warnings.push(
             "Python hooks cannot be migrated automatically — remove hooks/ and reimplement if needed"
@@ -156,7 +137,6 @@ fn plan_cookiecutter_migration(template_dir: &Path) -> Result<MigrationPlan> {
     })
 }
 
-/// Execute a migration plan, writing files to the output directory.
 pub fn execute_migration(
     plan: &MigrationPlan,
     template_dir: &Path,
