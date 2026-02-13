@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{DicecutError, Result};
-use crate::template::clone::clone_template;
+use crate::template::clone::{clone_template, CloneResult};
 
 /// Metadata stored alongside a cached template.
 #[derive(Debug, Serialize, Deserialize)]
@@ -124,38 +124,57 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
 
     let clone_result = clone_template(url, git_ref)?;
 
+    write_cache_metadata(
+        clone_result.dir.path(),
+        url,
+        git_ref,
+        clone_result.commit_sha.as_deref(),
+    )?;
+
+    let commit_sha = clone_result.commit_sha.clone();
+    place_in_cache(clone_result, &cached_path)?;
+
+    Ok((cached_path, commit_sha))
+}
+
+/// Serialize and write cache metadata into the cloned template directory.
+fn write_cache_metadata(
+    dir: &Path,
+    url: &str,
+    git_ref: Option<&str>,
+    commit_sha: Option<&str>,
+) -> Result<()> {
     let metadata = CacheMetadata {
         url: url.to_string(),
         git_ref: git_ref.map(String::from),
         cached_at: unix_timestamp_secs(),
-        commit_sha: clone_result.commit_sha.clone(),
+        commit_sha: commit_sha.map(String::from),
     };
     let metadata_toml =
         toml::to_string_pretty(&metadata).map_err(|e| DicecutError::CacheMetadata {
             context: format!("serializing cache metadata: {e}"),
         })?;
-    std::fs::write(
-        clone_result.dir.path().join(CACHE_METADATA_FILE),
-        metadata_toml,
-    )
-    .map_err(|e| DicecutError::Io {
+    std::fs::write(dir.join(CACHE_METADATA_FILE), metadata_toml).map_err(|e| DicecutError::Io {
         context: "writing cache metadata".into(),
         source: e,
-    })?;
+    })
+}
 
+/// Move the cloned tempdir into its final cache location.
+///
+/// Falls back to recursive copy if rename fails (e.g. across filesystems).
+/// The tempdir is leaked on success so it isn't cleaned up.
+fn place_in_cache(clone_result: CloneResult, cached_path: &Path) -> Result<()> {
     if cached_path.exists() {
-        std::fs::remove_dir_all(&cached_path).map_err(|e| DicecutError::Io {
+        std::fs::remove_dir_all(cached_path).map_err(|e| DicecutError::Io {
             context: format!("removing stale cache entry {}", cached_path.display()),
             source: e,
         })?;
     }
 
-    // Only persist (leak) the tempdir after successful placement —
-    // on error, drop cleans it up.
-    let commit_sha = clone_result.commit_sha.clone();
-    std::fs::rename(clone_result.dir.path(), &cached_path).or_else(|rename_err| {
+    std::fs::rename(clone_result.dir.path(), cached_path).or_else(|rename_err| {
         // rename can fail across filesystems; fall back to copy + delete
-        copy_dir_all(clone_result.dir.path(), &cached_path).map_err(|e| DicecutError::Io {
+        copy_dir_all(clone_result.dir.path(), cached_path).map_err(|e| DicecutError::Io {
             context: format!("copying cloned template to cache (rename failed: {rename_err}): {e}"),
             source: std::io::Error::other(e.to_string()),
         })?;
@@ -164,8 +183,7 @@ pub fn get_or_clone(url: &str, git_ref: Option<&str>) -> Result<(PathBuf, Option
 
     // Source may already be gone after a successful rename.
     let _ = clone_result.dir.keep();
-
-    Ok((cached_path, commit_sha))
+    Ok(())
 }
 
 fn read_cache_metadata(cached_path: &Path) -> Result<CacheMetadata> {
