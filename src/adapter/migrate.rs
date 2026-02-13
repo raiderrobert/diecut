@@ -378,8 +378,8 @@ mod tests {
 
     #[test]
     fn test_find_cookiecutter_dir() {
-        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/fixtures/cookiecutter-basic");
+        let fixture =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/cookiecutter-basic");
         let dir = find_cookiecutter_dir(&fixture).unwrap();
         assert!(dir
             .file_name()

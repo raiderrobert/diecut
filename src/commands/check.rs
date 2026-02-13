@@ -3,7 +3,7 @@ use std::path::Path;
 use console::style;
 use miette::Result;
 
-use diecut_core::check::check_template;
+use diecut::check::check_template;
 
 pub fn run(path: String) -> Result<()> {
     let template_dir = Path::new(&path);
@@ -19,8 +19,8 @@ pub fn run(path: String) -> Result<()> {
     println!(
         "  Format: {}",
         match result.format {
-            diecut_core::adapter::TemplateFormat::Native => "native (diecut)",
-            diecut_core::adapter::TemplateFormat::Cookiecutter => "cookiecutter",
+            diecut::adapter::TemplateFormat::Native => "native (diecut)",
+            diecut::adapter::TemplateFormat::Cookiecutter => "cookiecutter",
         }
     );
     println!("  Name: {}", result.template_name);
