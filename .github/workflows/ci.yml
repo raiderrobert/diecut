@@ -3,8 +3,22 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - "crates/**"
+      - "examples/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "justfile"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "crates/**"
+      - "examples/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "justfile"
+      - ".github/workflows/ci.yml"
 
 env:
   CARGO_TERM_COLOR: always
@@ -24,8 +38,8 @@ jobs:
       - name: Run checks
         run: just check
 
-  external-templates:
-    name: External Template Compatibility
+  examples:
+    name: Example Template Smoke Tests
     runs-on: ubuntu-latest
     needs: [check]
     steps:
@@ -35,15 +49,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build diecut
         run: just build
-      - name: Test cookiecutter-pypackage
-        run: |
-          git clone --depth 1 https://github.com/audreyfeldroy/cookiecutter-pypackage.git /tmp/cc-pypackage
-          ./target/release/diecut new /tmp/cc-pypackage --defaults --output /tmp/out-pypackage || echo "::warning::cookiecutter-pypackage failed (may use unsupported features)"
-      - name: Test cookiecutter-django
-        run: |
-          git clone --depth 1 https://github.com/cookiecutter/cookiecutter-django.git /tmp/cc-django
-          ./target/release/diecut new /tmp/cc-django --defaults --output /tmp/out-django || echo "::warning::cookiecutter-django failed (may use unsupported features)"
-      - name: Test cookiecutter-golang
-        run: |
-          git clone --depth 1 https://github.com/lacion/cookiecutter-golang.git /tmp/cc-golang
-          ./target/release/diecut new /tmp/cc-golang --defaults --output /tmp/out-golang || echo "::warning::cookiecutter-golang failed (may use unsupported features)"
+      - name: Test examples/python-pkg
+        run: ./target/release/diecut new examples/python-pkg --defaults --data author=CI --output /tmp/out-python-pkg
+      - name: Test examples/rust-cli
+        run: ./target/release/diecut new examples/rust-cli --defaults --data author=CI --output /tmp/out-rust-cli
