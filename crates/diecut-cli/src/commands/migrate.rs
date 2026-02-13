@@ -85,7 +85,14 @@ pub fn run(path: String, output: Option<String>, dry_run: bool) -> Result<()> {
     };
 
     if output_dir == template_dir {
-        // In-place migration: back up the original first
+        // In-place migration: stage to temp dir, then rename-swap
+        let parent = template_dir.parent().ok_or_else(|| {
+            miette::miette!(
+                "cannot determine parent directory of {}",
+                template_dir.display()
+            )
+        })?;
+
         let backup_dir = template_dir.with_file_name(format!(
             "{}.pre-migrate",
             template_dir
@@ -101,54 +108,23 @@ pub fn run(path: String, output: Option<String>, dry_run: bool) -> Result<()> {
             ));
         }
 
-        // Copy original to backup
-        copy_dir_all(&template_dir, &backup_dir)
-            .map_err(|e| miette::miette!("failed to create backup: {e}"))?;
+        let staging = tempfile::tempdir_in(parent)
+            .map_err(|e| miette::miette!("failed to create staging directory: {e}"))?;
+
+        execute_migration(&plan, &template_dir, staging.path())?;
+
+        // Atomic swap: rename original → backup, rename staging → original
+        std::fs::rename(&template_dir, &backup_dir)
+            .map_err(|e| miette::miette!("failed to move original to backup: {e}"))?;
+
+        std::fs::rename(staging.keep(), &template_dir)
+            .map_err(|e| miette::miette!("failed to move staged migration into place: {e}"))?;
 
         println!(
             "\n{} Backed up original to {}",
             style("ℹ").blue().bold(),
             style(backup_dir.display()).cyan()
         );
-
-        // Execute migration to a temporary directory, then swap
-        let staging = tempfile::tempdir()
-            .map_err(|e| miette::miette!("failed to create staging directory: {e}"))?;
-
-        execute_migration(&plan, &template_dir, staging.path())?;
-
-        // Remove original contents and move staged result in
-        for entry in std::fs::read_dir(&template_dir)
-            .map_err(|e| miette::miette!("reading template directory: {e}"))?
-        {
-            let entry = entry.map_err(|e| miette::miette!("reading directory entry: {e}"))?;
-            let path = entry.path();
-            if path.is_dir() {
-                std::fs::remove_dir_all(&path)
-                    .map_err(|e| miette::miette!("removing {}: {e}", path.display()))?;
-            } else {
-                std::fs::remove_file(&path)
-                    .map_err(|e| miette::miette!("removing {}: {e}", path.display()))?;
-            }
-        }
-
-        for entry in std::fs::read_dir(staging.path())
-            .map_err(|e| miette::miette!("reading staging directory: {e}"))?
-        {
-            let entry = entry.map_err(|e| miette::miette!("reading directory entry: {e}"))?;
-            let dest = template_dir.join(entry.file_name());
-            std::fs::rename(entry.path(), &dest).or_else(|_| {
-                if entry.path().is_dir() {
-                    copy_dir_all(&entry.path(), &dest)?;
-                    std::fs::remove_dir_all(entry.path())
-                        .map_err(|e| miette::miette!("cleaning staging: {e}"))
-                } else {
-                    std::fs::copy(entry.path(), &dest)
-                        .map(|_| ())
-                        .map_err(|e| miette::miette!("copying to destination: {e}"))
-                }
-            })?;
-        }
 
         println!(
             "\n{} Template migrated in place at {}",
@@ -163,33 +139,6 @@ pub fn run(path: String, output: Option<String>, dry_run: bool) -> Result<()> {
             style("✓").green().bold(),
             style(output_dir.display()).cyan()
         );
-    }
-
-    Ok(())
-}
-
-fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
-    std::fs::create_dir_all(dst)
-        .map_err(|e| miette::miette!("creating directory {}: {e}", dst.display()))?;
-
-    for entry in std::fs::read_dir(src)
-        .map_err(|e| miette::miette!("reading directory {}: {e}", src.display()))?
-    {
-        let entry = entry.map_err(|e| miette::miette!("reading directory entry: {e}"))?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-
-        if src_path.is_dir() {
-            copy_dir_all(&src_path, &dst_path)?;
-        } else {
-            std::fs::copy(&src_path, &dst_path).map_err(|e| {
-                miette::miette!(
-                    "copying {} to {}: {e}",
-                    src_path.display(),
-                    dst_path.display()
-                )
-            })?;
-        }
     }
 
     Ok(())
