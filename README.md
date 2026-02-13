@@ -1,6 +1,6 @@
 # diecut
 
-A single-binary project template generator.
+A single-binary project template generator written in Rust.
 
 ## Install
 
