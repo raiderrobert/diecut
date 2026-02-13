@@ -50,4 +50,4 @@ cargo clippy -- -D warnings
 
 ## License
 
-MIT
+[MIT](LICENSE)
