@@ -115,13 +115,15 @@ pub enum DicecutError {
     #[diagnostic(help("Use https:// URLs for remote templates"))]
     UnsafeUrl { url: String, reason: String },
 
-    #[error("Git clone failed for {url}")]
-    #[diagnostic(help("Check the URL and your network connection"))]
-    GitClone { url: String, reason: String },
+    #[error("git is not installed")]
+    #[diagnostic(help("Install git from https://git-scm.com"))]
+    GitNotFound,
 
-    #[error("Git checkout failed for ref '{git_ref}'")]
-    #[diagnostic(help("Ensure the branch, tag, or commit exists in the repository"))]
-    GitCheckout { git_ref: String, reason: String },
+    #[error("Git clone failed for '{url}': {reason}")]
+    #[diagnostic(help(
+        "For private repos, ensure git credentials are configured: run `gh auth login` or set up SSH keys"
+    ))]
+    GitClone { url: String, reason: String },
 
     #[error("No answers file found in {path}")]
     #[diagnostic(help(
