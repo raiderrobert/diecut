@@ -6,6 +6,8 @@ use diecut_core::adapter::{self, TemplateFormat};
 use diecut_core::config::load_config;
 use diecut_core::prompt::PromptOptions;
 use diecut_core::render::{build_context, build_context_with_namespace, walk_and_render};
+use diecut_core::template::source::{resolve_source, resolve_source_full};
+use diecut_core::update::merge::{three_way_merge, MergeAction};
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -532,4 +534,176 @@ fn test_migration_execute() {
     // The migrated template should be usable with diecut
     let migrated_resolved = adapter::resolve_template(output_dir.path()).unwrap();
     assert_eq!(migrated_resolved.format, TemplateFormat::Native);
+}
+
+// --- Edge case: merge with binary files ---
+
+#[test]
+fn test_three_way_merge_binary_files_unchanged() {
+    let old_snap = tempfile::tempdir().unwrap();
+    let new_snap = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+
+    // Binary content (has null bytes)
+    let binary = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR";
+    std::fs::write(old_snap.path().join("logo.png"), binary).unwrap();
+    std::fs::write(new_snap.path().join("logo.png"), binary).unwrap();
+    std::fs::write(project.path().join("logo.png"), binary).unwrap();
+
+    let results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
+    // All identical → should produce no changes
+    assert!(
+        results.is_empty(),
+        "identical binary files should produce no merge results"
+    );
+}
+
+#[test]
+fn test_three_way_merge_binary_file_updated_in_template() {
+    let old_snap = tempfile::tempdir().unwrap();
+    let new_snap = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+
+    let old_binary = b"\x89PNG\r\n\x1a\n\x00OLD";
+    let new_binary = b"\x89PNG\r\n\x1a\n\x00NEW";
+    std::fs::write(old_snap.path().join("logo.png"), old_binary).unwrap();
+    std::fs::write(new_snap.path().join("logo.png"), new_binary).unwrap();
+    std::fs::write(project.path().join("logo.png"), old_binary).unwrap();
+
+    let results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].action, MergeAction::UpdateFromTemplate);
+}
+
+// --- Edge case: merge with empty files ---
+
+#[test]
+fn test_three_way_merge_empty_files() {
+    let old_snap = tempfile::tempdir().unwrap();
+    let new_snap = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+
+    std::fs::write(old_snap.path().join("empty.txt"), "").unwrap();
+    std::fs::write(new_snap.path().join("empty.txt"), "").unwrap();
+    std::fs::write(project.path().join("empty.txt"), "").unwrap();
+
+    let results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
+    assert!(
+        results.is_empty(),
+        "identical empty files should be unchanged"
+    );
+}
+
+#[test]
+fn test_three_way_merge_empty_to_content() {
+    let old_snap = tempfile::tempdir().unwrap();
+    let new_snap = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+
+    std::fs::write(old_snap.path().join("file.txt"), "").unwrap();
+    std::fs::write(new_snap.path().join("file.txt"), "new content").unwrap();
+    std::fs::write(project.path().join("file.txt"), "").unwrap();
+
+    let results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].action, MergeAction::UpdateFromTemplate);
+}
+
+// --- Edge case: merge with nested directory changes ---
+
+#[test]
+fn test_three_way_merge_nested_new_file() {
+    let old_snap = tempfile::tempdir().unwrap();
+    let new_snap = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+
+    // Common file in all three
+    std::fs::write(old_snap.path().join("root.txt"), "stable").unwrap();
+    std::fs::write(new_snap.path().join("root.txt"), "stable").unwrap();
+    std::fs::write(project.path().join("root.txt"), "stable").unwrap();
+
+    // New file in a nested directory only in new snapshot
+    std::fs::create_dir_all(new_snap.path().join("sub/deep")).unwrap();
+    std::fs::write(new_snap.path().join("sub/deep/new.txt"), "hello").unwrap();
+
+    let results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
+    let new_file = results
+        .iter()
+        .find(|r| r.rel_path.to_string_lossy().contains("new.txt"));
+    assert!(new_file.is_some(), "should detect new nested file");
+    assert_eq!(new_file.unwrap().action, MergeAction::AddFromTemplate);
+}
+
+// --- Edge case: both sides converge to same content ---
+
+#[test]
+fn test_three_way_merge_convergent_changes() {
+    let old_snap = tempfile::tempdir().unwrap();
+    let new_snap = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+
+    std::fs::write(old_snap.path().join("file.txt"), "original").unwrap();
+    // Both user and template independently changed to the same content
+    std::fs::write(new_snap.path().join("file.txt"), "converged").unwrap();
+    std::fs::write(project.path().join("file.txt"), "converged").unwrap();
+
+    let results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
+    // Should detect convergence → no conflict
+    assert!(
+        results.is_empty() || results.iter().all(|r| r.action == MergeAction::Unchanged),
+        "convergent changes should not produce a conflict"
+    );
+}
+
+// --- Edge case: template source URL parsing ---
+
+#[test]
+fn test_resolve_source_rejects_empty_abbreviation_remainder() {
+    assert!(resolve_source("gh:").is_err());
+    assert!(resolve_source("gl:").is_err());
+    assert!(resolve_source("bb:").is_err());
+    assert!(resolve_source("sr:").is_err());
+}
+
+#[test]
+fn test_resolve_source_user_abbreviation_empty_remainder() {
+    let mut abbrevs = std::collections::HashMap::new();
+    abbrevs.insert("co".to_string(), "https://git.co.com/{}.git".to_string());
+    assert!(resolve_source_full("co:", None, Some(&abbrevs)).is_err());
+}
+
+// --- Edge case: unsupported template format ---
+
+#[test]
+fn test_resolve_template_unsupported_format() {
+    let tmp = tempfile::tempdir().unwrap();
+    // No diecut.toml or cookiecutter.json
+    std::fs::write(tmp.path().join("random.txt"), "not a template").unwrap();
+
+    let result = adapter::resolve_template(tmp.path());
+    assert!(result.is_err(), "should fail for unsupported format");
+}
+
+// --- Edge case: render with special characters in variable values ---
+
+#[test]
+fn test_render_with_special_characters() {
+    let template_dir = fixture_path("basic-template");
+    let resolved = adapter::resolve_template(&template_dir).unwrap();
+
+    let mut variables = default_variables();
+    // Use a name with special characters that could trip up template engines
+    variables.insert(
+        "project_name".to_string(),
+        tera::Value::String("my-project_v2.0".to_string()),
+    );
+    variables.insert(
+        "project_slug".to_string(),
+        tera::Value::String("my-project_v2.0".to_string()),
+    );
+
+    let context = build_context(&variables);
+    let output_dir = tempfile::tempdir().unwrap();
+    let result = walk_and_render(&resolved, output_dir.path(), &variables, &context);
+    assert!(result.is_ok(), "should handle special characters in values");
 }
