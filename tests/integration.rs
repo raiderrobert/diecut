@@ -880,6 +880,62 @@ fn test_plan_render_conditional_exclude() {
     );
 }
 
+// --- Dry-run: verbose content available in plan ---
+
+#[test]
+fn test_plan_generation_verbose_has_content() {
+    let template_dir = fixture_path("basic-template");
+
+    let tmp = tempfile::tempdir().unwrap();
+    let output_path = tmp.path().join("verbose-output");
+
+    let options = diecut::GenerateOptions {
+        template: template_dir.to_string_lossy().to_string(),
+        output: Some(output_path.to_string_lossy().to_string()),
+        data: vec![
+            ("project_name".to_string(), "test-project".to_string()),
+            ("author".to_string(), "Jane Doe".to_string()),
+            ("use_docker".to_string(), "false".to_string()),
+            ("license".to_string(), "MIT".to_string()),
+        ],
+        defaults: true,
+        overwrite: false,
+        no_hooks: true,
+    };
+
+    let plan = diecut::plan_generation(options).unwrap();
+
+    // Rendered files should have non-empty content with template variables resolved
+    for file in &plan.render_plan.files {
+        assert!(
+            !file.content.is_empty(),
+            "file {} should have content",
+            file.relative_path.display()
+        );
+
+        if !file.is_copy {
+            // Rendered files should be valid UTF-8
+            let text = String::from_utf8(file.content.clone());
+            assert!(
+                text.is_ok(),
+                "rendered file {} should be valid UTF-8",
+                file.relative_path.display()
+            );
+        }
+    }
+
+    // At least one rendered file should contain the resolved project name
+    let has_project_name = plan
+        .render_plan
+        .files
+        .iter()
+        .any(|f| !f.is_copy && String::from_utf8_lossy(&f.content).contains("test-project"));
+    assert!(
+        has_project_name,
+        "at least one rendered file should contain the resolved project name"
+    );
+}
+
 // --- Dry-run: merge report without writing changes ---
 
 #[test]
