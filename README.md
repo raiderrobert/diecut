@@ -11,7 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/raiderrobert/diecut/main/install.sh
 Or build from source:
 
 ```bash
-cargo install --path crates/diecut-cli
+cargo install --path .
 ```
 
 Or grab a binary from [GitHub Releases](https://github.com/raiderrobert/diecut/releases).
@@ -40,13 +40,9 @@ Full documentation: **[diecut docs](https://diecut.dev/)**
 - [diecut.toml Reference](https://diecut.dev/diecut/reference/diecut-toml/) — complete config file reference
 - [Hooks Reference](https://diecut.dev/diecut/reference/hooks/) — Rhai scripting for templates
 
-## Development
+## Contributing
 
-```bash
-cargo test
-cargo fmt --check
-cargo clippy -- -D warnings
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and workflow.
 
 ## License
 
