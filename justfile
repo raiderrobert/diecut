@@ -30,4 +30,4 @@ docs-build:
 
 # Install diecut locally
 install:
-    cargo install --path crates/diecut-cli
+    cargo install --path .
