@@ -1,3 +1,4 @@
+use console::style;
 use diecut::GenerateOptions;
 use miette::Result;
 
@@ -8,6 +9,7 @@ pub fn run(
     defaults: bool,
     overwrite: bool,
     no_hooks: bool,
+    dry_run: bool,
 ) -> Result<()> {
     let data_pairs: Vec<(String, String)> = data
         .into_iter()
@@ -28,7 +30,39 @@ pub fn run(
         no_hooks,
     };
 
-    diecut::generate(options)?;
+    if dry_run {
+        let plan = diecut::plan_generation(options)?;
+
+        let rendered_count = plan.render_plan.files.iter().filter(|f| !f.is_copy).count();
+        let copied_count = plan.render_plan.files.iter().filter(|f| f.is_copy).count();
+
+        println!(
+            "\n{} Dry run \u{2014} files that would be generated in {}:",
+            style("==>").cyan().bold(),
+            style(plan.output_dir.display()).cyan()
+        );
+
+        for file in &plan.render_plan.files {
+            let action = if file.is_copy { "copy  " } else { "create" };
+            println!(
+                "  {} {}",
+                style(action).green(),
+                file.relative_path.display()
+            );
+        }
+
+        println!(
+            "\nSummary: {} rendered, {} copied",
+            rendered_count, copied_count
+        );
+
+        println!(
+            "\n{} Dry run \u{2014} no files written.",
+            style("\u{2139}").blue().bold()
+        );
+    } else {
+        diecut::generate(options)?;
+    }
 
     Ok(())
 }
