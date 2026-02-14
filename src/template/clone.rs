@@ -57,7 +57,10 @@ pub fn clone_template(url: &str, git_ref: Option<&str>) -> Result<CloneResult> {
     })?;
 
     let mut cmd = Command::new("git");
-    cmd.arg("clone").arg("--depth").arg("1");
+    cmd.env("GIT_TERMINAL_PROMPT", "0")
+        .arg("clone")
+        .arg("--depth")
+        .arg("1");
 
     if let Some(ref_name) = git_ref {
         cmd.arg("--branch").arg(ref_name);
@@ -176,6 +179,14 @@ mod tests {
         let msg =
             classify_clone_error("fatal: unable to access: Could not resolve host: github.com");
         assert!(msg.contains("network error"));
+    }
+
+    #[test]
+    fn classify_terminal_prompts_disabled() {
+        let msg = classify_clone_error(
+            "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+        );
+        assert!(msg.contains("configure git credentials"));
     }
 
     #[test]
