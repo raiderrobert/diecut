@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/raiderrobert/diecut/compare/v0.1.2...v0.1.3) (2026-02-14)
+
+
+### Bug Fixes
+
+* release binaries not building for v0.1.1+ ([1037550](https://github.com/raiderrobert/diecut/commit/103755082099c341935d45d640cf73137b93ebe9))
+* release binaries not building for v0.1.1+ ([97ebd42](https://github.com/raiderrobert/diecut/commit/97ebd42de4cdd5899948393b5e132c45a0799c8b))
+
 ## [0.1.2](https://github.com/raiderrobert/diecut/compare/v0.1.1...v0.1.2) (2026-02-14)
 
 
