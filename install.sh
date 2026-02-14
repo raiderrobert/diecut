@@ -17,7 +17,7 @@ main() {
         echo "  - macOS (Apple Silicon / aarch64)" >&2
         echo "  - Linux (x86_64)" >&2
         echo "" >&2
-        echo "You can build from source instead: cargo install --path crates/diecut-cli" >&2
+        echo "You can build from source instead: cargo install --path ." >&2
         exit 1
     fi
 
