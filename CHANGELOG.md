@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.4](https://github.com/raiderrobert/diecut/compare/v0.1.3...v0.1.4) (2026-02-14)
+
+
+### Bug Fixes
+
+* add --repo flag to gh workflow dispatch ([717d133](https://github.com/raiderrobert/diecut/commit/717d13352d05b3c178ecf0ada5a97c4dd01c7e93))
+* add actions:write permission for workflow dispatch ([a311d17](https://github.com/raiderrobert/diecut/commit/a311d171dbbe27de405ea413713d92e82ad40b0b))
+* release binaries not building for v0.1.1+ ([2e482bf](https://github.com/raiderrobert/diecut/commit/2e482bf83e82ad2579527ad6814898c31fb8381f))
+
 ## [0.1.3](https://github.com/raiderrobert/diecut/compare/v0.1.2...v0.1.3) (2026-02-14)
 
 
