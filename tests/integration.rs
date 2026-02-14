@@ -5,7 +5,9 @@ use diecut::adapter::migrate::{execute_migration, plan_migration, FileOp};
 use diecut::adapter::{self, TemplateFormat};
 use diecut::config::load_config;
 use diecut::prompt::PromptOptions;
-use diecut::render::{build_context, build_context_with_namespace, walk_and_render};
+use diecut::render::{
+    build_context, build_context_with_namespace, execute_plan, plan_render, walk_and_render,
+};
 use diecut::template::source::{resolve_source, resolve_source_full};
 use diecut::update::merge::{three_way_merge, MergeAction};
 
@@ -728,5 +730,111 @@ fn test_render_with_special_characters() {
     assert!(
         cargo_content.contains("my-project_v2.0"),
         "Cargo.toml should contain the special character project name, got: {cargo_content}"
+    );
+}
+
+// --- plan_render + execute_plan tests ---
+
+#[test]
+fn test_plan_render_matches_walk_and_render() {
+    let template_dir = fixture_path("basic-template");
+    let resolved = adapter::resolve_template(&template_dir).unwrap();
+    let variables = default_variables();
+    let context = build_context(&variables);
+
+    // Generate via plan_render + execute_plan
+    let plan = plan_render(&resolved, &variables, &context).unwrap();
+    let plan_output = tempfile::tempdir().unwrap();
+    let plan_result = execute_plan(&plan, plan_output.path()).unwrap();
+
+    // Generate via walk_and_render
+    let walk_output = tempfile::tempdir().unwrap();
+    let walk_result = walk_and_render(&resolved, walk_output.path(), &variables, &context).unwrap();
+
+    // Same file counts
+    assert_eq!(
+        plan_result.files_created.len(),
+        walk_result.files_created.len(),
+        "rendered file count should match"
+    );
+    assert_eq!(
+        plan_result.files_copied.len(),
+        walk_result.files_copied.len(),
+        "copied file count should match"
+    );
+
+    // Same file paths (sorted for stable comparison)
+    let mut plan_created: Vec<_> = plan_result.files_created.clone();
+    plan_created.sort();
+    let mut walk_created: Vec<_> = walk_result.files_created.clone();
+    walk_created.sort();
+    assert_eq!(
+        plan_created, walk_created,
+        "rendered file paths should match"
+    );
+
+    let mut plan_copied: Vec<_> = plan_result.files_copied.clone();
+    plan_copied.sort();
+    let mut walk_copied: Vec<_> = walk_result.files_copied.clone();
+    walk_copied.sort();
+    assert_eq!(plan_copied, walk_copied, "copied file paths should match");
+
+    // Same file contents
+    for rel_path in plan_result
+        .files_created
+        .iter()
+        .chain(plan_result.files_copied.iter())
+    {
+        let plan_file = plan_output.path().join(rel_path);
+        let walk_file = walk_output.path().join(rel_path);
+        let plan_bytes = std::fs::read(&plan_file).unwrap();
+        let walk_bytes = std::fs::read(&walk_file).unwrap();
+        assert_eq!(
+            plan_bytes,
+            walk_bytes,
+            "content mismatch for {}",
+            rel_path.display()
+        );
+    }
+}
+
+#[test]
+fn test_plan_render_file_counts() {
+    let template_dir = fixture_path("basic-template");
+    let resolved = adapter::resolve_template(&template_dir).unwrap();
+    let variables = default_variables();
+    let context = build_context(&variables);
+
+    let plan = plan_render(&resolved, &variables, &context).unwrap();
+
+    let rendered_count = plan.files.iter().filter(|f| !f.is_copy).count();
+    let copied_count = plan.files.iter().filter(|f| f.is_copy).count();
+
+    assert!(rendered_count > 0, "should have rendered files in plan");
+    assert!(copied_count > 0, "should have copied files in plan");
+    assert_eq!(
+        rendered_count + copied_count,
+        plan.files.len(),
+        "rendered + copied should equal total files"
+    );
+}
+
+#[test]
+fn test_plan_render_conditional_exclude() {
+    let template_dir = fixture_path("basic-template");
+    let resolved = adapter::resolve_template(&template_dir).unwrap();
+    let mut variables = default_variables();
+    variables.insert("use_docker".to_string(), tera::Value::Bool(false));
+
+    let context = build_context(&variables);
+    let plan = plan_render(&resolved, &variables, &context).unwrap();
+
+    let has_dockerfile = plan
+        .files
+        .iter()
+        .any(|f| f.relative_path.to_string_lossy().contains("Dockerfile"));
+    assert!(
+        !has_dockerfile,
+        "Dockerfile should not be in plan when use_docker=false"
     );
 }
