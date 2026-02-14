@@ -16,13 +16,27 @@ pub struct GeneratedProject {
     pub files_copied: Vec<PathBuf>,
 }
 
-/// Walk the template directory, render files, and write output.
-pub fn walk_and_render(
+/// A file that would be created during generation.
+pub struct PlannedFile {
+    /// Path relative to the output directory.
+    pub relative_path: PathBuf,
+    /// The file content (rendered template or copied binary).
+    pub content: Vec<u8>,
+    /// Whether this file was copied verbatim (true) or rendered from a template (false).
+    pub is_copy: bool,
+}
+
+/// The result of planning a generation without writing to disk.
+pub struct GenerationPlan {
+    pub files: Vec<PlannedFile>,
+}
+
+/// Walk the template directory and collect rendered/copied files into memory without writing.
+pub fn plan_render(
     resolved: &ResolvedTemplate,
-    output_dir: &Path,
     variables: &BTreeMap<String, Value>,
     context: &Context,
-) -> Result<GeneratedProject> {
+) -> Result<GenerationPlan> {
     let content_dir = &resolved.content_dir;
     if !content_dir.exists() {
         return Err(DicecutError::TemplateDirectoryMissing {
@@ -36,8 +50,7 @@ pub fn walk_and_render(
     let copy_set = build_glob_set(&config.files.copy_without_render)?;
     let conditional_excludes = evaluate_conditional_files(&config.files, variables)?;
 
-    let mut files_created = Vec::new();
-    let mut files_copied = Vec::new();
+    let mut files = Vec::new();
 
     for entry in WalkDir::new(content_dir)
         .min_depth(1)
@@ -62,21 +75,8 @@ pub fn walk_and_render(
             continue;
         }
 
-        let dest_path = output_dir.join(&rendered_rel);
-
         if entry.file_type().is_dir() {
-            std::fs::create_dir_all(&dest_path).map_err(|e| DicecutError::Io {
-                context: format!("creating directory {}", dest_path.display()),
-                source: e,
-            })?;
             continue;
-        }
-
-        if let Some(parent) = dest_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| DicecutError::Io {
-                context: format!("creating directory {}", parent.display()),
-                source: e,
-            })?;
         }
 
         let should_copy = copy_set.is_match(rendered_str.as_ref())
@@ -86,11 +86,15 @@ pub fn walk_and_render(
                 && !src_path.to_string_lossy().ends_with(suffix));
 
         if should_copy {
-            std::fs::copy(src_path, &dest_path).map_err(|e| DicecutError::Io {
-                context: format!("copying {} to {}", src_path.display(), dest_path.display()),
+            let content = std::fs::read(src_path).map_err(|e| DicecutError::Io {
+                context: format!("reading {}", src_path.display()),
                 source: e,
             })?;
-            files_copied.push(rendered_rel);
+            files.push(PlannedFile {
+                relative_path: rendered_rel,
+                content,
+                is_copy: true,
+            });
         } else {
             let content = std::fs::read_to_string(src_path).map_err(|e| DicecutError::Io {
                 context: format!("reading {}", src_path.display()),
@@ -104,11 +108,11 @@ pub fn walk_and_render(
 
             match render_result {
                 Ok(rendered) => {
-                    std::fs::write(&dest_path, rendered).map_err(|e| DicecutError::Io {
-                        context: format!("writing {}", dest_path.display()),
-                        source: e,
-                    })?;
-                    files_created.push(rendered_rel);
+                    files.push(PlannedFile {
+                        relative_path: rendered_rel,
+                        content: rendered.into_bytes(),
+                        is_copy: false,
+                    });
                 }
                 Err(e) if resolved.render_all => {
                     // Foreign templates may contain unsupported syntax (e.g. Jinja2
@@ -117,11 +121,11 @@ pub fn walk_and_render(
                         "warning: failed to render {}, copying verbatim: {}",
                         rel_str, e
                     );
-                    std::fs::write(&dest_path, &content).map_err(|e| DicecutError::Io {
-                        context: format!("writing {}", dest_path.display()),
-                        source: e,
-                    })?;
-                    files_copied.push(rendered_rel);
+                    files.push(PlannedFile {
+                        relative_path: rendered_rel,
+                        content: content.into_bytes(),
+                        is_copy: true,
+                    });
                 }
                 Err(e) => {
                     return Err(DicecutError::RenderError {
@@ -133,11 +137,49 @@ pub fn walk_and_render(
         }
     }
 
+    Ok(GenerationPlan { files })
+}
+
+/// Write the files from a generation plan to disk.
+pub fn execute_plan(plan: &GenerationPlan, output_dir: &Path) -> Result<GeneratedProject> {
+    let mut files_created = Vec::new();
+    let mut files_copied = Vec::new();
+
+    for file in &plan.files {
+        let dest_path = output_dir.join(&file.relative_path);
+        if let Some(parent) = dest_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| DicecutError::Io {
+                context: format!("creating directory {}", parent.display()),
+                source: e,
+            })?;
+        }
+        std::fs::write(&dest_path, &file.content).map_err(|e| DicecutError::Io {
+            context: format!("writing {}", dest_path.display()),
+            source: e,
+        })?;
+        if file.is_copy {
+            files_copied.push(file.relative_path.clone());
+        } else {
+            files_created.push(file.relative_path.clone());
+        }
+    }
+
     Ok(GeneratedProject {
         output_dir: output_dir.to_path_buf(),
         files_created,
         files_copied,
     })
+}
+
+/// Walk the template directory, render files, and write output.
+pub fn walk_and_render(
+    resolved: &ResolvedTemplate,
+    output_dir: &Path,
+    variables: &BTreeMap<String, Value>,
+    context: &Context,
+) -> Result<GeneratedProject> {
+    let plan = plan_render(resolved, variables, context)?;
+    execute_plan(&plan, output_dir)
 }
 
 /// Render each component of a relative path through Tera, and strip the template suffix.

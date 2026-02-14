@@ -10,15 +10,19 @@ pub mod render;
 pub mod template;
 pub mod update;
 
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 use console::style;
+use tera::Value;
 
 use crate::adapter::resolve_template;
 use crate::answers::SourceInfo;
 use crate::error::{DicecutError, Result};
 use crate::prompt::{collect_variables, PromptOptions};
-use crate::render::{build_context_with_namespace, walk_and_render, GeneratedProject};
+use crate::render::{
+    build_context_with_namespace, execute_plan, plan_render, GeneratedProject, GenerationPlan,
+};
 use crate::template::{get_or_clone, resolve_source, TemplateSource};
 
 pub struct GenerateOptions {
@@ -30,8 +34,22 @@ pub struct GenerateOptions {
     pub no_hooks: bool,
 }
 
-/// Generate a project from a template.
-pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
+/// Everything needed to execute a generation that has been planned but not yet written.
+pub struct FullGenerationPlan {
+    pub render_plan: GenerationPlan,
+    pub output_dir: PathBuf,
+    pub config: crate::config::schema::TemplateConfig,
+    pub variables: BTreeMap<String, Value>,
+    pub source_info: SourceInfo,
+    pub template_dir: PathBuf,
+    pub no_hooks: bool,
+}
+
+/// Plan a project generation: resolve template, collect variables, render in memory.
+///
+/// This performs all preparation (template resolution, variable collection, pre-generate
+/// hooks, and rendering) but does **not** write any files to disk.
+pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
     let source = resolve_source(&options.template)?;
     let (template_dir, source_info) = match &source {
         TemplateSource::Local(path) => (
@@ -108,28 +126,48 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
 
     let context = build_context_with_namespace(&variables, &resolved.context_namespace);
 
-    std::fs::create_dir_all(&output_dir).map_err(|e| DicecutError::Io {
-        context: format!("creating output directory {}", output_dir.display()),
+    let render_plan = plan_render(&resolved, &variables, &context)?;
+
+    Ok(FullGenerationPlan {
+        render_plan,
+        output_dir,
+        config: resolved.config,
+        variables,
+        source_info,
+        template_dir,
+        no_hooks: options.no_hooks,
+    })
+}
+
+/// Execute a previously planned generation: write files, answers, and run post-generate hooks.
+pub fn execute_generation(plan: FullGenerationPlan) -> Result<GeneratedProject> {
+    std::fs::create_dir_all(&plan.output_dir).map_err(|e| DicecutError::Io {
+        context: format!("creating output directory {}", plan.output_dir.display()),
         source: e,
     })?;
 
-    let result = walk_and_render(&resolved, &output_dir, &variables, &context)?;
+    let result = execute_plan(&plan.render_plan, &plan.output_dir)?;
 
-    answers::write_answers(&output_dir, &resolved.config, &variables, &source_info)?;
+    answers::write_answers(
+        &plan.output_dir,
+        &plan.config,
+        &plan.variables,
+        &plan.source_info,
+    )?;
 
-    if !options.no_hooks {
+    if !plan.no_hooks {
         hooks::run_post_generate(
-            &resolved.config.hooks,
-            &template_dir,
-            &output_dir,
-            &variables,
+            &plan.config.hooks,
+            &plan.template_dir,
+            &plan.output_dir,
+            &plan.variables,
         )?;
     }
 
     println!(
         "\n{} Project generated at {}",
         style("✓").green().bold(),
-        style(output_dir.display()).cyan()
+        style(plan.output_dir.display()).cyan()
     );
     println!(
         "  {} files rendered, {} files copied",
@@ -138,4 +176,10 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     );
 
     Ok(result)
+}
+
+/// Generate a project from a template.
+pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
+    let plan = plan_generation(options)?;
+    execute_generation(plan)
 }
