@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/raiderrobert/diecut/compare/v0.1.1...v0.1.2) (2026-02-14)
+
+
+### Bug Fixes
+
+* sync Cargo.lock version with Cargo.toml ([7582b21](https://github.com/raiderrobert/diecut/commit/7582b2165417144451edfd1656ad0145688b84cc))
+* sync Cargo.lock version with Cargo.toml ([e120605](https://github.com/raiderrobert/diecut/commit/e120605f6914e3cc608e953b83efa36ce8e5289d))
+
 ## [0.1.1](https://github.com/raiderrobert/diecut/compare/v0.1.0...v0.1.1) (2026-02-14)
 
 
