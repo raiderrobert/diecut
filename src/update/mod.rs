@@ -16,6 +16,7 @@ use merge::{three_way_merge, FileMergeResult, MergeAction};
 pub struct UpdateOptions {
     pub template_source: Option<String>,
     pub git_ref: Option<String>,
+    pub dry_run: bool,
 }
 
 pub struct UpdateReport {
@@ -143,6 +144,10 @@ pub fn update_project(project_path: &Path, options: UpdateOptions) -> Result<Upd
     let merge_results = three_way_merge(project_path, old_snapshot.path(), new_snapshot.path())?;
 
     let report = UpdateReport::from_results(&merge_results);
+
+    if options.dry_run {
+        return Ok(report);
+    }
 
     merge::apply_merge(
         project_path,

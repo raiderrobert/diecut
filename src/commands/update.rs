@@ -4,7 +4,7 @@ use console::style;
 use diecut::update::{update_project, UpdateOptions};
 use miette::Result;
 
-pub fn run(path: String, git_ref: Option<String>) -> Result<()> {
+pub fn run(path: String, git_ref: Option<String>, dry_run: bool) -> Result<()> {
     let project_path = Path::new(&path).to_path_buf();
 
     let project_path = if project_path.is_relative() {
@@ -31,23 +31,35 @@ pub fn run(path: String, git_ref: Option<String>) -> Result<()> {
     let options = UpdateOptions {
         template_source: None,
         git_ref,
+        dry_run,
     };
 
     let report = update_project(&project_path, options)?;
 
     if !report.has_changes() {
-        println!(
-            "\n{} Project is already up to date",
-            style("✓").green().bold()
-        );
+        if dry_run {
+            println!(
+                "\n{} Project is already up to date (dry run).",
+                style("✓").green().bold()
+            );
+        } else {
+            println!(
+                "\n{} Project is already up to date",
+                style("✓").green().bold()
+            );
+        }
         return Ok(());
     }
 
-    println!(
-        "\n{} Update complete: {}",
-        style("✓").green().bold(),
-        report
-    );
+    if dry_run {
+        println!("\n{} Would update: {}", style("==>").cyan().bold(), report);
+    } else {
+        println!(
+            "\n{} Update complete: {}",
+            style("✓").green().bold(),
+            report
+        );
+    }
 
     if !report.files_updated.is_empty() {
         println!("\n  {} Updated:", style("↻").cyan());
@@ -81,6 +93,13 @@ pub fn run(path: String, git_ref: Option<String>) -> Result<()> {
         for f in &report.conflicts {
             println!("    {}", f.display());
         }
+    }
+
+    if dry_run {
+        println!(
+            "\n{} Dry run — no changes written.",
+            style("ℹ").blue().bold()
+        );
     }
 
     Ok(())
