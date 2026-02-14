@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.6](https://github.com/raiderrobert/diecut/compare/v0.1.5...v0.1.6) (2026-02-14)
+
+
+### Bug Fixes
+
+* use SSH URL for gh: abbreviation when user has SSH configured ([cd07c02](https://github.com/raiderrobert/diecut/commit/cd07c025506571d59b8da177d34569724f72f40f))
+* use SSH URL for gh: abbreviation when user has SSH configured ([8828b7d](https://github.com/raiderrobert/diecut/commit/8828b7dfd18fb4217b0f456c6a3cbc2a992b536c))
+
 ## [0.1.5](https://github.com/raiderrobert/diecut/compare/v0.1.4...v0.1.5) (2026-02-14)
 
 
