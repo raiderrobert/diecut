@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.5](https://github.com/raiderrobert/diecut/compare/v0.1.4...v0.1.5) (2026-02-14)
+
+
+### Bug Fixes
+
+* suppress interactive git credential prompts ([0df4952](https://github.com/raiderrobert/diecut/commit/0df495270af2b9eb923521efdbe1192fe4d9e152))
+* suppress interactive git credential prompts ([9b0ecbd](https://github.com/raiderrobert/diecut/commit/9b0ecbd0c3ec107cd76345732572e4a000b2765a))
+
+
+### Documentation
+
+* add CONTRIBUTING.md and fix stale paths in README ([c8c714f](https://github.com/raiderrobert/diecut/commit/c8c714f0216bbd0e069d4cc3a405b3dbc9abc946))
+
 ## [0.1.4](https://github.com/raiderrobert/diecut/compare/v0.1.3...v0.1.4) (2026-02-14)
 
 
