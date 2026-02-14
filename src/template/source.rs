@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::error::{DicecutError, Result};
 
@@ -20,7 +21,44 @@ const ABBREVIATIONS: &[(&str, &str, &str)] = &[
     ("sr:", "https://git.sr.ht/", ""),
 ];
 
+fn detect_github_protocol() -> String {
+    Command::new("gh")
+        .args(["config", "get", "git_protocol", "-h", "github.com"])
+        .output()
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if stdout == "ssh" {
+                    return Some("ssh".to_string());
+                }
+            }
+            None
+        })
+        .unwrap_or_else(|| "https".to_string())
+}
+
+fn build_github_url(rest: &str, protocol: &str) -> String {
+    if protocol == "ssh" {
+        format!("git@github.com:{rest}.git")
+    } else {
+        format!("https://github.com/{rest}.git")
+    }
+}
+
 fn expand_abbreviation(input: &str) -> Result<String> {
+    // Special case: GitHub abbreviation with protocol detection
+    if let Some(rest) = input.strip_prefix("gh:") {
+        if rest.is_empty() {
+            return Err(DicecutError::InvalidAbbreviation {
+                input: input.to_string(),
+            });
+        }
+        let protocol = detect_github_protocol();
+        return Ok(build_github_url(rest, &protocol));
+    }
+
+    // All other abbreviations use static expansion
     for &(prefix, base_url, suffix) in ABBREVIATIONS {
         if let Some(rest) = input.strip_prefix(prefix) {
             if rest.is_empty() {
@@ -130,9 +168,24 @@ mod tests {
     // ── Abbreviation expansion ──────────────────────────────────────────
 
     #[test]
+    fn build_github_url_ssh() {
+        let url = build_github_url("user/repo", "ssh");
+        assert_eq!(url, "git@github.com:user/repo.git");
+    }
+
+    #[test]
+    fn build_github_url_https() {
+        let url = build_github_url("user/repo", "https");
+        assert_eq!(url, "https://github.com/user/repo.git");
+    }
+
+    #[test]
     fn expand_github_abbreviation() {
         let url = expand_abbreviation("gh:user/repo").unwrap();
-        assert_eq!(url, "https://github.com/user/repo.git");
+        assert!(
+            url == "https://github.com/user/repo.git" || url == "git@github.com:user/repo.git",
+            "unexpected URL: {url}"
+        );
     }
 
     #[test]
@@ -191,7 +244,11 @@ mod tests {
         let source = resolve_source("gh:user/repo").unwrap();
         match source {
             TemplateSource::Git { url, git_ref } => {
-                assert_eq!(url, "https://github.com/user/repo.git");
+                assert!(
+                    url == "https://github.com/user/repo.git"
+                        || url == "git@github.com:user/repo.git",
+                    "unexpected URL: {url}"
+                );
                 assert!(git_ref.is_none());
             }
             _ => panic!("expected Git source"),
@@ -229,7 +286,11 @@ mod tests {
         let source = resolve_source_with_ref("gh:user/repo", Some("v1.0")).unwrap();
         match source {
             TemplateSource::Git { url, git_ref } => {
-                assert_eq!(url, "https://github.com/user/repo.git");
+                assert!(
+                    url == "https://github.com/user/repo.git"
+                        || url == "git@github.com:user/repo.git",
+                    "unexpected URL: {url}"
+                );
                 assert_eq!(git_ref.as_deref(), Some("v1.0"));
             }
             _ => panic!("expected Git source"),
@@ -241,7 +302,11 @@ mod tests {
         let source = resolve_source_with_ref("gh:user/repo", None).unwrap();
         match source {
             TemplateSource::Git { url, git_ref } => {
-                assert_eq!(url, "https://github.com/user/repo.git");
+                assert!(
+                    url == "https://github.com/user/repo.git"
+                        || url == "git@github.com:user/repo.git",
+                    "unexpected URL: {url}"
+                );
                 assert!(git_ref.is_none());
             }
             _ => panic!("expected Git source"),
@@ -342,7 +407,11 @@ mod tests {
         let source = resolve_source_full("gh:user/repo", None, Some(&abbrevs)).unwrap();
         match source {
             TemplateSource::Git { url, .. } => {
-                assert_eq!(url, "https://github.com/user/repo.git");
+                assert!(
+                    url == "https://github.com/user/repo.git"
+                        || url == "git@github.com:user/repo.git",
+                    "unexpected URL: {url}"
+                );
             }
             _ => panic!("expected Git source"),
         }
@@ -353,7 +422,11 @@ mod tests {
         let source = resolve_source_full("gh:user/repo", None, None).unwrap();
         match source {
             TemplateSource::Git { url, .. } => {
-                assert_eq!(url, "https://github.com/user/repo.git");
+                assert!(
+                    url == "https://github.com/user/repo.git"
+                        || url == "git@github.com:user/repo.git",
+                    "unexpected URL: {url}"
+                );
             }
             _ => panic!("expected Git source"),
         }
