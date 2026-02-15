@@ -34,6 +34,8 @@ diecut list
 
 ### Available starter templates
 
+See [diecut-templates](https://github.com/raiderrobert/diecut-templates) for the full list.
+
 ```bash
 diecut new gh:raiderrobert/diecut-templates/python-pkg   # Python package (src layout, hatchling)
 diecut new gh:raiderrobert/diecut-templates/rust-cli      # Rust CLI application
