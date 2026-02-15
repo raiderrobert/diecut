@@ -78,25 +78,6 @@ pub enum DicecutError {
         source: tera::Error,
     },
 
-    #[error("Failed to parse cookiecutter.json")]
-    #[diagnostic(help("Check the JSON syntax in your cookiecutter.json file"))]
-    ConfigParseCookiecutter {
-        #[source]
-        source: serde_json::Error,
-    },
-
-    #[error("Cookiecutter template directory not found in {path}")]
-    #[diagnostic(help(
-        "Cookiecutter templates must contain a directory named {{{{cookiecutter.*}}}}"
-    ))]
-    CookiecutterTemplateDir { path: PathBuf },
-
-    #[error("No supported template config found in {path}")]
-    #[diagnostic(help(
-        "The directory must contain diecut.toml (native) or cookiecutter.json (cookiecutter)"
-    ))]
-    UnsupportedFormat { path: PathBuf },
-
     #[error("Invalid template abbreviation: {input}")]
     #[diagnostic(help(
         "Supported abbreviations: gh:user/repo, gl:user/repo, bb:user/repo, sr:~user/repo"
@@ -138,10 +119,6 @@ pub enum DicecutError {
         #[source]
         source: toml::de::Error,
     },
-
-    #[error("Merge conflict in {path}")]
-    #[diagnostic(help("Resolve the conflict manually and remove conflict markers"))]
-    MergeConflict { path: PathBuf, details: String },
 }
 
 pub type Result<T> = std::result::Result<T, DicecutError>;

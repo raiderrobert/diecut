@@ -16,13 +16,6 @@ pub fn run(path: String) -> Result<()> {
 
     let result = check_template(template_dir)?;
 
-    println!(
-        "  Format: {}",
-        match result.format {
-            diecut::adapter::TemplateFormat::Native => "native (diecut)",
-            diecut::adapter::TemplateFormat::Cookiecutter => "cookiecutter",
-        }
-    );
     println!("  Name: {}", result.template_name);
     println!("  Variables: {}", result.variable_count);
 
