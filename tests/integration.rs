@@ -286,6 +286,7 @@ name = "missing-template-dir"
 fn test_resolve_source_rejects_empty_abbreviation_remainder() {
     assert!(resolve_source("gh:").is_err());
     assert!(resolve_source("gl:").is_err());
+    assert!(resolve_source("cb:").is_err());
 }
 
 #[test]
