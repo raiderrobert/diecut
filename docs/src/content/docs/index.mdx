@@ -15,21 +15,13 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 <CardGrid>
-	<Card title="Single binary" icon="rocket">
-		No Python, no Node, no runtime dependencies. Download one file and go.
-	</Card>
-	<Card title="Easy to make" icon="pencil">
-		A diecut.toml and a folder — that's a template. You just made one.
-	</Card>
-	<Card title="Multi-template repos" icon="puzzle">
-		One repo, many templates. Use subpaths to pick the one you want.
-	</Card>
-	<Card title="Any Git host" icon="external">
-		GitHub, GitLab, Bitbucket, Sourcehut — or any Git URL.
-	</Card>
+	<LinkCard title="Single binary" description="No Python, no Node, no runtime dependencies. Download one file and go." href="/getting-started/" />
+	<LinkCard title="Easy to make" description="A diecut.toml and a folder — that's a template. You just made one." href="/creating-templates/" />
+	<LinkCard title="Multi-template repos" description="One repo, many templates. Use subpaths to pick the one you want." href="/using-templates/" />
+	<LinkCard title="Any Git host" description="GitHub, GitLab, Bitbucket, Sourcehut — or any Git URL." href="/using-templates/" />
 </CardGrid>
 
 ## Why diecut?
