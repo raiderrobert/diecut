@@ -19,14 +19,25 @@ Or grab a binary from [GitHub Releases](https://github.com/raiderrobert/diecut/r
 ## Quick Start
 
 ```bash
+# Generate from a GitHub repo (with subpath for multi-template repos)
+diecut new gh:raiderrobert/diecut-templates/rust-cli --output my-project
+
+# Use defaults without prompting
+diecut new gh:raiderrobert/diecut-templates/python-pkg --defaults --output my-project
+
 # Generate from a local template
 diecut new ./my-template --output my-project
 
-# Generate from a GitHub repo
-diecut new gh:user/template-repo --output my-project
+# List cached templates
+diecut list
+```
 
-# Use defaults without prompting
-diecut new gh:user/template-repo --defaults --output my-project
+### Available starter templates
+
+```bash
+diecut new gh:raiderrobert/diecut-templates/python-pkg   # Python package (src layout, hatchling)
+diecut new gh:raiderrobert/diecut-templates/rust-cli      # Rust CLI application
+diecut new gh:raiderrobert/diecut-templates/static-site   # Static HTML site
 ```
 
 ## Documentation
@@ -34,11 +45,10 @@ diecut new gh:user/template-repo --defaults --output my-project
 Full documentation: **[diecut docs](https://diecut.dev/)**
 
 - [Getting Started](https://diecut.dev/getting-started/) — install and generate your first project
-- [Using Templates](https://diecut.dev/using-templates/) — sources, overrides, updates, cookiecutter compatibility
+- [Using Templates](https://diecut.dev/using-templates/) — sources, overrides, abbreviations
 - [Creating Templates](https://diecut.dev/creating-templates/) — build your own templates
 - [Commands Reference](https://diecut.dev/reference/commands/) — all CLI commands and options
 - [diecut.toml Reference](https://diecut.dev/diecut/reference/diecut-toml/) — complete config file reference
-- [Hooks Reference](https://diecut.dev/diecut/reference/hooks/) — Rhai scripting for templates
 
 ## Contributing
 
