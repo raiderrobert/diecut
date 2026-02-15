@@ -273,25 +273,7 @@ description = "{{ description }}"
 
 Tera has much more. See the [full Tera documentation](https://keats.github.io/tera/docs/) for everything else.
 
-## Validating your template
-
-### Check for errors
-
-```bash
-diecut check ./my-template
-```
-
-Reports format detection, variable definitions, and any issues it finds.
-
-### Ready for distribution
-
-```bash
-diecut ready ./my-template
-```
-
-`ready` is stricter. It checks whether the template is suitable for sharing: description present, variables have prompts, no orphaned references.
-
-### Variable validation
+## Variable validation
 
 Add a regex to constrain user input:
 

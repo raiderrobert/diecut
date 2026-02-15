@@ -1,6 +1,6 @@
 ---
 title: "Using Templates"
-description: "Generate projects from existing diecut and cookiecutter templates."
+description: "Generate projects from diecut templates."
 ---
 
 ## Template sources
@@ -17,6 +17,17 @@ diecut pulls templates from local paths or any Git host.
 | Any Git URL | `diecut new https://git.example.com/repo.git` |
 
 Git templates are cached at `~/.cache/diecut/templates/`. Override with `DIECUT_CACHE_DIR`.
+
+## Multi-template repos (subpaths)
+
+A single repo can hold multiple templates in subdirectories. Add the subdirectory path after the repo:
+
+```bash
+diecut new gh:raiderrobert/diecut-templates/python-pkg --output my-project
+diecut new gh:raiderrobert/diecut-templates/rust-cli --output my-cli
+```
+
+diecut clones the repo once and navigates to the specified subdirectory.
 
 ## Overriding variables
 
@@ -42,41 +53,19 @@ Every variable uses its default value. No prompts. Combine with `-d` to override
 diecut new gh:user/template --defaults -d project_name=ci-test -o output
 ```
 
-## Updating a project
+## Dry run
 
-You generated a project three months ago. The template author added a new CI config and updated the README. Instead of starting over:
-
-```bash
-diecut update ./my-project
-```
-
-Here is what happens:
-
-1. Reads `.diecut-answers.toml` from your project. This file stores the template source and your original variable choices.
-2. Renders the template at the original version (old snapshot).
-3. Renders at the latest version (new snapshot).
-4. Three-way merges against your actual files.
-5. Reports files updated, added, removed, and any conflicts.
-
-Pin to a specific version:
+Preview what would be generated without writing any files:
 
 ```bash
-diecut update ./my-project --ref v2.0.0
+diecut new ./my-template --dry-run
 ```
 
-Conflicts are saved as `.rej` files. You resolve them manually, like `patch` conflicts.
-
-## Cookiecutter compatibility
-
-diecut auto-detects cookiecutter templates:
+Add `--verbose` to also see the rendered file contents:
 
 ```bash
-diecut new gh:audreyfeldroy/cookiecutter-pypackage -o my-package
+diecut new ./my-template --dry-run --verbose
 ```
-
-It finds `cookiecutter.json`, translates the format on the fly, and prompts you as usual. No migration needed.
-
-For a permanent conversion to native diecut format, see [Migrating from Cookiecutter](/migrating-from-cookiecutter/).
 
 ## Managing the cache
 

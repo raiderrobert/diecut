@@ -26,7 +26,7 @@ default = "MIT"
 exclude = ["*.pyc", ".DS_Store"]
 
 [hooks]
-post_generate = ["hooks/post_generate.rhai"]
+post_create = "npm install"
 
 [answers]
 file = ".diecut-answers.toml"
@@ -60,8 +60,7 @@ file = ".diecut-answers.toml"
 | `pattern` | string | *required* | Glob pattern matching files |
 | `when` | string | *required* | Tera expression; if false, matched files are excluded |
 | **[hooks]** | | | Hook scripts |
-| `pre_generate` | string[] | `[]` | Rhai scripts to run before generation |
-| `post_generate` | string[] | `[]` | Rhai scripts to run after generation |
+| `post_create` | string | --- | Shell command to run after generation |
 | **[answers]** | | | Answers file config |
 | `file` | string | `".diecut-answers.toml"` | Filename for answers file in generated project |
 
@@ -129,16 +128,15 @@ conditional = [
 
 ## [hooks]
 
-Rhai scripts that run during generation. Paths are relative to the template root.
+Shell commands that run after project generation.
 
-- **`pre_generate`** -- Run before files are rendered. Can abort generation with `throw`.
-- **`post_generate`** -- Run after files are written. Has access to `output_dir`.
+- **`post_create`** -- A shell command run in the generated project directory via `sh -c`. Use for installing dependencies, initializing git, or running setup scripts.
 
-See [Hooks reference](/reference/hooks/) for full documentation.
+See [Hooks reference](/reference/hooks/) for examples.
 
 ## [answers]
 
 Controls the answers file written into generated projects.
 
 - **`file`** -- The filename. Default is `.diecut-answers.toml`. Set to `""` to disable.
-- The answers file stores the template source, version, and all non-secret variable values. It is used by `diecut update` to know how the project was generated.
+- The answers file stores the template source, version, and all non-secret variable values.
