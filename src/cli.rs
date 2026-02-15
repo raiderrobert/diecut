@@ -41,6 +41,10 @@ pub enum Commands {
         /// Show what would be generated without writing files
         #[arg(long)]
         dry_run: bool,
+
+        /// Show file contents (with --dry-run) or detailed output
+        #[arg(short, long)]
+        verbose: bool,
     },
 
     /// List cached templates
@@ -59,6 +63,10 @@ pub enum Commands {
         /// Show what would change without modifying files
         #[arg(long)]
         dry_run: bool,
+
+        /// Show detailed diff output (with --dry-run)
+        #[arg(short, long)]
+        verbose: bool,
     },
 
     /// Validate a template directory

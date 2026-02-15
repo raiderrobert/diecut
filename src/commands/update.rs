@@ -4,7 +4,7 @@ use console::style;
 use diecut::update::{update_project, UpdateOptions};
 use miette::Result;
 
-pub fn run(path: String, git_ref: Option<String>, dry_run: bool) -> Result<()> {
+pub fn run(path: String, git_ref: Option<String>, dry_run: bool, _verbose: bool) -> Result<()> {
     let project_path = Path::new(&path).to_path_buf();
 
     let project_path = if project_path.is_relative() {

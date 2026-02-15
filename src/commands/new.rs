@@ -2,6 +2,7 @@ use console::style;
 use diecut::GenerateOptions;
 use miette::Result;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     template: String,
     output: Option<String>,
@@ -10,6 +11,7 @@ pub fn run(
     overwrite: bool,
     no_hooks: bool,
     dry_run: bool,
+    verbose: bool,
 ) -> Result<()> {
     let data_pairs: Vec<(String, String)> = data
         .into_iter()
@@ -49,6 +51,23 @@ pub fn run(
                 style(action).green(),
                 file.relative_path.display()
             );
+
+            if verbose {
+                println!("  {}", style("──────").dim());
+                if file.is_copy {
+                    println!(
+                        "  {}",
+                        style(format!("[binary file, {} bytes]", file.content.len())).dim()
+                    );
+                } else {
+                    let content = String::from_utf8_lossy(&file.content);
+                    for line in content.lines() {
+                        println!("  {}", line);
+                    }
+                }
+                println!("  {}", style("──────").dim());
+                println!();
+            }
         }
 
         println!(
