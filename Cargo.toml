@@ -6,7 +6,7 @@ version = "0.2.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.75"
-description = "A language-agnostic project template generator"
+description = "A single binary project template generator"
 
 [lib]
 name = "diecut"
