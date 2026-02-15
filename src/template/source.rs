@@ -20,7 +20,6 @@ const ABBREVIATIONS: &[(&str, &str, &str)] = &[
     ("gh:", "https://github.com/", ".git"),
     ("gl:", "https://gitlab.com/", ".git"),
     ("bb:", "https://bitbucket.org/", ".git"),
-    ("sr:", "https://git.sr.ht/", ""),
 ];
 
 fn detect_github_protocol() -> String {
@@ -244,7 +243,6 @@ mod tests {
     #[rstest]
     #[case("gl:org/project", "https://gitlab.com/org/project.git")]
     #[case("bb:team/repo", "https://bitbucket.org/team/repo.git")]
-    #[case("sr:~user/repo", "https://git.sr.ht/~user/repo")]
     fn expand_abbreviation_cases(#[case] input: &str, #[case] expected_url: &str) {
         let expanded = expand_abbreviation(input).unwrap();
         assert_eq!(expanded.url, expected_url);
