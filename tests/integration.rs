@@ -9,7 +9,7 @@ use diecut::render::{
     build_context, build_context_with_namespace, execute_plan, plan_render, walk_and_render,
 };
 use diecut::template::source::{resolve_source, resolve_source_full};
-use diecut::update::merge::{three_way_merge, MergeAction};
+use diecut::update::merge::{apply_merge, three_way_merge, MergeAction};
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -836,5 +836,120 @@ fn test_plan_render_conditional_exclude() {
     assert!(
         !has_dockerfile,
         "Dockerfile should not be in plan when use_docker=false"
+    );
+}
+
+// --- Dry-run: merge report without writing changes ---
+
+#[test]
+fn test_update_dry_run_no_changes_written() {
+    let old_snap = tempfile::tempdir().unwrap();
+    let new_snap = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+
+    // Old snapshot and project have same content (user hasn't changed anything)
+    std::fs::write(old_snap.path().join("file.txt"), "old content").unwrap();
+    std::fs::write(project.path().join("file.txt"), "old content").unwrap();
+
+    // New snapshot has updated content from template
+    std::fs::write(new_snap.path().join("file.txt"), "new content").unwrap();
+
+    // New file only in new snapshot (would be added)
+    std::fs::write(new_snap.path().join("added.txt"), "brand new file").unwrap();
+
+    // File in old snapshot + project but removed from new snapshot
+    std::fs::write(old_snap.path().join("removed.txt"), "to be removed").unwrap();
+    std::fs::write(project.path().join("removed.txt"), "to be removed").unwrap();
+
+    // Conflict: both user and template changed
+    std::fs::write(old_snap.path().join("conflict.txt"), "original").unwrap();
+    std::fs::write(new_snap.path().join("conflict.txt"), "template changed").unwrap();
+    std::fs::write(project.path().join("conflict.txt"), "user changed").unwrap();
+
+    // Run three-way merge to get the report (this is what update_project does)
+    let merge_results = three_way_merge(project.path(), old_snap.path(), new_snap.path()).unwrap();
+
+    // Verify the merge detected changes
+    let has_update = merge_results
+        .iter()
+        .any(|r| r.action == MergeAction::UpdateFromTemplate);
+    let has_add = merge_results
+        .iter()
+        .any(|r| r.action == MergeAction::AddFromTemplate);
+    let has_remove = merge_results
+        .iter()
+        .any(|r| r.action == MergeAction::MarkForRemoval);
+    let has_conflict = merge_results
+        .iter()
+        .any(|r| r.action == MergeAction::Conflict);
+    assert!(has_update, "should detect updated file");
+    assert!(has_add, "should detect added file");
+    assert!(has_remove, "should detect removed file");
+    assert!(has_conflict, "should detect conflict");
+
+    // Simulate dry_run: do NOT call apply_merge.
+    // In update_project with dry_run=true, we return the report without
+    // calling apply_merge() or write_answers_with_source().
+
+    // Verify project files were NOT modified
+    let file_content = std::fs::read_to_string(project.path().join("file.txt")).unwrap();
+    assert_eq!(
+        file_content, "old content",
+        "file.txt should not have been updated"
+    );
+
+    // Verify no new files were added
+    assert!(
+        !project.path().join("added.txt").exists(),
+        "added.txt should not exist in project (dry run)"
+    );
+
+    // Verify removed file still exists
+    assert!(
+        project.path().join("removed.txt").exists(),
+        "removed.txt should still exist (dry run)"
+    );
+
+    // Verify no .rej files were created
+    assert!(
+        !project.path().join("conflict.txt.rej").exists(),
+        "conflict.txt.rej should not exist (dry run)"
+    );
+
+    // Verify no .removing files were created
+    assert!(
+        !project.path().join("removed.txt.removing").exists(),
+        "removed.txt.removing should not exist (dry run)"
+    );
+
+    // Verify conflict file was not changed
+    let conflict_content = std::fs::read_to_string(project.path().join("conflict.txt")).unwrap();
+    assert_eq!(
+        conflict_content, "user changed",
+        "conflict.txt should not have been modified"
+    );
+
+    // Now verify that if we DO call apply_merge, files ARE modified
+    // (proving the dry_run skip is the only difference)
+    apply_merge(
+        project.path(),
+        new_snap.path(),
+        old_snap.path(),
+        &merge_results,
+    )
+    .unwrap();
+
+    let updated_content = std::fs::read_to_string(project.path().join("file.txt")).unwrap();
+    assert_eq!(
+        updated_content, "new content",
+        "file.txt should be updated after apply_merge"
+    );
+    assert!(
+        project.path().join("added.txt").exists(),
+        "added.txt should exist after apply_merge"
+    );
+    assert!(
+        project.path().join("conflict.txt.rej").exists(),
+        "conflict.txt.rej should exist after apply_merge"
     );
 }

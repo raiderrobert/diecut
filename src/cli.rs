@@ -51,6 +51,10 @@ pub enum Commands {
         /// Git ref (branch, tag, commit) to update the template to
         #[arg(long = "ref")]
         git_ref: Option<String>,
+
+        /// Show what would change without modifying files
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Validate a template directory
