@@ -17,7 +17,7 @@ diecut new <TEMPLATE> [OPTIONS]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `<TEMPLATE>` | — | Template source: local path, `gh:user/repo`, `gl:user/repo`, `bb:user/repo`, any Git URL, or abbreviation with subpath (`gh:user/repo/subdir`) |
+| `<TEMPLATE>` | — | Template source: local path, `gh:user/repo`, `gl:user/repo`, `cb:user/repo`, any Git URL, or abbreviation with subpath (`gh:user/repo/subdir`) |
 | `-o, --output <PATH>` | — | Output directory |
 | `-d, --data <KEY=VALUE>` | — | Override variable values (repeatable) |
 | `--defaults` | `false` | Use default values without prompting |
