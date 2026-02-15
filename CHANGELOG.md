@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.7](https://github.com/raiderrobert/diecut/compare/v0.1.6...v0.1.7) (2026-02-15)
+## [0.2.0](https://github.com/raiderrobert/diecut/compare/v0.1.6...v0.2.0) (2026-02-15)
 
 
 ### Features
