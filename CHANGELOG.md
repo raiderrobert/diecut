@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.7](https://github.com/raiderrobert/diecut/compare/v0.1.6...v0.1.7) (2026-02-15)
+
+
+### Features
+
+* add --dry-run flag to new command ([1d3b959](https://github.com/raiderrobert/diecut/commit/1d3b9597a8f87ca81645c38c03d59514caad5f1a))
+* add --dry-run flag to new command ([2299430](https://github.com/raiderrobert/diecut/commit/229943054fd9f96a53c83b56022f619035b3965d)), closes [#62](https://github.com/raiderrobert/diecut/issues/62)
+* add --dry-run flag to update command ([7094a80](https://github.com/raiderrobert/diecut/commit/7094a805907ac69d9d8886f51c853b707f1ca78b))
+* add --dry-run flag to update command ([5df566b](https://github.com/raiderrobert/diecut/commit/5df566bf4407fab7792f30365e5bc02d02ddcdae)), closes [#60](https://github.com/raiderrobert/diecut/issues/60)
+* add --verbose flag to dry-run output ([6987480](https://github.com/raiderrobert/diecut/commit/6987480bcd527ce5c345da999bcb171dac77175d))
+* add --verbose flag to dry-run output ([7d68cdb](https://github.com/raiderrobert/diecut/commit/7d68cdb43bb9128e07a048bdd831bf3f9afc8774)), closes [#63](https://github.com/raiderrobert/diecut/issues/63)
+
+
+### Code Refactoring
+
+* split generate() into plan and execute phases ([fae7944](https://github.com/raiderrobert/diecut/commit/fae79441ebf9265d67b2c4d88bd83261b47f43b8))
+* split generate() into plan and execute phases ([711b4c1](https://github.com/raiderrobert/diecut/commit/711b4c1bdc21a30bd7eb599c97f15c909fe7617d)), closes [#61](https://github.com/raiderrobert/diecut/issues/61)
+
 ## [0.1.6](https://github.com/raiderrobert/diecut/compare/v0.1.5...v0.1.6) (2026-02-14)
 
 
