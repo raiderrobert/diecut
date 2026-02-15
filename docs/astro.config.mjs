@@ -20,7 +20,6 @@ export default defineConfig({
 					items: [
 						{ label: 'Using Templates', slug: 'using-templates' },
 						{ label: 'Creating Templates', slug: 'creating-templates' },
-						{ label: 'Migrating from Cookiecutter', slug: 'migrating-from-cookiecutter' },
 					],
 				},
 				{
