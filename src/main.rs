@@ -19,7 +19,5 @@ fn main() -> miette::Result<()> {
             template, output, data, defaults, overwrite, no_hooks, dry_run, verbose,
         ),
         Commands::List => commands::list::run(),
-        Commands::Check { path } => commands::check::run(path),
-        Commands::Ready { path } => commands::ready::run(path),
     }
 }

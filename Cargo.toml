@@ -30,9 +30,7 @@ miette = { version = "7", features = ["fancy"] }
 walkdir = "2"
 console = "0.15"
 dirs = "6"
-rhai = { version = "1", features = ["sync"] }
 tempfile = "3"
 sha2 = "0.10"
-similar = "2"
 fs4 = "0.12"
 content_inspector = "0.2"

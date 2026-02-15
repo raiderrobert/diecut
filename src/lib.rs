@@ -1,11 +1,9 @@
 pub mod adapter;
 pub mod answers;
-pub mod check;
 pub mod config;
 pub mod error;
 pub mod hooks;
 pub mod prompt;
-pub mod ready;
 pub mod render;
 pub mod template;
 
@@ -57,8 +55,22 @@ pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
                 commit_sha: None,
             },
         ),
-        TemplateSource::Git { url, git_ref } => {
+        TemplateSource::Git {
+            url,
+            git_ref,
+            subpath,
+        } => {
             let (path, commit_sha) = get_or_clone(url, git_ref.as_deref())?;
+            let path = match subpath {
+                Some(sub) => {
+                    let joined = path.join(sub);
+                    if !joined.exists() {
+                        return Err(DicecutError::TemplateDirectoryMissing { path: joined });
+                    }
+                    joined
+                }
+                None => path,
+            };
             (
                 path,
                 SourceInfo {
