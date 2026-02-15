@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="218px" height="213px" viewBox="0 0 218 213" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Group</title>
+    <g id="logos" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Artboard" transform="translate(-183.000000, -153.000000)">
+            <g id="Group" transform="translate(183.000000, 153.000000)">
+                <rect id="Rectangle" fill="#FDD313" x="18" y="13" width="200" height="200" rx="20"></rect>
+                <rect id="Rectangle-Copy" fill="#F80C5F" x="10" y="7" width="200" height="200" rx="20"></rect>
+                <rect id="Rectangle-Copy-2" fill="#16AFFF" x="0" y="0" width="200" height="200" rx="20"></rect>
+                <polygon id="Star" stroke="#9EB5B8" stroke-width="6" fill="#FFFFFF" points="100.5 151.592488 73.520818 164.633507 63.6650488 136.334951 35.366493 126.479182 48.4075124 99.5 35.366493 72.520818 63.6650488 62.6650488 73.520818 34.366493 100.5 47.4075124 127.479182 34.366493 137.334951 62.6650488 165.633507 72.520818 152.592488 99.5 165.633507 126.479182 137.334951 136.334951 127.479182 164.633507"></polygon>
+            </g>
+        </g>
+    </g>
+</svg>

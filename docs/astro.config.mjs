@@ -7,6 +7,10 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'diecut',
+			logo: {
+				src: './src/assets/logo.svg',
+			},
+			favicon: '/src/assets/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/raiderrobert/diecut' }],
 			sidebar: [
 				{

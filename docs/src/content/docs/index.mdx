@@ -1,9 +1,11 @@
 ---
 title: diecut
-description: A single-binary project template generator. No Python, no Node — just one file and go.
+description: A single-binary project template generator.
 template: splash
 hero:
-  tagline: Make templates. Start projects. Skip the setup.
+  tagline: Make templates. Start projects.
+  image:
+    file: ../../assets/logo.svg
   actions:
     - text: Get Started
       link: /getting-started/
@@ -26,4 +28,11 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 ## Why diecut?
 
-I built diecut so my son could skip the setup and get to the fun part of programming. Every language has its own scaffolding ritual, but none of them hand you a real starting point with good defaults. A template does. And making a template shouldn't require a PhD in Jinja2.
+I built diecut because I tend to make lots of projects for fun. I get a stack I like, and I don't like messing around with the setup. I enjoyed cookiecutter back in the day, but I found it complicating my life more than simplifying it. 
+
+I aimed to solve four things:
+
+- **Single binary**: No Python, no Node, no runtime dependencies. Download one binary and go.
+- **Easy to make**: A diecut.toml and a folder — that's a template. You just made one.
+- **Multi-template repos**: I dabble a lot, but I'd rather not have 5 different repos for my templates. This felt like a good way to organize them.
+- **Dry run**: sometimes I want to see what the result will look like before I commit to it.
