@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::adapter::{ResolvedTemplate, TemplateFormat};
+use crate::adapter::ResolvedTemplate;
 use crate::config::load_config;
 use crate::error::Result;
 
@@ -11,9 +11,6 @@ pub fn resolve(template_dir: &Path) -> Result<ResolvedTemplate> {
     Ok(ResolvedTemplate {
         config,
         content_dir,
-        format: TemplateFormat::Native,
-        render_all: false,
-        context_namespace: None,
         warnings: Vec::new(),
     })
 }

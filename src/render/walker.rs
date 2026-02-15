@@ -81,9 +81,7 @@ pub fn plan_render(
 
         let should_copy = copy_set.is_match(rendered_str.as_ref())
             || is_binary_file(src_path)
-            || (!resolved.render_all
-                && !suffix.is_empty()
-                && !src_path.to_string_lossy().ends_with(suffix));
+            || (!suffix.is_empty() && !src_path.to_string_lossy().ends_with(suffix));
 
         if should_copy {
             let content = std::fs::read(src_path).map_err(|e| DicecutError::Io {
@@ -112,19 +110,6 @@ pub fn plan_render(
                         relative_path: rendered_rel,
                         content: rendered.into_bytes(),
                         is_copy: false,
-                    });
-                }
-                Err(e) if resolved.render_all => {
-                    // Foreign templates may contain unsupported syntax (e.g. Jinja2
-                    // extensions). Fall back to copying verbatim with a warning.
-                    eprintln!(
-                        "warning: failed to render {}, copying verbatim: {}",
-                        rel_str, e
-                    );
-                    files.push(PlannedFile {
-                        relative_path: rendered_rel,
-                        content: content.into_bytes(),
-                        is_copy: true,
                     });
                 }
                 Err(e) => {

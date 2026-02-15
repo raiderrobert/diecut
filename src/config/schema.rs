@@ -58,15 +58,14 @@ pub struct ConditionalFile {
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct HooksConfig {
+    /// Shell command to run in the output directory after generation.
     #[serde(default)]
-    pub pre_generate: Vec<String>,
-    #[serde(default)]
-    pub post_generate: Vec<String>,
+    pub post_create: Option<String>,
 }
 
 impl HooksConfig {
     pub fn has_hooks(&self) -> bool {
-        !self.pre_generate.is_empty() || !self.post_generate.is_empty()
+        self.post_create.is_some()
     }
 }
 

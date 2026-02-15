@@ -1,10 +1,9 @@
 use std::path::Path;
 
-use crate::adapter::{resolve_template, TemplateFormat};
+use crate::adapter::resolve_template;
 use crate::error::Result;
 
 pub struct CheckResult {
-    pub format: TemplateFormat,
     pub template_name: String,
     pub variable_count: usize,
     pub warnings: Vec<String>,
@@ -27,19 +26,6 @@ pub fn check_template(template_dir: &Path) -> Result<CheckResult> {
             "Template content directory not found: {}",
             resolved.content_dir.display()
         ));
-    }
-
-    for hook in &config.hooks.pre_generate {
-        let hook_path = template_dir.join(hook);
-        if !hook_path.exists() {
-            errors.push(format!("Pre-generate hook not found: {hook}"));
-        }
-    }
-    for hook in &config.hooks.post_generate {
-        let hook_path = template_dir.join(hook);
-        if !hook_path.exists() {
-            errors.push(format!("Post-generate hook not found: {hook}"));
-        }
     }
 
     let suffix = &config.template.templates_suffix;
@@ -74,7 +60,6 @@ pub fn check_template(template_dir: &Path) -> Result<CheckResult> {
     }
 
     Ok(CheckResult {
-        format: resolved.format,
         template_name: config.template.name.clone(),
         variable_count: config.variables.len(),
         warnings,

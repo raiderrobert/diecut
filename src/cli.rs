@@ -50,25 +50,6 @@ pub enum Commands {
     /// List cached templates
     List,
 
-    /// Update a previously generated project from its template
-    Update {
-        /// Path to the project to update (default: current directory)
-        #[arg(default_value = ".")]
-        path: String,
-
-        /// Git ref (branch, tag, commit) to update the template to
-        #[arg(long = "ref")]
-        git_ref: Option<String>,
-
-        /// Show what would change without modifying files
-        #[arg(long)]
-        dry_run: bool,
-
-        /// Show detailed diff output (with --dry-run)
-        #[arg(short, long)]
-        verbose: bool,
-    },
-
     /// Validate a template directory
     Check {
         /// Path to the template to check (default: current directory)
@@ -81,20 +62,5 @@ pub enum Commands {
         /// Path to the template to check (default: current directory)
         #[arg(default_value = ".")]
         path: String,
-    },
-
-    /// Migrate a foreign template (e.g. cookiecutter) to native diecut format
-    Migrate {
-        /// Path to the template to migrate (default: current directory)
-        #[arg(default_value = ".")]
-        path: String,
-
-        /// Write migrated template to a new directory instead of modifying in place
-        #[arg(short, long)]
-        output: Option<String>,
-
-        /// Show planned changes without writing anything
-        #[arg(long)]
-        dry_run: bool,
     },
 }

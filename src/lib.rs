@@ -8,7 +8,6 @@ pub mod prompt;
 pub mod ready;
 pub mod render;
 pub mod template;
-pub mod update;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -20,9 +19,7 @@ use crate::adapter::resolve_template;
 use crate::answers::SourceInfo;
 use crate::error::{DicecutError, Result};
 use crate::prompt::{collect_variables, PromptOptions};
-use crate::render::{
-    build_context_with_namespace, execute_plan, plan_render, GeneratedProject, GenerationPlan,
-};
+use crate::render::{build_context, execute_plan, plan_render, GeneratedProject, GenerationPlan};
 use crate::template::{get_or_clone, resolve_source, TemplateSource};
 
 pub struct GenerateOptions {
@@ -120,11 +117,7 @@ pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
     };
     let variables = collect_variables(&resolved.config, &prompt_options)?;
 
-    if !options.no_hooks {
-        hooks::run_pre_generate(&resolved.config.hooks, &template_dir, &variables)?;
-    }
-
-    let context = build_context_with_namespace(&variables, &resolved.context_namespace);
+    let context = build_context(&variables);
 
     let render_plan = plan_render(&resolved, &variables, &context)?;
 
@@ -156,12 +149,7 @@ pub fn execute_generation(plan: FullGenerationPlan) -> Result<GeneratedProject> 
     )?;
 
     if !plan.no_hooks {
-        hooks::run_post_generate(
-            &plan.config.hooks,
-            &plan.template_dir,
-            &plan.output_dir,
-            &plan.variables,
-        )?;
+        hooks::run_post_create(&plan.config.hooks, &plan.output_dir)?;
     }
 
     println!(
