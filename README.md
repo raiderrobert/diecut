@@ -32,14 +32,12 @@ diecut new ./my-template --output my-project
 diecut list
 ```
 
-### Available starter templates
+### Starter templates
 
-See [diecut-templates](https://github.com/raiderrobert/diecut-templates) for the full list.
+[diecut-templates](https://github.com/raiderrobert/diecut-templates) has ready-to-use templates:
 
 ```bash
-diecut new gh:raiderrobert/diecut-templates/python-pkg   # Python package (src layout, hatchling)
-diecut new gh:raiderrobert/diecut-templates/rust-cli      # Rust CLI application
-diecut new gh:raiderrobert/diecut-templates/static-site   # Static HTML site
+diecut new gh:raiderrobert/diecut-templates/python-pkg --output my-project
 ```
 
 ## Documentation
@@ -50,7 +48,7 @@ Full documentation: **[diecut docs](https://diecut.dev/)**
 - [Using Templates](https://diecut.dev/using-templates/) — sources, overrides, abbreviations
 - [Creating Templates](https://diecut.dev/creating-templates/) — build your own templates
 - [Commands Reference](https://diecut.dev/reference/commands/) — all CLI commands and options
-- [diecut.toml Reference](https://diecut.dev/diecut/reference/diecut-toml/) — complete config file reference
+- [diecut.toml Reference](https://diecut.dev/reference/diecut-toml/) — complete config file reference
 
 ## Contributing
 
