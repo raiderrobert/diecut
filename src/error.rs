@@ -85,7 +85,7 @@ pub enum DicecutError {
     InvalidAbbreviation { input: String },
 
     #[error("Hook '{hook}' failed: {message}")]
-    #[diagnostic(help("Check the Rhai script for errors"))]
+    #[diagnostic(help("Check the shell command in your hooks configuration"))]
     HookError { hook: String, message: String },
 
     #[error("Cache metadata error: {context}")]

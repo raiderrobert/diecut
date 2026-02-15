@@ -1,11 +1,9 @@
 pub mod adapter;
 pub mod answers;
-pub mod check;
 pub mod config;
 pub mod error;
 pub mod hooks;
 pub mod prompt;
-pub mod ready;
 pub mod render;
 pub mod template;
 
