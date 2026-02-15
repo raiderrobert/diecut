@@ -213,6 +213,7 @@ pub fn resolve_source_full(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     // ── Abbreviation expansion ──────────────────────────────────────────
 
@@ -240,24 +241,13 @@ mod tests {
         assert!(expanded.subpath.is_none());
     }
 
-    #[test]
-    fn expand_gitlab_abbreviation() {
-        let expanded = expand_abbreviation("gl:org/project").unwrap();
-        assert_eq!(expanded.url, "https://gitlab.com/org/project.git");
-        assert!(expanded.subpath.is_none());
-    }
-
-    #[test]
-    fn expand_bitbucket_abbreviation() {
-        let expanded = expand_abbreviation("bb:team/repo").unwrap();
-        assert_eq!(expanded.url, "https://bitbucket.org/team/repo.git");
-        assert!(expanded.subpath.is_none());
-    }
-
-    #[test]
-    fn expand_sourcehut_abbreviation() {
-        let expanded = expand_abbreviation("sr:~user/repo").unwrap();
-        assert_eq!(expanded.url, "https://git.sr.ht/~user/repo");
+    #[rstest]
+    #[case("gl:org/project", "https://gitlab.com/org/project.git")]
+    #[case("bb:team/repo", "https://bitbucket.org/team/repo.git")]
+    #[case("sr:~user/repo", "https://git.sr.ht/~user/repo")]
+    fn expand_abbreviation_cases(#[case] input: &str, #[case] expected_url: &str) {
+        let expanded = expand_abbreviation(input).unwrap();
+        assert_eq!(expanded.url, expected_url);
         assert!(expanded.subpath.is_none());
     }
 
@@ -271,25 +261,14 @@ mod tests {
 
     // ── Git URL detection ───────────────────────────────────────────────
 
-    #[test]
-    fn detect_https_url() {
-        assert!(is_git_url("https://github.com/user/repo.git"));
-    }
-
-    #[test]
-    fn detect_git_ssh_url() {
-        assert!(is_git_url("git@github.com:user/repo.git"));
-    }
-
-    #[test]
-    fn detect_dot_git_suffix() {
-        assert!(is_git_url("something.git"));
-    }
-
-    #[test]
-    fn not_git_url_for_plain_path() {
-        assert!(!is_git_url("./my-template"));
-        assert!(!is_git_url("/home/user/templates/foo"));
+    #[rstest]
+    #[case("https://github.com/user/repo.git", true)]
+    #[case("git@github.com:user/repo.git", true)]
+    #[case("something.git", true)]
+    #[case("./my-template", false)]
+    #[case("/home/user/templates/foo", false)]
+    fn is_git_url_cases(#[case] input: &str, #[case] expected: bool) {
+        assert_eq!(is_git_url(input), expected);
     }
 
     // ── resolve_source ──────────────────────────────────────────────────
@@ -509,32 +488,19 @@ mod tests {
 
     // ── Subpath parsing ────────────────────────────────────────────────
 
-    #[test]
-    fn split_repo_subpath_no_subpath() {
-        let (repo, sub) = split_repo_subpath("user/repo");
-        assert_eq!(repo, "user/repo");
-        assert!(sub.is_none());
-    }
-
-    #[test]
-    fn split_repo_subpath_single_segment() {
-        let (repo, sub) = split_repo_subpath("user/repo/template-a");
-        assert_eq!(repo, "user/repo");
-        assert_eq!(sub, Some("template-a"));
-    }
-
-    #[test]
-    fn split_repo_subpath_nested() {
-        let (repo, sub) = split_repo_subpath("user/repo/templates/python");
-        assert_eq!(repo, "user/repo");
-        assert_eq!(sub, Some("templates/python"));
-    }
-
-    #[test]
-    fn split_repo_subpath_trailing_slash() {
-        let (repo, sub) = split_repo_subpath("user/repo/");
-        assert_eq!(repo, "user/repo");
-        assert!(sub.is_none());
+    #[rstest]
+    #[case("user/repo", "user/repo", None)]
+    #[case("user/repo/template-a", "user/repo", Some("template-a"))]
+    #[case("user/repo/templates/python", "user/repo", Some("templates/python"))]
+    #[case("user/repo/", "user/repo", None)]
+    fn split_repo_subpath_cases(
+        #[case] input: &str,
+        #[case] exp_repo: &str,
+        #[case] exp_sub: Option<&str>,
+    ) {
+        let (repo, sub) = split_repo_subpath(input);
+        assert_eq!(repo, exp_repo);
+        assert_eq!(sub, exp_sub);
     }
 
     #[test]

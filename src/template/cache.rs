@@ -332,6 +332,7 @@ fn unix_timestamp_secs() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use std::sync::Mutex;
 
     /// Tests that set DIECUT_CACHE_DIR must hold this lock to avoid racing
@@ -402,20 +403,12 @@ mod tests {
         assert_eq!(dir, PathBuf::from("/tmp/test-diecut-cache"));
     }
 
-    #[test]
-    fn normalize_url_strips_trailing_git_and_slash() {
-        assert_eq!(
-            normalize_url("https://github.com/user/repo.git"),
-            "https://github.com/user/repo"
-        );
-        assert_eq!(
-            normalize_url("https://github.com/user/repo/"),
-            "https://github.com/user/repo"
-        );
-        assert_eq!(
-            normalize_url("https://github.com/user/repo"),
-            "https://github.com/user/repo"
-        );
+    #[rstest]
+    #[case("https://github.com/user/repo.git", "https://github.com/user/repo")]
+    #[case("https://github.com/user/repo/", "https://github.com/user/repo")]
+    #[case("https://github.com/user/repo", "https://github.com/user/repo")]
+    fn normalize_url_cases(#[case] input: &str, #[case] expected: &str) {
+        assert_eq!(normalize_url(input), expected);
     }
 
     #[test]
