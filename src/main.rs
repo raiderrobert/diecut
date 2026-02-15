@@ -13,7 +13,10 @@ fn main() -> miette::Result<()> {
             defaults,
             overwrite,
             no_hooks,
-        } => commands::new::run(template, output, data, defaults, overwrite, no_hooks),
+            dry_run,
+        } => commands::new::run(
+            template, output, data, defaults, overwrite, no_hooks, dry_run,
+        ),
         Commands::List => commands::list::run(),
         Commands::Update {
             path,

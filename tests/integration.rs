@@ -733,6 +733,47 @@ fn test_render_with_special_characters() {
     );
 }
 
+// --- plan_generation dry-run tests ---
+
+#[test]
+fn test_plan_generation_dry_run_no_files_written() {
+    let template_dir = fixture_path("basic-template");
+    let tmp = tempfile::tempdir().unwrap();
+    let output_path = tmp.path().join("dry-run-output");
+
+    let options = diecut::GenerateOptions {
+        template: template_dir.to_string_lossy().to_string(),
+        output: Some(output_path.to_string_lossy().to_string()),
+        data: vec![
+            ("project_name".to_string(), "test-project".to_string()),
+            ("author".to_string(), "Jane Doe".to_string()),
+            ("use_docker".to_string(), "false".to_string()),
+            ("license".to_string(), "MIT".to_string()),
+        ],
+        defaults: true,
+        overwrite: false,
+        no_hooks: true,
+    };
+
+    // plan_generation should succeed
+    let plan = diecut::plan_generation(options).unwrap();
+
+    // Plan should have files
+    assert!(!plan.render_plan.files.is_empty(), "plan should have files");
+
+    // But nothing should be written to disk
+    assert!(
+        !output_path.exists(),
+        "output directory should NOT exist after plan_generation"
+    );
+
+    // Verify plan contents are sensible
+    let has_rendered = plan.render_plan.files.iter().any(|f| !f.is_copy);
+    let has_copied = plan.render_plan.files.iter().any(|f| f.is_copy);
+    assert!(has_rendered, "plan should have rendered files");
+    assert!(has_copied, "plan should have copied files");
+}
+
 // --- plan_render + execute_plan tests ---
 
 #[test]

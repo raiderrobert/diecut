@@ -37,6 +37,10 @@ pub enum Commands {
         /// Skip running hooks
         #[arg(long)]
         no_hooks: bool,
+
+        /// Show what would be generated without writing files
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// List cached templates
