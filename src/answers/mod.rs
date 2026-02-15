@@ -180,21 +180,3 @@ fn tera_value_to_toml(value: &Value) -> Option<toml::Value> {
         _ => None,
     }
 }
-
-pub(crate) fn toml_value_to_tera(value: &toml::Value) -> Value {
-    match value {
-        toml::Value::String(s) => Value::String(s.clone()),
-        toml::Value::Integer(n) => Value::Number(serde_json::Number::from(*n)),
-        toml::Value::Float(f) => serde_json::to_value(f).unwrap_or(Value::Null),
-        toml::Value::Boolean(b) => Value::Bool(*b),
-        toml::Value::Array(arr) => Value::Array(arr.iter().map(toml_value_to_tera).collect()),
-        toml::Value::Table(t) => {
-            let map: serde_json::Map<String, Value> = t
-                .iter()
-                .map(|(k, v)| (k.clone(), toml_value_to_tera(v)))
-                .collect();
-            Value::Object(map)
-        }
-        toml::Value::Datetime(d) => Value::String(d.to_string()),
-    }
-}
