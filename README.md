@@ -32,9 +32,9 @@ diecut new ./my-template --output my-project
 diecut list
 ```
 
-### Starter templates
+### Example templates
 
-[diecut-templates](https://github.com/raiderrobert/diecut-templates) has ready-to-use templates:
+[diecut-templates](https://github.com/raiderrobert/diecut-templates) has example simple templates to help give you an idea of what's possible:
 
 ```bash
 diecut new gh:raiderrobert/diecut-templates/python-pkg --output my-project
