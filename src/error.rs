@@ -79,7 +79,7 @@ pub enum DicecutError {
     },
 
     #[error("Invalid template abbreviation: {input}")]
-    #[diagnostic(help("Supported abbreviations: gh:user/repo, gl:user/repo, bb:user/repo"))]
+    #[diagnostic(help("Supported abbreviations: gh:user/repo, gl:user/repo, cb:user/repo"))]
     InvalidAbbreviation { input: String },
 
     #[error("Hook '{hook}' failed: {message}")]
