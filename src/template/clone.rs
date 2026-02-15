@@ -111,6 +111,7 @@ pub fn clone_template(url: &str, git_ref: Option<&str>) -> Result<CloneResult> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     #[test]
     fn clone_rejects_invalid_url() {
@@ -153,45 +154,33 @@ mod tests {
         assert!(result.dir.path().exists());
     }
 
-    #[test]
-    fn classify_auth_failure() {
-        let msg = classify_clone_error(
-            "fatal: Authentication failed for 'https://github.com/org/repo.git'",
+    #[rstest]
+    #[case(
+        "fatal: Authentication failed for 'https://github.com/org/repo.git'",
+        "configure git credentials"
+    )]
+    #[case(
+        "fatal: repository 'https://github.com/org/repo.git/' not found",
+        "repository not found"
+    )]
+    #[case("Host key verification failed.", "ssh-keyscan")]
+    #[case(
+        "fatal: unable to access: Could not resolve host: github.com",
+        "network error"
+    )]
+    #[case(
+        "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+        "configure git credentials"
+    )]
+    #[case(
+        "fatal: something unexpected happened",
+        "fatal: something unexpected happened"
+    )]
+    fn classify_clone_error_cases(#[case] input: &str, #[case] expected: &str) {
+        let msg = classify_clone_error(input);
+        assert!(
+            msg.contains(expected),
+            "for input '{input}': expected '{expected}' in '{msg}'"
         );
-        assert!(msg.contains("configure git credentials"));
-    }
-
-    #[test]
-    fn classify_repo_not_found() {
-        let msg =
-            classify_clone_error("fatal: repository 'https://github.com/org/repo.git/' not found");
-        assert!(msg.contains("repository not found"));
-    }
-
-    #[test]
-    fn classify_host_key_failure() {
-        let msg = classify_clone_error("Host key verification failed.");
-        assert!(msg.contains("ssh-keyscan"));
-    }
-
-    #[test]
-    fn classify_network_error() {
-        let msg =
-            classify_clone_error("fatal: unable to access: Could not resolve host: github.com");
-        assert!(msg.contains("network error"));
-    }
-
-    #[test]
-    fn classify_terminal_prompts_disabled() {
-        let msg = classify_clone_error(
-            "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
-        );
-        assert!(msg.contains("configure git credentials"));
-    }
-
-    #[test]
-    fn classify_unknown_error() {
-        let msg = classify_clone_error("fatal: something unexpected happened");
-        assert_eq!(msg, "fatal: something unexpected happened");
     }
 }

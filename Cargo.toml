@@ -34,3 +34,6 @@ tempfile = "3"
 sha2 = "0.10"
 fs4 = "0.12"
 content_inspector = "0.2"
+
+[dev-dependencies]
+rstest = "0.23"
