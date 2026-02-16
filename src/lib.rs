@@ -354,4 +354,46 @@ default = "my-project"
         assert!(contents.contains("project_name"));
         assert!(contents.contains("test-project"));
     }
+
+    #[test]
+    fn test_execute_generation_respects_no_hooks() {
+        let template_dir = tempfile::tempdir().unwrap();
+
+        let config = r#"
+[template]
+name = "test-with-hooks"
+version = "1.0.0"
+templates_suffix = ".tera"
+
+[hooks]
+post_create = "touch hook_ran.txt"
+
+[variables.name]
+type = "string"
+default = "test"
+"#;
+        fs::write(template_dir.path().join("diecut.toml"), config).unwrap();
+        fs::create_dir_all(template_dir.path().join("template")).unwrap();
+        fs::write(template_dir.path().join("template/README.md"), "test").unwrap();
+
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![],
+            defaults: true,
+            overwrite: true,
+            no_hooks: true,
+        };
+
+        let plan = plan_generation(options).unwrap();
+        execute_generation(plan).unwrap();
+
+        let hook_file = output_dir.path().join("hook_ran.txt");
+        assert!(
+            !hook_file.exists(),
+            "Hook should not run when no_hooks=true"
+        );
+    }
 }
