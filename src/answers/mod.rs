@@ -180,3 +180,164 @@ fn tera_value_to_toml(value: &Value) -> Option<toml::Value> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    /// Integration test: verify write→read roundtrip with multiple types and git metadata
+    #[test]
+    fn test_write_and_read_answers_roundtrip() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "roundtrip-test".to_string(),
+                version: Some("1.2.3".to_string()),
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let mut variables = BTreeMap::new();
+        variables.insert("name".to_string(), Value::String("test".to_string()));
+        variables.insert(
+            "count".to_string(),
+            Value::Number(serde_json::Number::from(42)),
+        );
+        variables.insert("enabled".to_string(), Value::Bool(true));
+
+        let source_info = SourceInfo {
+            url: Some("https://example.com/repo.git".to_string()),
+            git_ref: Some("v1.0".to_string()),
+            commit_sha: Some("deadbeef".to_string()),
+        };
+
+        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+
+        // Read back and verify
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        let content = fs::read_to_string(&answers_file).unwrap();
+        let parsed: toml::Value = toml::from_str(&content).unwrap();
+
+        let metadata = parsed.get("_diecut").unwrap().as_table().unwrap();
+        assert_eq!(
+            metadata.get("template").unwrap().as_str().unwrap(),
+            "roundtrip-test"
+        );
+        assert_eq!(metadata.get("version").unwrap().as_str().unwrap(), "1.2.3");
+
+        let vars = parsed.get("variables").unwrap().as_table().unwrap();
+        assert_eq!(vars.get("name").unwrap().as_str().unwrap(), "test");
+        assert_eq!(vars.get("count").unwrap().as_integer().unwrap(), 42);
+        assert_eq!(vars.get("enabled").unwrap().as_bool().unwrap(), true);
+
+        assert_eq!(
+            metadata.get("template_source").unwrap().as_str().unwrap(),
+            "https://example.com/repo.git"
+        );
+        assert_eq!(
+            metadata.get("template_ref").unwrap().as_str().unwrap(),
+            "v1.0"
+        );
+        assert_eq!(
+            metadata.get("commit_sha").unwrap().as_str().unwrap(),
+            "deadbeef"
+        );
+    }
+
+    /// Integration test: verify secret variables are excluded from answers file
+    #[test]
+    fn test_write_answers_excludes_secret_variables() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let mut variables_config = BTreeMap::new();
+        variables_config.insert(
+            "api_key".to_string(),
+            crate::config::variable::VariableConfig {
+                var_type: crate::config::variable::VariableType::String,
+                prompt: None,
+                default: None,
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: true,
+            },
+        );
+        variables_config.insert(
+            "public_var".to_string(),
+            crate::config::variable::VariableConfig {
+                var_type: crate::config::variable::VariableType::String,
+                prompt: None,
+                default: None,
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: variables_config,
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "api_key".to_string(),
+            Value::String("secret123".to_string()),
+        );
+        variables.insert(
+            "public_var".to_string(),
+            Value::String("visible".to_string()),
+        );
+
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        let content = fs::read_to_string(&answers_file).unwrap();
+
+        // Secret variable should NOT be in the file
+        assert!(!content.contains("api_key"));
+        assert!(!content.contains("secret123"));
+
+        // Public variable SHOULD be in the file
+        assert!(content.contains("public_var"));
+        assert!(content.contains("visible"));
+    }
+
+    /// Integration test: verify error handling when answers file is missing
+    #[test]
+    fn test_load_answers_no_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let result = load_answers(temp_dir.path());
+
+        assert!(result.is_err());
+    }
+}
