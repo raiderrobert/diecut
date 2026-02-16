@@ -183,3 +183,49 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     let plan = plan_generation(options)?;
     execute_generation(plan)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile;
+
+    fn create_minimal_template(dir: &std::path::Path) {
+        let config = r#"
+[template]
+name = "test-template"
+version = "1.0.0"
+templates_suffix = ".tera"
+
+[variables.project_name]
+type = "string"
+default = "my-project"
+"#;
+        fs::write(dir.join("diecut.toml"), config).unwrap();
+        fs::create_dir_all(dir.join("template")).unwrap();
+        fs::write(dir.join("template/README.md.tera"), "# {{ project_name }}").unwrap();
+    }
+
+    #[test]
+    fn test_plan_generation_local_template() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![("project_name".to_string(), "test-proj".to_string())],
+            defaults: false,
+            overwrite: false,
+            no_hooks: true,
+        };
+
+        let plan = plan_generation(options).unwrap();
+
+        assert_eq!(plan.config.template.name, "test-template");
+        assert!(plan.render_plan.files.len() > 0);
+        assert_eq!(plan.variables.get("project_name").unwrap(), "test-proj");
+    }
+}
