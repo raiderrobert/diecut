@@ -9,7 +9,7 @@
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/raiderrobert/diecut/main/install.sh | sh
+curl -fsSL https://diecut.dev/install.sh | sh
 ```
 
 Or build from source:

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Diecut installer — https://github.com/raiderrobert/diecut
-# Usage: curl -fsSL https://raw.githubusercontent.com/raiderrobert/diecut/main/install.sh | sh
+# Usage: curl -fsSL https://diecut.dev/install.sh | sh
 set -e
 
 REPO="raiderrobert/diecut"
