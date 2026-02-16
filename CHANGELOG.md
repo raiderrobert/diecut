@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.3.0](https://github.com/raiderrobert/diecut/compare/v0.2.0...v0.3.0) (2026-02-16)
+
+
+### Features
+
+* add Codeberg (cb:) abbreviation ([ded1ab3](https://github.com/raiderrobert/diecut/commit/ded1ab36a37286c34e680d7cc6d1778f4da6940c))
+* add diecut logo to README and docs ([99a860a](https://github.com/raiderrobert/diecut/commit/99a860a972c1ec14e88949dc2110d5d5d7d98ab8))
+* add diecut logo to README and docs ([80b5010](https://github.com/raiderrobert/diecut/commit/80b501039916d356874ba02180714da9f7b665a1))
+* add subpath support for multi-template repos ([ff873d0](https://github.com/raiderrobert/diecut/commit/ff873d0189be91dd5c4fd3a12012fc4ba4887b5f))
+
+
+### Bug Fixes
+
+* docs cleanup — linked cards, README 404, simplify templates ([15b1143](https://github.com/raiderrobert/diecut/commit/15b11435509703823120d69d2ef428e33e1e261f))
+* docs cleanup — linked cards, README 404, simplify templates section ([d0d6de4](https://github.com/raiderrobert/diecut/commit/d0d6de4116e772c2e7964c21527ce6ba39dd4f8b))
+* move favicon to public dir so it's served correctly ([d0f9dac](https://github.com/raiderrobert/diecut/commit/d0f9dac0bc0039913b83e05d54ee2c80f810cdea))
+* remove dead toml_value_to_tera function ([944a138](https://github.com/raiderrobert/diecut/commit/944a138735592503a6bcac300f668df82329b3de))
+
+
+### Miscellaneous
+
+* adopt rstest for parameterized tests ([aa255a7](https://github.com/raiderrobert/diecut/commit/aa255a70e7330647100dbc8e76c766b229b4ddb5))
+* adopt rstest for parameterized tests ([695a205](https://github.com/raiderrobert/diecut/commit/695a20575b5e35c55fb70040989301d07bebf72b))
+* change bump-patch-for-minor-pre-major to false ([b17768e](https://github.com/raiderrobert/diecut/commit/b17768ececb5da091fa3f6c04aadc90fc02b8011))
+* cleaned up description ([7a29bcb](https://github.com/raiderrobert/diecut/commit/7a29bcb9da690aae5c5459e57a77c70e4eb39633))
+* remove Bitbucket (bb:) abbreviation ([77a4cb3](https://github.com/raiderrobert/diecut/commit/77a4cb3897ac4c225a3fb76faf401ccb9edd0410))
+* remove Sourcehut (sr:) abbreviation ([3573849](https://github.com/raiderrobert/diecut/commit/357384970408cb1c6ef8d2895fec3daf7891e2b6))
+* remove Sourcehut (sr:) abbreviation ([e9f13b4](https://github.com/raiderrobert/diecut/commit/e9f13b4ff5514b055a1bc06f6c3f9f0c0ccf3f48))
+* rename 'Starter templates' to 'Example templates' ([a83bb1c](https://github.com/raiderrobert/diecut/commit/a83bb1c3f1c90cab6d7bef4f356e12f0cc3f15fe))
+* replace Bitbucket with Codeberg abbreviation ([f5c294f](https://github.com/raiderrobert/diecut/commit/f5c294f7dc287d508de7de8d4e908d0d23597464))
+
+
+### Documentation
+
+* cross-link diecut and diecut-templates repos ([c9a486d](https://github.com/raiderrobert/diecut/commit/c9a486d3fd90fed0a6fa92e0c118bc0ec02f170a))
+* cross-link diecut and diecut-templates repos ([84758ca](https://github.com/raiderrobert/diecut/commit/84758ca2084739e7e654975b352c294e9aeb5f55))
+* update for refactor (remove cookiecutter, update, check/ready, rhai) ([efa8c18](https://github.com/raiderrobert/diecut/commit/efa8c18f22767adc695608ecf2b89f3d15d39a06))
+* update README with subpath examples and starter templates ([8964392](https://github.com/raiderrobert/diecut/commit/896439224b7d51c4b619e9a930beafb68fdb1d35))
+* update README with subpath examples and starter templates ([d880209](https://github.com/raiderrobert/diecut/commit/d880209e7d400059f0ac5308bbc4567e169bc0cc))
+* update site for trim-and-refactor changes ([e6bafcd](https://github.com/raiderrobert/diecut/commit/e6bafcd5c481bae005c672cfce9fc7ea360fbcc3))
+
+
+### Code Refactoring
+
+* remove check/ready commands, examples, and unused deps ([90aef09](https://github.com/raiderrobert/diecut/commit/90aef094d7e109538cc613c8f3ce9d365d7f8890))
+* strip non-core features (cookiecutter, update, rhai hooks) ([4bf7182](https://github.com/raiderrobert/diecut/commit/4bf7182cc8dfc2ca674680db2c6a8e1132ab7199))
+* strip non-core features and trim to new + list ([3c869d9](https://github.com/raiderrobert/diecut/commit/3c869d99971d3ca678c68e9e715e87d95f15a6ef))
+* trim non-core features and add subpath support ([3137e5a](https://github.com/raiderrobert/diecut/commit/3137e5abe7bc7bc4b29bcc010663068a386b8132))
+
 ## [0.2.0](https://github.com/raiderrobert/diecut/compare/v0.1.6...v0.2.0) (2026-02-15)
 
 
