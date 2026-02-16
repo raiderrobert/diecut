@@ -297,3 +297,273 @@ fn toml_to_tera_value(val: &toml::Value) -> Value {
         toml::Value::Datetime(d) => Value::String(d.to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    /// Helper to create a minimal TemplateConfig for testing
+    fn minimal_config(variables: BTreeMap<String, VariableConfig>) -> TemplateConfig {
+        TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables,
+            files: Default::default(),
+            hooks: Default::default(),
+            answers: Default::default(),
+        }
+    }
+
+    /// Integration test: verify basic variable collection with defaults and multiple types
+    #[test]
+    fn test_collect_variables_multiple() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "name".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("test".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+        variables.insert(
+            "license".to_string(),
+            VariableConfig {
+                var_type: VariableType::Select,
+                prompt: None,
+                default: Some(toml::Value::String("MIT".to_string())),
+                choices: Some(vec!["MIT".to_string(), "Apache-2.0".to_string()]),
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+        variables.insert(
+            "use_ci".to_string(),
+            VariableConfig {
+                var_type: VariableType::Bool,
+                prompt: None,
+                default: Some(toml::Value::Boolean(false)),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.len(), 3);
+        assert_eq!(result.get("name").unwrap(), "test");
+        assert_eq!(result.get("license").unwrap(), "MIT");
+        assert_eq!(result.get("use_ci").unwrap(), &Value::Bool(false));
+    }
+
+    /// Integration test: verify override type coercion for boolean values
+    #[rstest]
+    #[case("true", true)]
+    #[case("false", false)]
+    #[case("1", true)]
+    #[case("0", false)]
+    fn test_boolean_override_coercion(#[case] input: &str, #[case] expected: bool) {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "enabled".to_string(),
+            VariableConfig {
+                var_type: VariableType::Bool,
+                prompt: None,
+                default: Some(toml::Value::Boolean(false)),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let mut overrides = HashMap::new();
+        overrides.insert("enabled".to_string(), input.to_string());
+
+        let options = PromptOptions {
+            data_overrides: overrides,
+            use_defaults: false,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.get("enabled").unwrap(), &Value::Bool(expected));
+    }
+
+    /// Integration test: verify when conditions evaluate correctly
+    #[rstest]
+    #[case(true, 2, Some("advanced"))] // condition true, both vars collected
+    #[case(false, 1, None)] // condition false, dependent var skipped
+    fn test_when_condition(
+        #[case] condition: bool,
+        #[case] expected_len: usize,
+        #[case] expected_value: Option<&str>,
+    ) {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "enable_feature".to_string(),
+            VariableConfig {
+                var_type: VariableType::Bool,
+                prompt: None,
+                default: Some(toml::Value::Boolean(condition)),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+        variables.insert(
+            "feature_config".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("advanced".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: Some("enable_feature".to_string()),
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.len(), expected_len);
+        assert_eq!(
+            result.get("enable_feature").unwrap(),
+            &Value::Bool(condition)
+        );
+        assert_eq!(
+            result.get("feature_config").map(|v| v.as_str().unwrap()),
+            expected_value
+        );
+    }
+
+    /// Integration test: verify computed variables can reference other variables
+    #[test]
+    fn test_computed_variable_depends_on_another() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "author".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("John Doe".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+        variables.insert(
+            "author_email".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("john@example.com".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+        variables.insert(
+            "full_author".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: None,
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: Some("{{ author }} <{{ author_email }}>".to_string()),
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(
+            result.get("full_author").unwrap(),
+            "John Doe <john@example.com>"
+        );
+    }
+
+    /// Integration test: verify Tera errors in computed variables are caught and wrapped
+    #[test]
+    fn test_computed_variable_evaluation_error() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "broken".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: None,
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: Some("{{ undefined_var }}".to_string()),
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        // Should error because undefined_var doesn't exist
+        let result = collect_variables(&config, &options);
+        assert!(result.is_err());
+    }
+}
