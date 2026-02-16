@@ -379,4 +379,54 @@ mod tests {
             expected
         );
     }
+
+    #[test]
+    fn test_write_answers_boolean_values() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let mut variables = BTreeMap::new();
+        variables.insert("enabled".to_string(), Value::Bool(true));
+        variables.insert("disabled".to_string(), Value::Bool(false));
+
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        let content = fs::read_to_string(&answers_file).unwrap();
+
+        let parsed: toml::Value = toml::from_str(&content).unwrap();
+        let variables_section = parsed.get("variables").unwrap().as_table().unwrap();
+
+        assert_eq!(
+            variables_section.get("enabled").unwrap().as_bool().unwrap(),
+            true
+        );
+        assert_eq!(
+            variables_section
+                .get("disabled")
+                .unwrap()
+                .as_bool()
+                .unwrap(),
+            false
+        );
+    }
 }
