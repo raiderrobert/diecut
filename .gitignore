@@ -1,5 +1,17 @@
+# Rust Specific
+*.profraw
+*.profdata
 /target
+
+# common tooling these days
 .worktrees/
+.beads/
 .claude/
 CLAUDE.md
-.beads/
+
+# macOS
+.DS_Store
+
+# IDEs/Editor Files
+.vscode/
+.idea/
