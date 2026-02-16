@@ -50,27 +50,19 @@ pub fn is_binary_file(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use std::fs;
     use tempfile;
 
-    #[test]
-    fn test_is_binary_file_with_text_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("test.txt");
-        fs::write(&file, "Hello, world!").unwrap();
-
-        assert!(!is_binary_file(&file));
-    }
-
-    #[test]
-    fn test_is_binary_file_with_binary_file() {
+    #[rstest]
+    #[case(b"Hello, world!", false)] // text file, not binary
+    #[case(&(0..256).map(|i| i as u8).collect::<Vec<u8>>(), true)] // binary file with null bytes
+    fn test_is_binary_file(#[case] content: &[u8], #[case] expected_binary: bool) {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("test.bin");
-        // Create a binary file with null bytes which is definitely binary
-        let binary_data: Vec<u8> = (0..256).map(|i| i as u8).collect();
-        fs::write(&file, &binary_data).unwrap();
+        fs::write(&file, content).unwrap();
 
-        assert!(is_binary_file(&file));
+        assert_eq!(is_binary_file(&file), expected_binary);
     }
 
     #[test]
