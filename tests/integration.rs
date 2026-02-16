@@ -6,6 +6,7 @@ use diecut::config::load_config;
 use diecut::prompt::PromptOptions;
 use diecut::render::{build_context, execute_plan, plan_render, walk_and_render};
 use diecut::template::source::{resolve_source, resolve_source_full};
+use rstest::rstest;
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -123,39 +124,24 @@ fn test_generate_basic_template() {
     assert!(!result.files_copied.is_empty(), "should have copied files");
 }
 
-#[test]
-fn test_conditional_file_excluded() {
+#[rstest]
+#[case(false, false)] // no docker, file should not exist
+#[case(true, true)] // with docker, file should exist
+fn test_conditional_file(#[case] use_docker: bool, #[case] should_exist: bool) {
     let template_dir = fixture_path("basic-template");
     let resolved = adapter::resolve_template(&template_dir).unwrap();
     let mut variables = default_variables();
-    variables.insert("use_docker".to_string(), tera::Value::Bool(false));
+    variables.insert("use_docker".to_string(), tera::Value::Bool(use_docker));
 
     let context = build_context(&variables);
     let output_dir = tempfile::tempdir().unwrap();
     walk_and_render(&resolved, output_dir.path(), &variables, &context).unwrap();
 
     let dockerfile = output_dir.path().join("test-project/Dockerfile");
-    assert!(
-        !dockerfile.exists(),
-        "Dockerfile should not exist when use_docker=false"
-    );
-}
-
-#[test]
-fn test_conditional_file_included() {
-    let template_dir = fixture_path("basic-template");
-    let resolved = adapter::resolve_template(&template_dir).unwrap();
-    let mut variables = default_variables();
-    variables.insert("use_docker".to_string(), tera::Value::Bool(true));
-
-    let context = build_context(&variables);
-    let output_dir = tempfile::tempdir().unwrap();
-    walk_and_render(&resolved, output_dir.path(), &variables, &context).unwrap();
-
-    let dockerfile = output_dir.path().join("test-project/Dockerfile");
-    assert!(
+    assert_eq!(
         dockerfile.exists(),
-        "Dockerfile should exist when use_docker=true"
+        should_exist,
+        "Dockerfile existence should match use_docker={use_docker}"
     );
 }
 
@@ -282,11 +268,12 @@ name = "missing-template-dir"
 
 // --- Edge case: template source URL parsing ---
 
-#[test]
-fn test_resolve_source_rejects_empty_abbreviation_remainder() {
-    assert!(resolve_source("gh:").is_err());
-    assert!(resolve_source("gl:").is_err());
-    assert!(resolve_source("cb:").is_err());
+#[rstest]
+#[case("gh:")]
+#[case("gl:")]
+#[case("cb:")]
+fn test_resolve_source_rejects_empty_abbreviation_remainder(#[case] input: &str) {
+    assert!(resolve_source(input).is_err());
 }
 
 #[test]

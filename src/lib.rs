@@ -183,3 +183,228 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
     let plan = plan_generation(options)?;
     execute_generation(plan)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use std::fs;
+    use tempfile;
+
+    fn create_minimal_template(dir: &std::path::Path) {
+        let config = r#"
+[template]
+name = "test-template"
+version = "1.0.0"
+templates_suffix = ".tera"
+
+[variables.project_name]
+type = "string"
+default = "my-project"
+"#;
+        fs::write(dir.join("diecut.toml"), config).unwrap();
+        fs::create_dir_all(dir.join("template")).unwrap();
+        fs::write(dir.join("template/README.md.tera"), "# {{ project_name }}").unwrap();
+    }
+
+    #[test]
+    fn test_plan_generation_local_template() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![("project_name".to_string(), "test-proj".to_string())],
+            defaults: false,
+            overwrite: false,
+            no_hooks: true,
+        };
+
+        let plan = plan_generation(options).unwrap();
+
+        assert_eq!(plan.config.template.name, "test-template");
+        assert!(plan.render_plan.files.len() > 0);
+        assert_eq!(plan.variables.get("project_name").unwrap(), "test-proj");
+    }
+
+    #[test]
+    fn test_plan_generation_template_missing() {
+        let options = GenerateOptions {
+            template: "/nonexistent/path/to/template".to_string(),
+            output: None,
+            data: vec![],
+            defaults: true,
+            overwrite: false,
+            no_hooks: true,
+        };
+
+        let result = plan_generation(options);
+
+        assert!(result.is_err());
+        if let Err(err) = result {
+            assert!(matches!(err, DicecutError::ConfigNotFound { .. }));
+        }
+    }
+
+    #[rstest]
+    #[case(false, true)] // no overwrite, should error
+    #[case(true, false)] // with overwrite, should succeed
+    fn test_plan_generation_output_exists(#[case] overwrite: bool, #[case] should_error: bool) {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_dir = tempfile::tempdir().unwrap();
+        fs::write(output_dir.path().join("existing.txt"), "exists").unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![],
+            defaults: true,
+            overwrite,
+            no_hooks: true,
+        };
+
+        let result = plan_generation(options);
+
+        assert_eq!(result.is_err(), should_error);
+        if should_error {
+            if let Err(err) = result {
+                assert!(matches!(err, DicecutError::OutputExists { .. }));
+            }
+        }
+    }
+
+    #[test]
+    fn test_execute_generation_creates_output_dir() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_parent = tempfile::tempdir().unwrap();
+        let output_path = output_parent.path().join("new_project");
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_path.display().to_string()),
+            data: vec![("project_name".to_string(), "test".to_string())],
+            defaults: false,
+            overwrite: false,
+            no_hooks: true,
+        };
+
+        let plan = plan_generation(options).unwrap();
+
+        assert!(
+            !output_path.exists(),
+            "Output dir should not exist before execution"
+        );
+
+        let result = execute_generation(plan);
+
+        assert!(result.is_ok());
+        assert!(
+            output_path.exists(),
+            "Output dir should exist after execution"
+        );
+    }
+
+    #[test]
+    fn test_execute_generation_writes_answers() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![("project_name".to_string(), "test-project".to_string())],
+            defaults: false,
+            overwrite: true,
+            no_hooks: true,
+        };
+
+        let plan = plan_generation(options).unwrap();
+        execute_generation(plan).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        assert!(answers_file.exists(), "Answers file should exist");
+
+        let contents = fs::read_to_string(&answers_file).unwrap();
+        assert!(contents.contains("project_name"));
+        assert!(contents.contains("test-project"));
+    }
+
+    #[test]
+    fn test_execute_generation_respects_no_hooks() {
+        let template_dir = tempfile::tempdir().unwrap();
+
+        let config = r#"
+[template]
+name = "test-with-hooks"
+version = "1.0.0"
+templates_suffix = ".tera"
+
+[hooks]
+post_create = "touch hook_ran.txt"
+
+[variables.name]
+type = "string"
+default = "test"
+"#;
+        fs::write(template_dir.path().join("diecut.toml"), config).unwrap();
+        fs::create_dir_all(template_dir.path().join("template")).unwrap();
+        fs::write(template_dir.path().join("template/README.md"), "test").unwrap();
+
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![],
+            defaults: true,
+            overwrite: true,
+            no_hooks: true,
+        };
+
+        let plan = plan_generation(options).unwrap();
+        execute_generation(plan).unwrap();
+
+        let hook_file = output_dir.path().join("hook_ran.txt");
+        assert!(
+            !hook_file.exists(),
+            "Hook should not run when no_hooks=true"
+        );
+    }
+
+    #[test]
+    fn test_generate_end_to_end() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![("project_name".to_string(), "my-proj".to_string())],
+            defaults: false,
+            overwrite: true,
+            no_hooks: true,
+        };
+
+        let result = generate(options).unwrap();
+
+        assert!(result.files_created.len() > 0);
+        assert!(output_dir.path().join(".diecut-answers.toml").exists());
+
+        // Verify rendered file exists
+        let readme = output_dir.path().join("README.md");
+        assert!(readme.exists());
+        let content = fs::read_to_string(readme).unwrap();
+        assert!(content.contains("my-proj"));
+    }
+}

@@ -46,3 +46,48 @@ pub fn is_binary_file(path: &Path) -> bool {
 
     !content_inspector::inspect(&buf[..n]).is_text()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use std::fs;
+    use tempfile;
+
+    #[rstest]
+    #[case(b"Hello, world!", false)] // text file, not binary
+    #[case(&(0..256).map(|i| i as u8).collect::<Vec<u8>>(), true)] // binary file with null bytes
+    fn test_is_binary_file(#[case] content: &[u8], #[case] expected_binary: bool) {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.bin");
+        fs::write(&file, content).unwrap();
+
+        assert_eq!(is_binary_file(&file), expected_binary);
+    }
+
+    #[test]
+    fn test_is_binary_file_nonexistent_file() {
+        let result = is_binary_file(&std::path::PathBuf::from("/nonexistent/file.txt"));
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_render_path_component() {
+        let mut context = Context::new();
+        context.insert("project_name", "my-project");
+
+        let result = render_path_component("{{project_name}}", &context).unwrap();
+        assert_eq!(result, "my-project");
+    }
+
+    #[test]
+    fn test_render_path_component_error() {
+        let context = Context::new();
+
+        let result = render_path_component("{{invalid_var}}", &context);
+        assert!(result.is_err());
+        if let Err(err) = result {
+            assert!(matches!(err, DicecutError::FilenameRenderError { .. }));
+        }
+    }
+}
