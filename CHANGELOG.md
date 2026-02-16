@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0](https://github.com/raiderrobert/diecut/compare/v0.3.0...v0.4.0) (2026-02-16)
+
+
+### Features
+
+* serve install script from diecut.dev ([#83](https://github.com/raiderrobert/diecut/issues/83)) ([d80b936](https://github.com/raiderrobert/diecut/commit/d80b9368e19046f18ea1e002e2cd6383bb4405d1))
+
+
+### Miscellaneous
+
+* added in benchmarking ([608f808](https://github.com/raiderrobert/diecut/commit/608f8081b9b233fc87a12e4b82c41df1da96ed89))
+* added more things to .gitignore ([31f7e41](https://github.com/raiderrobert/diecut/commit/31f7e413fcbd7e9e9a721c72e5b5d787c05b29d4))
+* exclude beads ([9ee591c](https://github.com/raiderrobert/diecut/commit/9ee591c0ec8532348786a6b5c8f7a55ec7371e70))
+* exclude CLAUDE.md ([8fc8190](https://github.com/raiderrobert/diecut/commit/8fc8190b43ce672445e44b86cfc6c9b11b419e0d))
+* reorg .gitignore ([f5d98d6](https://github.com/raiderrobert/diecut/commit/f5d98d618ac7b8a5b29b343574f6f0b33eaaa7e2))
+* untrack CLAUDE.md ([7121c07](https://github.com/raiderrobert/diecut/commit/7121c075b8dae1cbf5ca1646e2f6e823210e6212))
+
+
+### Documentation
+
+* updates to the index & description ([2228d21](https://github.com/raiderrobert/diecut/commit/2228d21acdac3e5889f1b5bf4ec2ff44bb232e17))
+
 ## [0.3.0](https://github.com/raiderrobert/diecut/compare/v0.2.0...v0.3.0) (2026-02-16)
 
 
