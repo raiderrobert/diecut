@@ -396,4 +396,32 @@ default = "test"
             "Hook should not run when no_hooks=true"
         );
     }
+
+    #[test]
+    fn test_generate_end_to_end() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![("project_name".to_string(), "my-proj".to_string())],
+            defaults: false,
+            overwrite: true,
+            no_hooks: true,
+        };
+
+        let result = generate(options).unwrap();
+
+        assert!(result.files_created.len() > 0);
+        assert!(output_dir.path().join(".diecut-answers.toml").exists());
+
+        // Verify rendered file exists
+        let readme = output_dir.path().join("README.md");
+        assert!(readme.exists());
+        let content = fs::read_to_string(readme).unwrap();
+        assert!(content.contains("my-proj"));
+    }
 }
