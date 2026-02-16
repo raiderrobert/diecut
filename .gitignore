@@ -1,6 +1,5 @@
 /target
-.research/
-.claude/
 .worktrees/
-.beads/
+.claude/
 CLAUDE.md
+.beads/
