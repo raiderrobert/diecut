@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.3.1](https://github.com/raiderrobert/diecut/compare/v0.3.0...v0.3.1) (2026-02-16)
+
+
+### Features
+
+* serve install script from diecut.dev ([#83](https://github.com/raiderrobert/diecut/issues/83)) ([d80b936](https://github.com/raiderrobert/diecut/commit/d80b9368e19046f18ea1e002e2cd6383bb4405d1))
+
+
+### Miscellaneous
+
+* added in benchmarking ([608f808](https://github.com/raiderrobert/diecut/commit/608f8081b9b233fc87a12e4b82c41df1da96ed89))
+* added more things to .gitignore ([31f7e41](https://github.com/raiderrobert/diecut/commit/31f7e413fcbd7e9e9a721c72e5b5d787c05b29d4))
+* clean up changelog ([30f07bf](https://github.com/raiderrobert/diecut/commit/30f07bf9fcbbfae067a69578afc021f6ecbd3d86))
+* exclude beads ([9ee591c](https://github.com/raiderrobert/diecut/commit/9ee591c0ec8532348786a6b5c8f7a55ec7371e70))
+* exclude CLAUDE.md ([8fc8190](https://github.com/raiderrobert/diecut/commit/8fc8190b43ce672445e44b86cfc6c9b11b419e0d))
+* flip the bump feature back to patch versions for now ([8f9705c](https://github.com/raiderrobert/diecut/commit/8f9705c1c046bf89e5778f2141f3722ff045065b))
+* reorg .gitignore ([f5d98d6](https://github.com/raiderrobert/diecut/commit/f5d98d618ac7b8a5b29b343574f6f0b33eaaa7e2))
+* untrack CLAUDE.md ([7121c07](https://github.com/raiderrobert/diecut/commit/7121c075b8dae1cbf5ca1646e2f6e823210e6212))
+
+
+### Documentation
+
+* add implementation plans for test coverage worktrees ([5381b51](https://github.com/raiderrobert/diecut/commit/5381b517cdd356c69d3adeafadc56ae111d287ca))
+* add test coverage improvement design ([05fd520](https://github.com/raiderrobert/diecut/commit/05fd520e73b2ecf1fed3bb2ed9c567d95a472d92))
+* added in llms.txt ([0ed24d0](https://github.com/raiderrobert/diecut/commit/0ed24d09074ef0e5b3b784fa0234464977475b46))
+* improved examples and copy ([242d30f](https://github.com/raiderrobert/diecut/commit/242d30f61cab951f6f3c3620fe9c7e21a4e5d94a))
+* small copy edit ([01e3d2d](https://github.com/raiderrobert/diecut/commit/01e3d2dc5413da64c7ef6019ecb99ca897134b78))
+* updates to the index & description ([2228d21](https://github.com/raiderrobert/diecut/commit/2228d21acdac3e5889f1b5bf4ec2ff44bb232e17))
+
 ## [0.3.0](https://github.com/raiderrobert/diecut/compare/v0.2.0...v0.3.0) (2026-02-16)
 
 
