@@ -189,12 +189,14 @@ A computed variable must not have a `prompt` field. If it does, diecut will repo
 
 ### Excluding files
 
-Keep files out of the generated output:
+Keep files from the template out of the generated output:
 
 ```toml
 [files]
-exclude = ["*.pyc", ".DS_Store", "__pycache__/**"]
+exclude = ["*.pyc", "__pycache__/**", ".git/"]
 ```
+
+Generally this won't be useful if you're making a template from git repository. However, if you're making a template from a local directory, you might want to exclude files that you have already .gitignored.
 
 ### Copying without rendering
 

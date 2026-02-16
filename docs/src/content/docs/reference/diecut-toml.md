@@ -23,10 +23,10 @@ choices = ["MIT", "Apache-2.0", "MIT OR Apache-2.0"]
 default = "MIT"
 
 [files]
-exclude = ["*.pyc", ".DS_Store"]
+exclude = [".git/", "*.swp"]
 
 [hooks]
-post_create = "npm install"
+post_create = "cargo build && git init"
 
 [answers]
 file = ".diecut-answers.toml"

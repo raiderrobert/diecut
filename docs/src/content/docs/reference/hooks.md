@@ -11,25 +11,41 @@ Hooks are shell commands that run after project generation. Configure them in `d
 
 ```toml
 [hooks]
-post_create = "npm install"
+post_create = "git init"
 ```
 
 The command runs in the generated project directory via `sh -c`.
 
 ## Examples
 
+### Initialize a git repo with initial commit
+
+```toml
+[hooks]
+post_create = "git init && git add -A && git commit -m 'Initial commit'"
+```
+
 ### Install dependencies
+
+Python project:
 
 ```toml
 [hooks]
 post_create = "pip install -e ."
 ```
 
-### Initialize a git repo
+Node.js project:
 
 ```toml
 [hooks]
-post_create = "git init && git add -A && git commit -m 'Initial commit'"
+post_create = "npm install"
+```
+
+Rust project:
+
+```toml
+[hooks]
+post_create = "cargo build"
 ```
 
 ### Run a setup script
