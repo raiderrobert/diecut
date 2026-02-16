@@ -37,3 +37,8 @@ content_inspector = "0.2"
 
 [dev-dependencies]
 rstest = "0.23"
+criterion = "0.5"
+
+[[bench]]
+name = "benchmarks"
+harness = false

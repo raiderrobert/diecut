@@ -2,8 +2,11 @@
 title: diecut
 description: A single-binary project template generator.
 template: splash
+head:
+  - tag: title
+    content: diecut — A single-binary project template generator
 hero:
-  tagline: Make templates. Start projects.
+  tagline: Start projects from templates 
   image:
     file: ../../assets/logo.svg
   actions:
@@ -20,11 +23,29 @@ hero:
 import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 
 <CardGrid>
-	<LinkCard title="Single binary" description="No Python, no Node, no runtime dependencies. Download one file and go." href="/getting-started/" />
+	<LinkCard title="Single binary" description="No runtime dependencies. Download one file and go." href="/getting-started/" />
 	<LinkCard title="Easy to make" description="A diecut.toml and a folder — that's a template. You just made one." href="/creating-templates/" />
 	<LinkCard title="Multi-template repos" description="One repo, many templates. Use subpaths to pick the one you want." href="/using-templates/" />
 	<LinkCard title="Any Git host" description="GitHub, GitLab, Codeberg — or any Git URL." href="/using-templates/" />
 </CardGrid>
+
+## Install
+
+```bash
+curl -fsSL https://diecut.dev/install.sh | sh
+```
+
+[More install options →](/getting-started/)
+
+## Use it
+
+```bash
+diecut new gh:raiderrobert/diecut-templates/rust-cli -o my-cli
+```
+
+That's it. diecut prompts you for variables and generates a ready-to-go project.
+
+[Learn more about using templates →](/using-templates/)
 
 ## Why diecut?
 
@@ -32,7 +53,7 @@ I built diecut because I tend to make lots of projects for fun. I get a stack I 
 
 I aimed to solve four things:
 
-- **Single binary**: No Python, no Node, no runtime dependencies. Download one binary and go.
-- **Easy to make**: A diecut.toml and a folder — that's a template. You just made one.
-- **Multi-template repos**: I dabble a lot, but I'd rather not have 5 different repos for my templates. This felt like a good way to organize them.
+- **Single binary**: I've often just wanted to download a binary and no faff with Python stuff, even though I wrote mostly Python.
+- **Easy to make**: I wanted it to be dead simple to make templates with as few footguns as possible.
+- **Multi-template repos**: I dabble a lot in different stacks and languages, but I'd rather not have 5 different repos for my templates. This felt like a good way to organize them.
 - **Dry run**: sometimes I want to see what the result will look like before I commit to it.
