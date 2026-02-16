@@ -1,0 +1,58 @@
+# Diecut Documentation
+
+> A project template generator written in Rust (like cookiecutter, but in Rust)
+
+## Overview
+
+Diecut is a fast, Rust-based CLI tool for generating projects from templates. It supports GitHub repositories, local templates, and multi-template repos with subpaths.
+
+## Getting Started
+
+- Installation & Quick Start: https://diecut.dev/getting-started/
+
+## Guides
+
+- Using Templates: https://diecut.dev/using-templates/
+- Creating Templates: https://diecut.dev/creating-templates/
+
+## Reference
+
+- Commands: https://diecut.dev/reference/commands/
+- diecut.toml: https://diecut.dev/reference/diecut-toml/
+- Hooks: https://diecut.dev/reference/hooks/
+
+## Quick Examples
+
+```bash
+# Generate from a GitHub repo (with subpath for multi-template repos)
+diecut new gh:raiderrobert/diecut-templates/rust-cli --output my-project
+
+# Use defaults without prompting
+diecut new gh:raiderrobert/diecut-templates/python-pkg --defaults --output my-project
+
+# Generate from a local template
+diecut new ./my-template --output my-project
+
+# List cached templates
+diecut list
+```
+
+## Installation
+
+```bash
+curl -fsSL https://diecut.dev/install.sh | sh
+```
+
+Or via cargo:
+```bash
+cargo install diecut
+```
+
+## Key Features
+
+- Fast Rust-based template generation
+- GitHub repository support with subpath navigation
+- Local and remote template sources
+- Template caching for offline use
+- Post-creation hooks for automation
+- Minijinja templating engine
