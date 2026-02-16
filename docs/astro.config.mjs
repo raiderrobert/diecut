@@ -10,7 +10,7 @@ export default defineConfig({
 			logo: {
 				src: './src/assets/logo.svg',
 			},
-			favicon: '/src/assets/favicon.png',
+			favicon: '/favicon.png',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/raiderrobert/diecut' }],
 			sidebar: [
 				{
