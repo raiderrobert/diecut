@@ -570,4 +570,240 @@ mod tests {
             "deadbeef"
         );
     }
+
+    #[test]
+    fn test_write_answers_excludes_secret_variables() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let mut variables_config = BTreeMap::new();
+        variables_config.insert(
+            "api_key".to_string(),
+            crate::config::variable::VariableConfig {
+                var_type: crate::config::variable::VariableType::String,
+                prompt: None,
+                default: None,
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: true,
+            },
+        );
+        variables_config.insert(
+            "public_var".to_string(),
+            crate::config::variable::VariableConfig {
+                var_type: crate::config::variable::VariableType::String,
+                prompt: None,
+                default: None,
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: variables_config,
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "api_key".to_string(),
+            Value::String("secret123".to_string()),
+        );
+        variables.insert(
+            "public_var".to_string(),
+            Value::String("visible".to_string()),
+        );
+
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        let content = fs::read_to_string(&answers_file).unwrap();
+
+        // Secret variable should NOT be in the file
+        assert!(!content.contains("api_key"));
+        assert!(!content.contains("secret123"));
+
+        // Public variable SHOULD be in the file
+        assert!(content.contains("public_var"));
+        assert!(content.contains("visible"));
+    }
+
+    #[test]
+    fn test_load_answers_basic() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // Write a sample answers file
+        let answers_content = r#"
+[_diecut]
+template = "my-template"
+version = "1.0.0"
+template_source = "https://github.com/user/repo.git"
+template_ref = "main"
+commit_sha = "abc123"
+diecut_version = "0.3.0"
+
+[variables]
+project_name = "test-project"
+author = "Jane Doe"
+enabled = true
+count = 42
+"#;
+        fs::write(
+            temp_dir.path().join(".diecut-answers.toml"),
+            answers_content,
+        )
+        .unwrap();
+
+        let loaded = load_answers(temp_dir.path()).unwrap();
+
+        assert_eq!(loaded.template_source, "https://github.com/user/repo.git");
+        assert_eq!(loaded.template_ref, Some("main".to_string()));
+        assert_eq!(loaded.commit_sha, Some("abc123".to_string()));
+        assert_eq!(loaded.diecut_version, "0.3.0");
+
+        assert_eq!(
+            loaded
+                .answers
+                .get("project_name")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "test-project"
+        );
+        assert_eq!(
+            loaded.answers.get("author").unwrap().as_str().unwrap(),
+            "Jane Doe"
+        );
+        assert_eq!(
+            loaded.answers.get("enabled").unwrap().as_bool().unwrap(),
+            true
+        );
+        assert_eq!(
+            loaded.answers.get("count").unwrap().as_integer().unwrap(),
+            42
+        );
+    }
+
+    #[test]
+    fn test_load_answers_no_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let result = load_answers(temp_dir.path());
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_write_answers_array_values() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "tags".to_string(),
+            Value::Array(vec![
+                Value::String("rust".to_string()),
+                Value::String("cli".to_string()),
+            ]),
+        );
+
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        let content = fs::read_to_string(&answers_file).unwrap();
+
+        let parsed: toml::Value = toml::from_str(&content).unwrap();
+        let vars = parsed.get("variables").unwrap().as_table().unwrap();
+        let tags = vars.get("tags").unwrap().as_array().unwrap();
+
+        assert_eq!(tags.len(), 2);
+        assert_eq!(tags[0].as_str().unwrap(), "rust");
+        assert_eq!(tags[1].as_str().unwrap(), "cli");
+    }
+
+    #[test]
+    fn test_write_answers_numeric_values() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "count".to_string(),
+            Value::Number(serde_json::Number::from(42)),
+        );
+        variables.insert(
+            "pi".to_string(),
+            Value::Number(serde_json::Number::from_f64(3.14159).unwrap()),
+        );
+
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        let content = fs::read_to_string(&answers_file).unwrap();
+
+        let parsed: toml::Value = toml::from_str(&content).unwrap();
+        let vars = parsed.get("variables").unwrap().as_table().unwrap();
+
+        assert_eq!(vars.get("count").unwrap().as_integer().unwrap(), 42);
+        assert!((vars.get("pi").unwrap().as_float().unwrap() - 3.14159).abs() < 0.0001);
+    }
 }
