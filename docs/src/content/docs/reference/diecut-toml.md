@@ -68,7 +68,7 @@ file = ".diecut-answers.toml"
 
 Template metadata. Only `name` is required.
 
-- **`templates_suffix`** -- Change from `.tera` to something else if you prefer (e.g., `.j2`, `.tmpl`). Files matching this suffix are rendered through the Tera engine; others are copied as-is.
+- **`templates_suffix`** -- Change from `.tera` to something else if you prefer (e.g., `.j2`, `.tmpl`). Files matching this suffix are rendered through the [Tera](https://keats.github.io/tera/) engine; others are copied as-is.
 - **`min_diecut_version`** -- If set, diecut will refuse to process the template if the installed version is too old.
 
 ## [variables]
@@ -78,8 +78,8 @@ Variables are prompted in declaration order. Each variable is a TOML table under
 Key behaviors:
 
 - `select` and `multiselect` require `choices` to be set.
-- `computed` variables must **not** have a `prompt`. They are derived from other variables using Tera expressions.
-- `when` controls conditional prompting. Uses Tera expression syntax (e.g., `"{{ use_ci }}"` or just `"use_ci"`).
+- `computed` variables must **not** have a `prompt`. They are derived from other variables using [Tera expressions](https://keats.github.io/tera/docs/#expressions).
+- `when` controls conditional prompting. Uses [Tera expression](https://keats.github.io/tera/docs/#expressions) syntax (e.g., `"{{ use_ci }}"` or just `"use_ci"`).
 - `validation` is a regex pattern. The entire input must match (anchored).
 - `secret` variables are prompted but excluded from `.diecut-answers.toml`.
 - Variables are available in templates as `{{ variable_name }}`.
@@ -113,7 +113,7 @@ computed = "{{ project_name | slugify }}"
 Control which files are included and how they're processed.
 
 - **`exclude`** -- Glob patterns. Matched files are not written to output. Useful for build artifacts, OS files.
-- **`copy_without_render`** -- Glob patterns. Matched files skip Tera rendering and are copied verbatim. Use for binaries, images, or files that contain `{{ }}` syntax that isn't meant for Tera.
+- **`copy_without_render`** -- Glob patterns. Matched files skip [Tera](https://keats.github.io/tera/) rendering and are copied verbatim. Use for binaries, images, or files that contain `{{ }}` syntax that isn't meant for Tera.
 - **`conditional`** -- Array of `{ pattern, when }` objects. Files matching `pattern` are included only when `when` evaluates to true.
 
 ```toml

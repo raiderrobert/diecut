@@ -53,7 +53,7 @@ Hello, Alice!
 
 That's a template. You just made one.
 
-The `template/` directory contains your project files. Files ending in `.tera` are rendered through the Tera template engine, then have the `.tera` suffix stripped. Everything else is copied as-is.
+The `template/` directory contains your project files. Files ending in `.tera` are rendered through the [Tera template engine](https://keats.github.io/tera/), then have the `.tera` suffix stripped. Everything else is copied as-is.
 
 ## Variable types
 
@@ -144,7 +144,7 @@ choices = ["github-actions", "gitlab-ci"]
 when = "{{ use_ci }}"
 ```
 
-`ci_provider` is only prompted when `use_ci` is true. The `when` field takes a Tera expression.
+`ci_provider` is only prompted when `use_ci` is true. The `when` field takes a [Tera expression](https://keats.github.io/tera/docs/#expressions).
 
 ## Conditional files
 
@@ -211,7 +211,7 @@ Files matching these patterns are copied verbatim. Tera syntax inside them is le
 
 ## Tera template basics
 
-Five things you'll actually use.
+Five things you'll actually use. See the [Tera documentation](https://keats.github.io/tera/) for complete reference.
 
 ### Variables
 
@@ -251,7 +251,7 @@ Transform values inline:
 {{ description | truncate(length=50) }}
 ```
 
-`slugify` turns "My Project" into "my-project". `upper` uppercases. `truncate` cuts to length.
+`slugify` turns "My Project" into "my-project". `upper` uppercases. `truncate` cuts to length. See all [built-in filters](https://keats.github.io/tera/docs/#built-in-filters).
 
 ### Comments
 
