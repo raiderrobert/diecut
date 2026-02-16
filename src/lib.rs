@@ -294,4 +294,37 @@ default = "my-project"
 
         assert!(plan.is_ok());
     }
+
+    #[test]
+    fn test_execute_generation_creates_output_dir() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_parent = tempfile::tempdir().unwrap();
+        let output_path = output_parent.path().join("new_project");
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_path.display().to_string()),
+            data: vec![("project_name".to_string(), "test".to_string())],
+            defaults: false,
+            overwrite: false,
+            no_hooks: true,
+        };
+
+        let plan = plan_generation(options).unwrap();
+
+        assert!(
+            !output_path.exists(),
+            "Output dir should not exist before execution"
+        );
+
+        let result = execute_generation(plan);
+
+        assert!(result.is_ok());
+        assert!(
+            output_path.exists(),
+            "Output dir should exist after execution"
+        );
+    }
 }
