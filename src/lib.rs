@@ -187,6 +187,7 @@ pub fn generate(options: GenerateOptions) -> Result<GeneratedProject> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use std::fs;
     use tempfile;
 
@@ -248,8 +249,10 @@ default = "my-project"
         }
     }
 
-    #[test]
-    fn test_plan_generation_output_exists_no_overwrite() {
+    #[rstest]
+    #[case(false, true)] // no overwrite, should error
+    #[case(true, false)] // with overwrite, should succeed
+    fn test_plan_generation_output_exists(#[case] overwrite: bool, #[case] should_error: bool) {
         let template_dir = tempfile::tempdir().unwrap();
         create_minimal_template(template_dir.path());
 
@@ -261,38 +264,18 @@ default = "my-project"
             output: Some(output_dir.path().display().to_string()),
             data: vec![],
             defaults: true,
-            overwrite: false,
+            overwrite,
             no_hooks: true,
         };
 
         let result = plan_generation(options);
 
-        assert!(result.is_err());
-        if let Err(err) = result {
-            assert!(matches!(err, DicecutError::OutputExists { .. }));
+        assert_eq!(result.is_err(), should_error);
+        if should_error {
+            if let Err(err) = result {
+                assert!(matches!(err, DicecutError::OutputExists { .. }));
+            }
         }
-    }
-
-    #[test]
-    fn test_plan_generation_output_exists_with_overwrite() {
-        let template_dir = tempfile::tempdir().unwrap();
-        create_minimal_template(template_dir.path());
-
-        let output_dir = tempfile::tempdir().unwrap();
-        fs::write(output_dir.path().join("existing.txt"), "exists").unwrap();
-
-        let options = GenerateOptions {
-            template: template_dir.path().display().to_string(),
-            output: Some(output_dir.path().display().to_string()),
-            data: vec![],
-            defaults: true,
-            overwrite: true,
-            no_hooks: true,
-        };
-
-        let plan = plan_generation(options);
-
-        assert!(plan.is_ok());
     }
 
     #[test]
