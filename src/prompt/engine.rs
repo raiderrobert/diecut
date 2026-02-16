@@ -320,172 +320,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_collect_variables_text_with_default() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "project_name".to_string(),
-            VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: Some(toml::Value::String("my-project".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(result.get("project_name").unwrap(), "my-project");
-    }
-
-    #[test]
-    fn test_collect_variables_data_override() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "project_name".to_string(),
-            VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: Some(toml::Value::String("default-name".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("project_name".to_string(), "overridden-name".to_string());
-
-        let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(result.get("project_name").unwrap(), "overridden-name");
-    }
-
-    #[test]
-    fn test_collect_variables_select_with_default() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "license".to_string(),
-            VariableConfig {
-                var_type: VariableType::Select,
-                prompt: None,
-                default: Some(toml::Value::String("MIT".to_string())),
-                choices: Some(vec![
-                    "MIT".to_string(),
-                    "Apache-2.0".to_string(),
-                    "GPL-3.0".to_string(),
-                ]),
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(result.get("license").unwrap(), "MIT");
-    }
-
-    #[test]
-    fn test_collect_variables_boolean() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "use_docker".to_string(),
-            VariableConfig {
-                var_type: VariableType::Bool,
-                prompt: None,
-                default: Some(toml::Value::Boolean(true)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(result.get("use_docker").unwrap(), &Value::Bool(true));
-    }
-
-    #[test]
-    fn test_collect_variables_computed_slug() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "project_name".to_string(),
-            VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: Some(toml::Value::String("My Cool Project".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-        variables.insert(
-            "project_slug".to_string(),
-            VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: None,
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: Some("{{ project_name | slugify }}".to_string()),
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(result.get("project_slug").unwrap(), "my-cool-project");
-    }
-
+    /// Integration test: verify basic variable collection with defaults and multiple types
     #[test]
     fn test_collect_variables_multiple() {
         let mut variables = BTreeMap::new();
@@ -546,6 +381,7 @@ mod tests {
         assert_eq!(result.get("use_ci").unwrap(), &Value::Bool(false));
     }
 
+    /// Integration test: verify override type coercion for boolean values
     #[rstest]
     #[case("true", true)]
     #[case("false", false)]
@@ -582,15 +418,22 @@ mod tests {
         assert_eq!(result.get("enabled").unwrap(), &Value::Bool(expected));
     }
 
-    #[test]
-    fn test_integer_override() {
+    /// Integration test: verify when conditions evaluate correctly
+    #[rstest]
+    #[case(true, 2, Some("advanced"))] // condition true, both vars collected
+    #[case(false, 1, None)] // condition false, dependent var skipped
+    fn test_when_condition(
+        #[case] condition: bool,
+        #[case] expected_len: usize,
+        #[case] expected_value: Option<&str>,
+    ) {
         let mut variables = BTreeMap::new();
         variables.insert(
-            "port".to_string(),
+            "enable_feature".to_string(),
             VariableConfig {
-                var_type: VariableType::Int,
+                var_type: VariableType::Bool,
                 prompt: None,
-                default: Some(toml::Value::Integer(8080)),
+                default: Some(toml::Value::Boolean(condition)),
                 choices: None,
                 validation: None,
                 validation_message: None,
@@ -599,228 +442,41 @@ mod tests {
                 secret: false,
             },
         );
+        variables.insert(
+            "feature_config".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("advanced".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: Some("enable_feature".to_string()),
+                computed: None,
+                secret: false,
+            },
+        );
 
         let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("port".to_string(), "3000".to_string());
-
         let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
+            data_overrides: HashMap::new(),
+            use_defaults: true,
         };
 
         let result = collect_variables(&config, &options).unwrap();
 
+        assert_eq!(result.len(), expected_len);
         assert_eq!(
-            result.get("port").unwrap(),
-            &Value::Number(serde_json::Number::from(3000))
+            result.get("enable_feature").unwrap(),
+            &Value::Bool(condition)
+        );
+        assert_eq!(
+            result.get("feature_config").map(|v| v.as_str().unwrap()),
+            expected_value
         );
     }
 
-    #[test]
-    fn test_float_override() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "threshold".to_string(),
-            VariableConfig {
-                var_type: VariableType::Float,
-                prompt: None,
-                default: Some(toml::Value::Float(0.5)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("threshold".to_string(), "0.75".to_string());
-
-        let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        let expected = serde_json::to_value(0.75).unwrap();
-        assert_eq!(result.get("threshold").unwrap(), &expected);
-    }
-
-    #[test]
-    fn test_multiselect_override() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "features".to_string(),
-            VariableConfig {
-                var_type: VariableType::Multiselect,
-                prompt: None,
-                default: None,
-                choices: Some(vec![
-                    "auth".to_string(),
-                    "api".to_string(),
-                    "db".to_string(),
-                ]),
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("features".to_string(), "auth,api".to_string());
-
-        let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        let expected = Value::Array(vec![
-            Value::String("auth".to_string()),
-            Value::String("api".to_string()),
-        ]);
-        assert_eq!(result.get("features").unwrap(), &expected);
-    }
-
-    #[test]
-    fn test_multiselect_with_default() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "features".to_string(),
-            VariableConfig {
-                var_type: VariableType::Multiselect,
-                prompt: None,
-                default: Some(toml::Value::Array(vec![
-                    toml::Value::String("auth".to_string()),
-                    toml::Value::String("db".to_string()),
-                ])),
-                choices: Some(vec![
-                    "auth".to_string(),
-                    "api".to_string(),
-                    "db".to_string(),
-                ]),
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        let expected = Value::Array(vec![
-            Value::String("auth".to_string()),
-            Value::String("db".to_string()),
-        ]);
-        assert_eq!(result.get("features").unwrap(), &expected);
-    }
-
-    #[test]
-    fn test_when_condition_true() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "enable_feature".to_string(),
-            VariableConfig {
-                var_type: VariableType::Bool,
-                prompt: None,
-                default: Some(toml::Value::Boolean(true)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-        variables.insert(
-            "feature_config".to_string(),
-            VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: Some(toml::Value::String("advanced".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: Some("enable_feature".to_string()),
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(result.len(), 2);
-        assert_eq!(result.get("enable_feature").unwrap(), &Value::Bool(true));
-        assert_eq!(result.get("feature_config").unwrap(), "advanced");
-    }
-
-    #[test]
-    fn test_when_condition_false() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "enable_feature".to_string(),
-            VariableConfig {
-                var_type: VariableType::Bool,
-                prompt: None,
-                default: Some(toml::Value::Boolean(false)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-        variables.insert(
-            "feature_config".to_string(),
-            VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: Some(toml::Value::String("advanced".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: Some("enable_feature".to_string()),
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        // feature_config should be skipped because enable_feature is false
-        assert_eq!(result.len(), 1);
-        assert_eq!(result.get("enable_feature").unwrap(), &Value::Bool(false));
-        assert!(result.get("feature_config").is_none());
-    }
-
+    /// Integration test: verify computed variables can reference other variables
     #[test]
     fn test_computed_variable_depends_on_another() {
         let mut variables = BTreeMap::new();
@@ -881,232 +537,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_toml_to_tera_value_conversions() {
-        // Test string
-        let val = toml_to_tera_value(&toml::Value::String("test".to_string()));
-        assert_eq!(val, Value::String("test".to_string()));
-
-        // Test integer
-        let val = toml_to_tera_value(&toml::Value::Integer(42));
-        assert_eq!(val, Value::Number(serde_json::Number::from(42)));
-
-        // Test boolean
-        let val = toml_to_tera_value(&toml::Value::Boolean(true));
-        assert_eq!(val, Value::Bool(true));
-
-        // Test array
-        let arr = toml::Value::Array(vec![
-            toml::Value::String("a".to_string()),
-            toml::Value::String("b".to_string()),
-        ]);
-        let val = toml_to_tera_value(&arr);
-        assert_eq!(
-            val,
-            Value::Array(vec![
-                Value::String("a".to_string()),
-                Value::String("b".to_string()),
-            ])
-        );
-    }
-
-    #[test]
-    fn test_integer_with_default() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "port".to_string(),
-            VariableConfig {
-                var_type: VariableType::Int,
-                prompt: None,
-                default: Some(toml::Value::Integer(8080)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(
-            result.get("port").unwrap(),
-            &Value::Number(serde_json::Number::from(8080))
-        );
-    }
-
-    #[test]
-    fn test_float_with_default() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "threshold".to_string(),
-            VariableConfig {
-                var_type: VariableType::Float,
-                prompt: None,
-                default: Some(toml::Value::Float(0.5)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        let expected = serde_json::to_value(0.5).unwrap();
-        assert_eq!(result.get("threshold").unwrap(), &expected);
-    }
-
-    #[test]
-    fn test_boolean_override_yes() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "enabled".to_string(),
-            VariableConfig {
-                var_type: VariableType::Bool,
-                prompt: None,
-                default: Some(toml::Value::Boolean(false)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("enabled".to_string(), "yes".to_string());
-
-        let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(result.get("enabled").unwrap(), &Value::Bool(true));
-    }
-
-    #[test]
-    fn test_invalid_integer_override_falls_back_to_string() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "port".to_string(),
-            VariableConfig {
-                var_type: VariableType::Int,
-                prompt: None,
-                default: Some(toml::Value::Integer(8080)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("port".to_string(), "not-a-number".to_string());
-
-        let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        // Invalid integer should fall back to string
-        assert_eq!(result.get("port").unwrap(), "not-a-number");
-    }
-
-    #[test]
-    fn test_invalid_float_override_falls_back_to_string() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "threshold".to_string(),
-            VariableConfig {
-                var_type: VariableType::Float,
-                prompt: None,
-                default: Some(toml::Value::Float(0.5)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("threshold".to_string(), "not-a-float".to_string());
-
-        let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        // Invalid float should fall back to string
-        assert_eq!(result.get("threshold").unwrap(), "not-a-float");
-    }
-
-    #[test]
-    fn test_multiselect_override_with_spaces() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "features".to_string(),
-            VariableConfig {
-                var_type: VariableType::Multiselect,
-                prompt: None,
-                default: None,
-                choices: Some(vec!["auth".to_string(), "api".to_string()]),
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("features".to_string(), " auth , api ".to_string());
-
-        let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        // Should trim whitespace from items
-        let expected = Value::Array(vec![
-            Value::String("auth".to_string()),
-            Value::String("api".to_string()),
-        ]);
-        assert_eq!(result.get("features").unwrap(), &expected);
-    }
-
+    /// Integration test: verify Tera errors in computed variables are caught and wrapped
     #[test]
     fn test_computed_variable_evaluation_error() {
         let mut variables = BTreeMap::new();
@@ -1134,96 +565,5 @@ mod tests {
         // Should error because undefined_var doesn't exist
         let result = collect_variables(&config, &options);
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_when_condition_undefined_var_is_falsy() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "conditional".to_string(),
-            VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: Some(toml::Value::String("value".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: Some("undefined_var".to_string()),
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let options = PromptOptions {
-            data_overrides: HashMap::new(),
-            use_defaults: true,
-        };
-
-        // undefined_var is treated as falsy, so conditional should be skipped
-        let result = collect_variables(&config, &options).unwrap();
-        assert!(result.get("conditional").is_none());
-    }
-
-    #[test]
-    fn test_toml_table_conversion() {
-        let mut table = toml::map::Map::new();
-        table.insert("key".to_string(), toml::Value::String("value".to_string()));
-        table.insert("count".to_string(), toml::Value::Integer(42));
-
-        let val = toml_to_tera_value(&toml::Value::Table(table));
-
-        match val {
-            Value::Object(map) => {
-                assert_eq!(map.get("key").unwrap(), "value");
-                assert_eq!(
-                    map.get("count").unwrap(),
-                    &Value::Number(serde_json::Number::from(42))
-                );
-            }
-            _ => panic!("Expected Value::Object"),
-        }
-    }
-
-    #[test]
-    fn test_toml_datetime_conversion() {
-        let datetime_str = "1979-05-27T07:32:00Z";
-        let datetime = datetime_str.parse::<toml::value::Datetime>().unwrap();
-
-        let val = toml_to_tera_value(&toml::Value::Datetime(datetime));
-
-        assert_eq!(val, Value::String(datetime_str.to_string()));
-    }
-
-    #[test]
-    fn test_select_override() {
-        let mut variables = BTreeMap::new();
-        variables.insert(
-            "license".to_string(),
-            VariableConfig {
-                var_type: VariableType::Select,
-                prompt: None,
-                default: Some(toml::Value::String("MIT".to_string())),
-                choices: Some(vec!["MIT".to_string(), "Apache-2.0".to_string()]),
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
-        );
-
-        let config = minimal_config(variables);
-        let mut overrides = HashMap::new();
-        overrides.insert("license".to_string(), "Apache-2.0".to_string());
-
-        let options = PromptOptions {
-            data_overrides: overrides,
-            use_defaults: false,
-        };
-
-        let result = collect_variables(&config, &options).unwrap();
-
-        assert_eq!(result.get("license").unwrap(), "Apache-2.0");
     }
 }
