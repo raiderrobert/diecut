@@ -429,4 +429,43 @@ mod tests {
             false
         );
     }
+
+    #[test]
+    fn test_write_answers_empty_variables() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let variables = BTreeMap::new();
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        let result = write_answers(output_dir.path(), &config, &variables, &source_info);
+
+        assert!(result.is_ok());
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        assert!(answers_file.exists());
+
+        let content = fs::read_to_string(&answers_file).unwrap();
+        let parsed: toml::Value = toml::from_str(&content).unwrap();
+
+        // Should still have metadata sections even if no answers
+        assert!(parsed.get("_diecut").is_some());
+    }
 }
