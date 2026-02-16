@@ -228,4 +228,23 @@ default = "my-project"
         assert!(plan.render_plan.files.len() > 0);
         assert_eq!(plan.variables.get("project_name").unwrap(), "test-proj");
     }
+
+    #[test]
+    fn test_plan_generation_template_missing() {
+        let options = GenerateOptions {
+            template: "/nonexistent/path/to/template".to_string(),
+            output: None,
+            data: vec![],
+            defaults: true,
+            overwrite: false,
+            no_hooks: true,
+        };
+
+        let result = plan_generation(options);
+
+        assert!(result.is_err());
+        if let Err(err) = result {
+            assert!(matches!(err, DicecutError::ConfigNotFound { .. }));
+        }
+    }
 }
