@@ -468,4 +468,41 @@ mod tests {
         // Should still have metadata sections even if no answers
         assert!(parsed.get("_diecut").is_some());
     }
+
+    #[test]
+    fn test_write_answers_directory_must_exist() {
+        let temp_root = tempfile::tempdir().unwrap();
+        let nested_path = temp_root.path().join("a/b/c");
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let variables = BTreeMap::new();
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        assert!(
+            !nested_path.exists(),
+            "Nested path should not exist before write"
+        );
+
+        let result = write_answers(&nested_path, &config, &variables, &source_info);
+
+        // write_answers doesn't create parent dirs, so this should fail
+        assert!(result.is_err());
+    }
 }
