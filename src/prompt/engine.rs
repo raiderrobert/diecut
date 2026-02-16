@@ -297,3 +297,288 @@ fn toml_to_tera_value(val: &toml::Value) -> Value {
         toml::Value::Datetime(d) => Value::String(d.to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    /// Helper to create a minimal TemplateConfig for testing
+    fn minimal_config(variables: BTreeMap<String, VariableConfig>) -> TemplateConfig {
+        TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables,
+            files: Default::default(),
+            hooks: Default::default(),
+            answers: Default::default(),
+        }
+    }
+
+    #[test]
+    fn test_collect_variables_text_with_default() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "project_name".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("my-project".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.get("project_name").unwrap(), "my-project");
+    }
+
+    #[test]
+    fn test_collect_variables_data_override() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "project_name".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("default-name".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let mut overrides = HashMap::new();
+        overrides.insert("project_name".to_string(), "overridden-name".to_string());
+
+        let options = PromptOptions {
+            data_overrides: overrides,
+            use_defaults: false,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.get("project_name").unwrap(), "overridden-name");
+    }
+
+    #[test]
+    fn test_collect_variables_select_with_default() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "license".to_string(),
+            VariableConfig {
+                var_type: VariableType::Select,
+                prompt: None,
+                default: Some(toml::Value::String("MIT".to_string())),
+                choices: Some(vec![
+                    "MIT".to_string(),
+                    "Apache-2.0".to_string(),
+                    "GPL-3.0".to_string(),
+                ]),
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.get("license").unwrap(), "MIT");
+    }
+
+    #[test]
+    fn test_collect_variables_boolean() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "use_docker".to_string(),
+            VariableConfig {
+                var_type: VariableType::Bool,
+                prompt: None,
+                default: Some(toml::Value::Boolean(true)),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.get("use_docker").unwrap(), &Value::Bool(true));
+    }
+
+    #[test]
+    fn test_collect_variables_computed_slug() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "project_name".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("My Cool Project".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+        variables.insert(
+            "project_slug".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: None,
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: Some("{{ project_name | slugify }}".to_string()),
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.get("project_slug").unwrap(), "my-cool-project");
+    }
+
+    #[test]
+    fn test_collect_variables_multiple() {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "name".to_string(),
+            VariableConfig {
+                var_type: VariableType::String,
+                prompt: None,
+                default: Some(toml::Value::String("test".to_string())),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+        variables.insert(
+            "license".to_string(),
+            VariableConfig {
+                var_type: VariableType::Select,
+                prompt: None,
+                default: Some(toml::Value::String("MIT".to_string())),
+                choices: Some(vec!["MIT".to_string(), "Apache-2.0".to_string()]),
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+        variables.insert(
+            "use_ci".to_string(),
+            VariableConfig {
+                var_type: VariableType::Bool,
+                prompt: None,
+                default: Some(toml::Value::Boolean(false)),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let options = PromptOptions {
+            data_overrides: HashMap::new(),
+            use_defaults: true,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.len(), 3);
+        assert_eq!(result.get("name").unwrap(), "test");
+        assert_eq!(result.get("license").unwrap(), "MIT");
+        assert_eq!(result.get("use_ci").unwrap(), &Value::Bool(false));
+    }
+
+    #[rstest]
+    #[case("true", true)]
+    #[case("false", false)]
+    #[case("1", true)]
+    #[case("0", false)]
+    fn test_boolean_override_coercion(#[case] input: &str, #[case] expected: bool) {
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "enabled".to_string(),
+            VariableConfig {
+                var_type: VariableType::Bool,
+                prompt: None,
+                default: Some(toml::Value::Boolean(false)),
+                choices: None,
+                validation: None,
+                validation_message: None,
+                when: None,
+                computed: None,
+                secret: false,
+            },
+        );
+
+        let config = minimal_config(variables);
+        let mut overrides = HashMap::new();
+        overrides.insert("enabled".to_string(), input.to_string());
+
+        let options = PromptOptions {
+            data_overrides: overrides,
+            use_defaults: false,
+        };
+
+        let result = collect_variables(&config, &options).unwrap();
+
+        assert_eq!(result.get("enabled").unwrap(), &Value::Bool(expected));
+    }
+}
