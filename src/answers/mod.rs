@@ -184,6 +184,7 @@ fn tera_value_to_toml(value: &Value) -> Option<toml::Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use std::fs;
 
     #[test]
@@ -332,5 +333,50 @@ mod tests {
 
         let content = fs::read_to_string(&answers_file).unwrap();
         assert!(content.contains("local-template"));
+    }
+
+    #[rstest]
+    #[case("name with spaces", "name with spaces")]
+    #[case("quote\"test", "quote\"test")]
+    #[case("multi\nline", "multi\nline")]
+    #[case("emoji 🦀", "emoji 🦀")]
+    fn test_write_answers_special_characters(#[case] value: &str, #[case] expected: &str) {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let mut variables = BTreeMap::new();
+        variables.insert("special".to_string(), Value::String(value.to_string()));
+
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        let content = fs::read_to_string(&answers_file).unwrap();
+
+        // Verify TOML can be parsed back
+        let parsed: toml::Value = toml::from_str(&content).unwrap();
+        let variables_section = parsed.get("variables").unwrap().as_table().unwrap();
+        assert_eq!(
+            variables_section.get("special").unwrap().as_str().unwrap(),
+            expected
+        );
     }
 }
