@@ -1,6 +1,10 @@
-# diecut
+<p align="center">
+  <img src="img/diecut-logo.svg" alt="diecut logo" width="120">
+</p>
 
-A project template generator written in Rust.
+<h1 align="center">diecut</h1>
+
+<p align="center">A project template generator written in Rust.</p>
 
 ## Install
 
