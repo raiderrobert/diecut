@@ -264,4 +264,39 @@ mod tests {
         assert!(content.contains("my-template"));
         assert!(content.contains("2.1.0"));
     }
+
+    #[test]
+    fn test_write_answers_includes_git_source() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test".to_string(),
+                version: None,
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let variables = BTreeMap::new();
+        let source_info = SourceInfo {
+            url: Some("https://github.com/user/repo.git".to_string()),
+            git_ref: Some("main".to_string()),
+            commit_sha: Some("abc123def456".to_string()),
+        };
+
+        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        let content = fs::read_to_string(&answers_file).unwrap();
+
+        assert!(content.contains("https://github.com/user/repo.git"));
+        assert!(content.contains("main"));
+        assert!(content.contains("abc123def456"));
+    }
 }
