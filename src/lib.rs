@@ -327,4 +327,31 @@ default = "my-project"
             "Output dir should exist after execution"
         );
     }
+
+    #[test]
+    fn test_execute_generation_writes_answers() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![("project_name".to_string(), "test-project".to_string())],
+            defaults: false,
+            overwrite: true,
+            no_hooks: true,
+        };
+
+        let plan = plan_generation(options).unwrap();
+        execute_generation(plan).unwrap();
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        assert!(answers_file.exists(), "Answers file should exist");
+
+        let contents = fs::read_to_string(&answers_file).unwrap();
+        assert!(contents.contains("project_name"));
+        assert!(contents.contains("test-project"));
+    }
 }
