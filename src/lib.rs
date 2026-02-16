@@ -247,4 +247,29 @@ default = "my-project"
             assert!(matches!(err, DicecutError::ConfigNotFound { .. }));
         }
     }
+
+    #[test]
+    fn test_plan_generation_output_exists_no_overwrite() {
+        let template_dir = tempfile::tempdir().unwrap();
+        create_minimal_template(template_dir.path());
+
+        let output_dir = tempfile::tempdir().unwrap();
+        fs::write(output_dir.path().join("existing.txt"), "exists").unwrap();
+
+        let options = GenerateOptions {
+            template: template_dir.path().display().to_string(),
+            output: Some(output_dir.path().display().to_string()),
+            data: vec![],
+            defaults: true,
+            overwrite: false,
+            no_hooks: true,
+        };
+
+        let result = plan_generation(options);
+
+        assert!(result.is_err());
+        if let Err(err) = result {
+            assert!(matches!(err, DicecutError::OutputExists { .. }));
+        }
+    }
 }
