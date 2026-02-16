@@ -180,3 +180,54 @@ fn tera_value_to_toml(value: &Value) -> Option<toml::Value> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_write_answers_basic() {
+        let output_dir = tempfile::tempdir().unwrap();
+
+        let config = crate::config::schema::TemplateConfig {
+            template: crate::config::schema::TemplateMetadata {
+                name: "test-template".to_string(),
+                version: Some("1.0.0".to_string()),
+                description: None,
+                min_diecut_version: None,
+                templates_suffix: ".tera".to_string(),
+            },
+            variables: BTreeMap::new(),
+            files: crate::config::schema::FilesConfig::default(),
+            hooks: crate::config::schema::HooksConfig { post_create: None },
+            answers: crate::config::schema::AnswersConfig::default(),
+        };
+
+        let mut variables = BTreeMap::new();
+        variables.insert(
+            "project_name".to_string(),
+            Value::String("my-project".to_string()),
+        );
+        variables.insert("author".to_string(), Value::String("Jane Doe".to_string()));
+
+        let source_info = SourceInfo {
+            url: None,
+            git_ref: None,
+            commit_sha: None,
+        };
+
+        let result = write_answers(output_dir.path(), &config, &variables, &source_info);
+
+        assert!(result.is_ok());
+
+        let answers_file = output_dir.path().join(".diecut-answers.toml");
+        assert!(answers_file.exists());
+
+        let content = fs::read_to_string(&answers_file).unwrap();
+        assert!(content.contains("project_name"));
+        assert!(content.contains("my-project"));
+        assert!(content.contains("author"));
+        assert!(content.contains("Jane Doe"));
+    }
+}
