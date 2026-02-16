@@ -7,14 +7,12 @@
 
 * add Codeberg (cb:) abbreviation ([ded1ab3](https://github.com/raiderrobert/diecut/commit/ded1ab36a37286c34e680d7cc6d1778f4da6940c))
 * add diecut logo to README and docs ([99a860a](https://github.com/raiderrobert/diecut/commit/99a860a972c1ec14e88949dc2110d5d5d7d98ab8))
-* add diecut logo to README and docs ([80b5010](https://github.com/raiderrobert/diecut/commit/80b501039916d356874ba02180714da9f7b665a1))
 * add subpath support for multi-template repos ([ff873d0](https://github.com/raiderrobert/diecut/commit/ff873d0189be91dd5c4fd3a12012fc4ba4887b5f))
 
 
 ### Bug Fixes
 
 * docs cleanup — linked cards, README 404, simplify templates ([15b1143](https://github.com/raiderrobert/diecut/commit/15b11435509703823120d69d2ef428e33e1e261f))
-* docs cleanup — linked cards, README 404, simplify templates section ([d0d6de4](https://github.com/raiderrobert/diecut/commit/d0d6de4116e772c2e7964c21527ce6ba39dd4f8b))
 * move favicon to public dir so it's served correctly ([d0f9dac](https://github.com/raiderrobert/diecut/commit/d0f9dac0bc0039913b83e05d54ee2c80f810cdea))
 * remove dead toml_value_to_tera function ([944a138](https://github.com/raiderrobert/diecut/commit/944a138735592503a6bcac300f668df82329b3de))
 
@@ -22,12 +20,10 @@
 ### Miscellaneous
 
 * adopt rstest for parameterized tests ([aa255a7](https://github.com/raiderrobert/diecut/commit/aa255a70e7330647100dbc8e76c766b229b4ddb5))
-* adopt rstest for parameterized tests ([695a205](https://github.com/raiderrobert/diecut/commit/695a20575b5e35c55fb70040989301d07bebf72b))
 * change bump-patch-for-minor-pre-major to false ([b17768e](https://github.com/raiderrobert/diecut/commit/b17768ececb5da091fa3f6c04aadc90fc02b8011))
 * cleaned up description ([7a29bcb](https://github.com/raiderrobert/diecut/commit/7a29bcb9da690aae5c5459e57a77c70e4eb39633))
 * remove Bitbucket (bb:) abbreviation ([77a4cb3](https://github.com/raiderrobert/diecut/commit/77a4cb3897ac4c225a3fb76faf401ccb9edd0410))
 * remove Sourcehut (sr:) abbreviation ([3573849](https://github.com/raiderrobert/diecut/commit/357384970408cb1c6ef8d2895fec3daf7891e2b6))
-* remove Sourcehut (sr:) abbreviation ([e9f13b4](https://github.com/raiderrobert/diecut/commit/e9f13b4ff5514b055a1bc06f6c3f9f0c0ccf3f48))
 * rename 'Starter templates' to 'Example templates' ([a83bb1c](https://github.com/raiderrobert/diecut/commit/a83bb1c3f1c90cab6d7bef4f356e12f0cc3f15fe))
 * replace Bitbucket with Codeberg abbreviation ([f5c294f](https://github.com/raiderrobert/diecut/commit/f5c294f7dc287d508de7de8d4e908d0d23597464))
 
@@ -35,10 +31,8 @@
 ### Documentation
 
 * cross-link diecut and diecut-templates repos ([c9a486d](https://github.com/raiderrobert/diecut/commit/c9a486d3fd90fed0a6fa92e0c118bc0ec02f170a))
-* cross-link diecut and diecut-templates repos ([84758ca](https://github.com/raiderrobert/diecut/commit/84758ca2084739e7e654975b352c294e9aeb5f55))
 * update for refactor (remove cookiecutter, update, check/ready, rhai) ([efa8c18](https://github.com/raiderrobert/diecut/commit/efa8c18f22767adc695608ecf2b89f3d15d39a06))
 * update README with subpath examples and starter templates ([8964392](https://github.com/raiderrobert/diecut/commit/896439224b7d51c4b619e9a930beafb68fdb1d35))
-* update README with subpath examples and starter templates ([d880209](https://github.com/raiderrobert/diecut/commit/d880209e7d400059f0ac5308bbc4567e169bc0cc))
 * update site for trim-and-refactor changes ([e6bafcd](https://github.com/raiderrobert/diecut/commit/e6bafcd5c481bae005c672cfce9fc7ea360fbcc3))
 
 
@@ -54,17 +48,13 @@
 
 ### Features
 
-* add --dry-run flag to new command ([1d3b959](https://github.com/raiderrobert/diecut/commit/1d3b9597a8f87ca81645c38c03d59514caad5f1a))
 * add --dry-run flag to new command ([2299430](https://github.com/raiderrobert/diecut/commit/229943054fd9f96a53c83b56022f619035b3965d)), closes [#62](https://github.com/raiderrobert/diecut/issues/62)
-* add --dry-run flag to update command ([7094a80](https://github.com/raiderrobert/diecut/commit/7094a805907ac69d9d8886f51c853b707f1ca78b))
 * add --dry-run flag to update command ([5df566b](https://github.com/raiderrobert/diecut/commit/5df566bf4407fab7792f30365e5bc02d02ddcdae)), closes [#60](https://github.com/raiderrobert/diecut/issues/60)
-* add --verbose flag to dry-run output ([6987480](https://github.com/raiderrobert/diecut/commit/6987480bcd527ce5c345da999bcb171dac77175d))
 * add --verbose flag to dry-run output ([7d68cdb](https://github.com/raiderrobert/diecut/commit/7d68cdb43bb9128e07a048bdd831bf3f9afc8774)), closes [#63](https://github.com/raiderrobert/diecut/issues/63)
 
 
 ### Code Refactoring
 
-* split generate() into plan and execute phases ([fae7944](https://github.com/raiderrobert/diecut/commit/fae79441ebf9265d67b2c4d88bd83261b47f43b8))
 * split generate() into plan and execute phases ([711b4c1](https://github.com/raiderrobert/diecut/commit/711b4c1bdc21a30bd7eb599c97f15c909fe7617d)), closes [#61](https://github.com/raiderrobert/diecut/issues/61)
 
 ## [0.1.6](https://github.com/raiderrobert/diecut/compare/v0.1.5...v0.1.6) (2026-02-14)
@@ -72,7 +62,6 @@
 
 ### Bug Fixes
 
-* use SSH URL for gh: abbreviation when user has SSH configured ([cd07c02](https://github.com/raiderrobert/diecut/commit/cd07c025506571d59b8da177d34569724f72f40f))
 * use SSH URL for gh: abbreviation when user has SSH configured ([8828b7d](https://github.com/raiderrobert/diecut/commit/8828b7dfd18fb4217b0f456c6a3cbc2a992b536c))
 
 ## [0.1.5](https://github.com/raiderrobert/diecut/compare/v0.1.4...v0.1.5) (2026-02-14)
@@ -80,7 +69,6 @@
 
 ### Bug Fixes
 
-* suppress interactive git credential prompts ([0df4952](https://github.com/raiderrobert/diecut/commit/0df495270af2b9eb923521efdbe1192fe4d9e152))
 * suppress interactive git credential prompts ([9b0ecbd](https://github.com/raiderrobert/diecut/commit/9b0ecbd0c3ec107cd76345732572e4a000b2765a))
 
 
@@ -102,7 +90,6 @@
 
 ### Bug Fixes
 
-* release binaries not building for v0.1.1+ ([1037550](https://github.com/raiderrobert/diecut/commit/103755082099c341935d45d640cf73137b93ebe9))
 * release binaries not building for v0.1.1+ ([97ebd42](https://github.com/raiderrobert/diecut/commit/97ebd42de4cdd5899948393b5e132c45a0799c8b))
 
 ## [0.1.2](https://github.com/raiderrobert/diecut/compare/v0.1.1...v0.1.2) (2026-02-14)
@@ -110,7 +97,6 @@
 
 ### Bug Fixes
 
-* sync Cargo.lock version with Cargo.toml ([7582b21](https://github.com/raiderrobert/diecut/commit/7582b2165417144451edfd1656ad0145688b84cc))
 * sync Cargo.lock version with Cargo.toml ([e120605](https://github.com/raiderrobert/diecut/commit/e120605f6914e3cc608e953b83efa36ce8e5289d))
 
 ## [0.1.1](https://github.com/raiderrobert/diecut/compare/v0.1.0...v0.1.1) (2026-02-14)
@@ -122,38 +108,25 @@
 * add install script and update install instructions ([d2a99f3](https://github.com/raiderrobert/diecut/commit/d2a99f3979d9c96b55dffcb4b885c7acb03e56fb))
 * add PR title conventional commit check ([8da331c](https://github.com/raiderrobert/diecut/commit/8da331cd440394333b1c0e2e38ee416a0e832dfe))
 * add release-please configuration and workflow ([fd9c08a](https://github.com/raiderrobert/diecut/commit/fd9c08a922eea1efab2b58792b90a14c9eb4e8ad))
-* diff3-style three-way conflict output in .rej files ([4fd4e3b](https://github.com/raiderrobert/diecut/commit/4fd4e3b4f8f756931448487a87cc76fd1e8c82d2))
 * replace gix with system git for template cloning ([a8eb1c9](https://github.com/raiderrobert/diecut/commit/a8eb1c93af62bdb125adb432865b7e763dc99f37))
-* replace gix with system git for template cloning ([c165f20](https://github.com/raiderrobert/diecut/commit/c165f20dd9f4d3dd1952c2ce3beadba93ac69734))
 * support in-place migration with automatic backup ([e5f0de7](https://github.com/raiderrobert/diecut/commit/e5f0de7f0beab88d5a68ea4c608ec1f3c9235bb5))
-* support in-place migration with automatic backup ([4b586b8](https://github.com/raiderrobert/diecut/commit/4b586b8542a0df9ce34d7875527f57e3d76e3dbf))
 
 
 ### Bug Fixes
 
 * add cargo-workspace plugin to release-please config ([e181218](https://github.com/raiderrobert/diecut/commit/e181218d8a9e27e6e0bd526ac78190b154dfffcd))
-* add cargo-workspace plugin to release-please config ([4267588](https://github.com/raiderrobert/diecut/commit/4267588abb4f1f05b48a4d7a753c9431788d0770))
 * configure release-please for Rust workspace per upstream pattern ([77c43c8](https://github.com/raiderrobert/diecut/commit/77c43c88fb16873642aef3cce012a25aeeae572f))
-* configure release-please for Rust workspace per upstream pattern ([4b61088](https://github.com/raiderrobert/diecut/commit/4b6108872df07a3bc7d52ae59637ff41a66d64c6))
 * diverged tag history ([1fdc5fa](https://github.com/raiderrobert/diecut/commit/1fdc5fa0ea028418f71d78a14e258b4e14b7afd5))
 * include file path in template render error messages ([5d87ddd](https://github.com/raiderrobert/diecut/commit/5d87ddd7f49fc42a9af942bb0fb8a919c22a7e1c))
-* include file path in template render error messages ([761651b](https://github.com/raiderrobert/diecut/commit/761651beca76d2c55d1daaf4afeb9790eaac828b))
 * read only first 8KB for binary file detection ([9fc4ed8](https://github.com/raiderrobert/diecut/commit/9fc4ed8253301c32d981f3ccf7ae6821564e4864))
-* read only first 8KB for binary file detection ([f52548a](https://github.com/raiderrobert/diecut/commit/f52548a3214d524bc4bcae6e3da35809dd78842c))
 * remove cargo-workspace plugin and restore version.workspace ([1d074c9](https://github.com/raiderrobert/diecut/commit/1d074c9b3c8529f0ab8f7660f01617fac69df97e))
-* remove cargo-workspace plugin and restore version.workspace ([5d1c7c6](https://github.com/raiderrobert/diecut/commit/5d1c7c609d1ceb7ccd09f1a5e9cb7993876f8b80))
 * remove component prefix from release-please tags ([286ac2b](https://github.com/raiderrobert/diecut/commit/286ac2bc197e66beb9dd681bfe52cda1aa219b1d))
-* remove component prefix from release-please tags ([4d6121d](https://github.com/raiderrobert/diecut/commit/4d6121d53c9af8a401afb5431063c81d37412384))
 * removed unneeded plan ([1f4bee9](https://github.com/raiderrobert/diecut/commit/1f4bee9a86ecccf1c9d483e7263749d999a5b5b5))
 * sandbox Rhai hook engine to prevent filesystem access ([d2092e2](https://github.com/raiderrobert/diecut/commit/d2092e21dd6884eefcf178967e4793f6057ec8ba))
-* sandbox Rhai hook engine to prevent filesystem access ([6b2251e](https://github.com/raiderrobert/diecut/commit/6b2251ea38b2dbe7c8ad2f1ddbf0047c49bea8a5))
 * update stale crate paths after single-crate merge ([2d796dc](https://github.com/raiderrobert/diecut/commit/2d796dcc43206173f54794dcf741f7bf73bee293))
-* update stale crate paths after single-crate merge ([bf00525](https://github.com/raiderrobert/diecut/commit/bf005255473da0b334faa97b0f2fa4a004cdb82d))
 * use content_inspector for BOM-aware binary detection ([d995178](https://github.com/raiderrobert/diecut/commit/d9951780a642e68edf3602cde586811268dba832))
 * use explicit versions in subcrate Cargo.toml for release-please ([52df58f](https://github.com/raiderrobert/diecut/commit/52df58f60750b1df9fee0dc323cf56a69999d2a8))
-* use explicit versions in subcrate Cargo.toml for release-please ([e975299](https://github.com/raiderrobert/diecut/commit/e97529959f8ceee0179c015d1ffb0156d88e50ab))
 * use OS-level advisory locks (fs4) for cache concurrency ([072072c](https://github.com/raiderrobert/diecut/commit/072072c9728c795865c2b68f4d4d187bbf9f03cc))
-* use OS-level advisory locks (fs4) for cache concurrency ([a0e3580](https://github.com/raiderrobert/diecut/commit/a0e3580f6ad13984e88a38579882630938b1358c))
 * use rename-swap for in-place migration instead of clear-and-copy ([c061f60](https://github.com/raiderrobert/diecut/commit/c061f609be8df344215a25814a82d3d00c2c7410))
 
 
@@ -166,14 +139,10 @@
 * fix links in docs ([2fb6e1a](https://github.com/raiderrobert/diecut/commit/2fb6e1a68b5341f32d96575827a899936924484f))
 * link to license ([6be9147](https://github.com/raiderrobert/diecut/commit/6be91470c0638ace4a93b85e55fe7dd9b2af1197))
 * **main:** release diecut 0.1.1 ([7f09800](https://github.com/raiderrobert/diecut/commit/7f09800ee29dcc0b4cceb4370dfe0da2dda356b4))
-* **main:** release diecut 0.1.1 ([ebb7697](https://github.com/raiderrobert/diecut/commit/ebb7697f8976f6ebf53e94d5abf31f3b53c3dda9))
 * release main ([18b4195](https://github.com/raiderrobert/diecut/commit/18b41952a591804fafea0924755b7559ffae95f5))
-* release main ([ef450ad](https://github.com/raiderrobert/diecut/commit/ef450ad1af75aecc44a29dd8e08eea0c487bec7b))
 * remove docs-redesign plan files ([c088220](https://github.com/raiderrobert/diecut/commit/c088220ce91561da6383417bcf1b50efda5c0d26))
 * remove unused indicatif dependency ([3486a78](https://github.com/raiderrobert/diecut/commit/3486a78908e1a336adc576335e5f2e372064265b))
-* remove unused indicatif dependency ([b19de48](https://github.com/raiderrobert/diecut/commit/b19de48d891200438c8f8504f6ce30348c6aee34))
 * remove verbose comments and simplify code ([027bb15](https://github.com/raiderrobert/diecut/commit/027bb158ed5ad48cefff362c622d50b4da4fada3))
-* remove verbose comments and simplify code across crates ([e5c5da9](https://github.com/raiderrobert/diecut/commit/e5c5da968f44b0becad28c739469b28f55310dcc))
 
 
 ### Documentation
@@ -199,9 +168,5 @@
 ### Code Refactoring
 
 * extract write_cache_metadata and place_in_cache helpers ([8907726](https://github.com/raiderrobert/diecut/commit/8907726c21a73766e565132c6fe69eaeea493599))
-* extract write_cache_metadata and place_in_cache helpers ([1b9756a](https://github.com/raiderrobert/diecut/commit/1b9756a7edd7c31366aa6372dc26deebb4f18101))
 * merge diecut-core and diecut-cli into single crate ([5d6e1b3](https://github.com/raiderrobert/diecut/commit/5d6e1b30305278878001fbf8c93bd27048525289))
-* merge diecut-core and diecut-cli into single crate ([aeec33a](https://github.com/raiderrobert/diecut/commit/aeec33afa36a48235d1c27b4413f379e9b041c9d))
 * use Option&lt;&str&gt; for commit_sha parameter ([2178c3b](https://github.com/raiderrobert/diecut/commit/2178c3b985bc54c4fe4d2314279227f425a8e293))
-
-## Changelog
