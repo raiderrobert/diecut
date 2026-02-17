@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use super::variable::{VariableConfig, VariableType};
@@ -10,7 +9,7 @@ pub struct TemplateConfig {
     pub template: TemplateMetadata,
 
     #[serde(default)]
-    pub variables: BTreeMap<String, VariableConfig>,
+    pub variables: IndexMap<String, VariableConfig>,
 
     #[serde(default)]
     pub files: FilesConfig,
