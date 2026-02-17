@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.2](https://github.com/raiderrobert/diecut/compare/v0.3.1...v0.3.2) (2026-02-17)
+
+
+### Bug Fixes
+
+* preserve variable prompt order from diecut.toml ([#89](https://github.com/raiderrobert/diecut/issues/89)) ([7c57665](https://github.com/raiderrobert/diecut/commit/7c57665bbafb42480a1aa63c2439810791bf0671))
+
+
+### Documentation
+
+* added some links to tera and cleaned up the why ([0f8e082](https://github.com/raiderrobert/diecut/commit/0f8e082cbed0678d0ae627fdc59cdb3e25e6d489))
+* typo ([5cd7ef6](https://github.com/raiderrobert/diecut/commit/5cd7ef62e20cafa7a1bcee66b395faa10afda3ea))
+
 ## [0.3.1](https://github.com/raiderrobert/diecut/compare/v0.3.0...v0.3.1) (2026-02-16)
 
 
