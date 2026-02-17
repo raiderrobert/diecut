@@ -454,6 +454,7 @@ dependencies = [
  "dirs",
  "fs4",
  "globset",
+ "indexmap",
  "inquire",
  "miette",
  "regex-lite",

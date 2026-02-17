@@ -300,11 +300,13 @@ fn toml_to_tera_value(val: &toml::Value) -> Value {
 
 #[cfg(test)]
 mod tests {
+    use indexmap::IndexMap;
+
     use super::*;
     use rstest::rstest;
 
     /// Helper to create a minimal TemplateConfig for testing
-    fn minimal_config(variables: BTreeMap<String, VariableConfig>) -> TemplateConfig {
+    fn minimal_config(variables: IndexMap<String, VariableConfig>) -> TemplateConfig {
         TemplateConfig {
             template: crate::config::schema::TemplateMetadata {
                 name: "test".to_string(),
@@ -323,7 +325,7 @@ mod tests {
     /// Integration test: verify basic variable collection with defaults and multiple types
     #[test]
     fn test_collect_variables_multiple() {
-        let mut variables = BTreeMap::new();
+        let mut variables = IndexMap::new();
         variables.insert(
             "name".to_string(),
             VariableConfig {
@@ -388,7 +390,7 @@ mod tests {
     #[case("1", true)]
     #[case("0", false)]
     fn test_boolean_override_coercion(#[case] input: &str, #[case] expected: bool) {
-        let mut variables = BTreeMap::new();
+        let mut variables = IndexMap::new();
         variables.insert(
             "enabled".to_string(),
             VariableConfig {
@@ -427,7 +429,7 @@ mod tests {
         #[case] expected_len: usize,
         #[case] expected_value: Option<&str>,
     ) {
-        let mut variables = BTreeMap::new();
+        let mut variables = IndexMap::new();
         variables.insert(
             "enable_feature".to_string(),
             VariableConfig {
@@ -479,7 +481,7 @@ mod tests {
     /// Integration test: verify computed variables can reference other variables
     #[test]
     fn test_computed_variable_depends_on_another() {
-        let mut variables = BTreeMap::new();
+        let mut variables = IndexMap::new();
         variables.insert(
             "author".to_string(),
             VariableConfig {
@@ -540,7 +542,7 @@ mod tests {
     /// Integration test: verify Tera errors in computed variables are caught and wrapped
     #[test]
     fn test_computed_variable_evaluation_error() {
-        let mut variables = BTreeMap::new();
+        let mut variables = IndexMap::new();
         variables.insert(
             "broken".to_string(),
             VariableConfig {

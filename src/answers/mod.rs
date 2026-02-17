@@ -183,6 +183,8 @@ fn tera_value_to_toml(value: &Value) -> Option<toml::Value> {
 
 #[cfg(test)]
 mod tests {
+    use indexmap::IndexMap;
+
     use super::*;
     use std::fs;
 
@@ -199,7 +201,7 @@ mod tests {
                 min_diecut_version: None,
                 templates_suffix: ".tera".to_string(),
             },
-            variables: BTreeMap::new(),
+            variables: IndexMap::new(),
             files: crate::config::schema::FilesConfig::default(),
             hooks: crate::config::schema::HooksConfig { post_create: None },
             answers: crate::config::schema::AnswersConfig::default(),
@@ -257,7 +259,7 @@ mod tests {
     fn test_write_answers_excludes_secret_variables() {
         let output_dir = tempfile::tempdir().unwrap();
 
-        let mut variables_config = BTreeMap::new();
+        let mut variables_config = IndexMap::new();
         variables_config.insert(
             "api_key".to_string(),
             crate::config::variable::VariableConfig {
