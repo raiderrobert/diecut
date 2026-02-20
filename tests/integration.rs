@@ -219,16 +219,11 @@ fn test_answers_file_written() {
     let output_dir = tempfile::tempdir().unwrap();
     walk_and_render(&resolved, output_dir.path(), &variables, &context).unwrap();
 
-    let source_info = diecut::answers::SourceInfo {
-        url: None,
-        git_ref: None,
-        commit_sha: None,
-    };
     diecut::answers::write_answers(
         output_dir.path(),
         &resolved.config,
         &variables,
-        &source_info,
+        &diecut::answers::TemplateOrigin::Local,
     )
     .unwrap();
 
