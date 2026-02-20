@@ -48,10 +48,6 @@ prompt = "Tone"
 choices = ["friendly", "professional", "technical"]
 default = "professional"
 
-[variables.tone_instructions]
-type = "string"
-computed = "{% if tone == 'friendly' %}Be warm and conversational. Use plain language. Acknowledge frustration with empathy before solving.{% elif tone == 'professional' %}Be concise and precise. Use formal language. Prioritize accuracy over warmth.{% else %}Assume the customer is technical. Use correct terminology. Skip basic explanations unless asked.{% endif %}"
-
 [variables.escalation_contact]
 type = "string"
 prompt = "Escalation contact (email or channel)"
@@ -60,7 +56,6 @@ prompt = "Escalation contact (email or channel)"
 A few things to note:
 
 - `tone` is a `select`. The user can only pick `friendly`, `professional`, or `technical`. No freeform input.
-- `tone_instructions` is `computed` — derived from `tone` using a Tera conditional. It is never prompted. The right instructions for each tone are fixed in the template.
 - `assistant_name` defaults to `"Support"`. Clients that want a branded name can override it; clients that don't can press Enter.
 
 ## Write the template file
@@ -74,8 +69,10 @@ Your role is to help customers with questions about {{ product_name }}.
 
 ## Tone
 
-{{ tone_instructions }}
-
+{% if tone == "friendly" %}Be warm and conversational. Use plain language. Acknowledge frustration with empathy before solving.
+{% elif tone == "professional" %}Be concise and precise. Use formal language. Prioritize accuracy over warmth.
+{% else %}Assume the customer is technical. Use correct terminology. Skip basic explanations unless asked.
+{% endif %}
 ## Scope
 
 Only answer questions directly related to {{ product_name }}. If a customer asks about something outside your scope, acknowledge their question and redirect them to {{ escalation_contact }}.
@@ -142,7 +139,7 @@ If a customer is frustrated or the issue cannot be resolved through conversation
 - Never start a response with "Certainly!", "Of course!", "Absolutely!", or similar filler phrases.
 ```
 
-The tone instructions expand from the computed variable. Everything else in the Response format and Escalation sections is unchanged.
+The Tera conditional in the `## Tone` section resolves to one of three instruction sets based on the value the user selected. Everything else in the Response format and Escalation sections is unchanged.
 
 ## Non-interactive variant
 
