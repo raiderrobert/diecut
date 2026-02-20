@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.3.3](https://github.com/raiderrobert/diecut/compare/v0.3.2...v0.3.3) (2026-02-20)
+
+
+### Bug Fixes
+
+* propagate read_dir error instead of silently treating it as empty dir ([#92](https://github.com/raiderrobert/diecut/issues/92)) ([d6e9ae3](https://github.com/raiderrobert/diecut/commit/d6e9ae3410f0d386d5950bcef70be1c01e0d8295))
+* reject non-finite floats to prevent silent data corruption ([#93](https://github.com/raiderrobert/diecut/issues/93)) ([b7d1996](https://github.com/raiderrobert/diecut/commit/b7d1996cf17a9998111f42f4915380b9ba2c4146))
+
+
+### Miscellaneous
+
+* derive Default on VariableType and VariableConfig ([#96](https://github.com/raiderrobert/diecut/issues/96)) ([3e82508](https://github.com/raiderrobert/diecut/commit/3e82508be0d2a2eda85b0cb637af7b1528450733))
+* untrack .beads directory from git ([#90](https://github.com/raiderrobert/diecut/issues/90)) ([b7938d9](https://github.com/raiderrobert/diecut/commit/b7938d9eaf9c246841687605a3db1e20a508351d))
+
+
+### Code Refactoring
+
+* extract eval_bool_expr helper, fix error variant in walker ([#94](https://github.com/raiderrobert/diecut/issues/94)) ([c0b7dda](https://github.com/raiderrobert/diecut/commit/c0b7dda9a685e9f0ae3ab9577fc6c2196775308f))
+* inline and delete write_answers_with_source ([#98](https://github.com/raiderrobert/diecut/issues/98)) ([f514692](https://github.com/raiderrobert/diecut/commit/f514692eccd80549ca2774a8c545799e8ac141ec))
+* make origin private, remove unused template_dir from FullGenerationPlan ([#100](https://github.com/raiderrobert/diecut/issues/100)) ([f54a26f](https://github.com/raiderrobert/diecut/commit/f54a26ff1c2b103056dc43d0cd6120905793b4d3))
+* replace SourceInfo with TemplateOrigin enum ([#99](https://github.com/raiderrobert/diecut/issues/99)) ([a16415e](https://github.com/raiderrobert/diecut/commit/a16415ea3485c76586565213986ea476724a6b3c))
+
 ## [0.3.2](https://github.com/raiderrobert/diecut/compare/v0.3.1...v0.3.2) (2026-02-17)
 
 
