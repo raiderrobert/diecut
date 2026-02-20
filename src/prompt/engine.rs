@@ -1,10 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 
-use tera::{Context, Tera, Value};
+use tera::Value;
 
 use crate::config::schema::TemplateConfig;
 use crate::config::variable::{VariableConfig, VariableType};
 use crate::error::{DicecutError, Result};
+use crate::render::build_context;
 
 #[derive(Default)]
 pub struct PromptOptions {
@@ -83,27 +84,11 @@ pub fn collect_variables(
 }
 
 fn evaluate_when(name: &str, when_expr: &str, values: &BTreeMap<String, Value>) -> Result<bool> {
-    let mut tera = Tera::default();
-    let template_str = format!("{{% if {when_expr} %}}true{{% else %}}false{{% endif %}}");
-    tera.add_raw_template("__when__", &template_str)
-        .map_err(|e| DicecutError::WhenEvaluation {
-            name: name.to_string(),
-            source: e,
-        })?;
-
-    let mut context = Context::new();
-    for (k, v) in values {
-        context.insert(k, v);
-    }
-
-    let result = tera
-        .render("__when__", &context)
-        .map_err(|e| DicecutError::WhenEvaluation {
-            name: name.to_string(),
-            source: e,
-        })?;
-
-    Ok(result.trim() == "true")
+    let context = build_context(values);
+    crate::render::eval_bool_expr(when_expr, &context).map_err(|e| DicecutError::WhenEvaluation {
+        name: name.to_string(),
+        source: e,
+    })
 }
 
 fn evaluate_computed(
@@ -111,17 +96,14 @@ fn evaluate_computed(
     computed_expr: &str,
     values: &BTreeMap<String, Value>,
 ) -> Result<Value> {
-    let mut tera = Tera::default();
+    let mut tera = tera::Tera::default();
     tera.add_raw_template("__computed__", computed_expr)
         .map_err(|e| DicecutError::ComputedEvaluation {
             name: name.to_string(),
             source: e,
         })?;
 
-    let mut context = Context::new();
-    for (k, v) in values {
-        context.insert(k, v);
-    }
+    let context = build_context(values);
 
     let result =
         tera.render("__computed__", &context)
