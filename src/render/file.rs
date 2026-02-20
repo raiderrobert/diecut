@@ -14,19 +14,10 @@ pub fn render_file_content(tera: &Tera, template_name: &str, context: &Context) 
 
 /// Render template expressions in a path component (e.g. `{{project_name}}`).
 pub fn render_path_component(component: &str, context: &Context) -> Result<String> {
-    let mut tera = Tera::default();
-    tera.add_raw_template("__path__", component).map_err(|e| {
-        DicecutError::FilenameRenderError {
-            filename: component.to_string(),
-            source: e,
-        }
-    })?;
-
-    tera.render("__path__", context)
-        .map_err(|e| DicecutError::FilenameRenderError {
-            filename: component.to_string(),
-            source: e,
-        })
+    Tera::one_off(component, context, false).map_err(|e| DicecutError::FilenameRenderError {
+        filename: component.to_string(),
+        source: e,
+    })
 }
 
 /// Detect binary files using content_inspector (BOM-aware, null-byte scanning).
