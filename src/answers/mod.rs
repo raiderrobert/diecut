@@ -82,24 +82,6 @@ pub fn write_answers(
     variables: &BTreeMap<String, Value>,
     source_info: &SourceInfo,
 ) -> Result<()> {
-    write_answers_with_source(
-        output_dir,
-        config,
-        variables,
-        source_info.url.as_deref(),
-        source_info.git_ref.as_deref(),
-        source_info.commit_sha.as_deref(),
-    )
-}
-
-pub fn write_answers_with_source(
-    output_dir: &Path,
-    config: &TemplateConfig,
-    variables: &BTreeMap<String, Value>,
-    template_source: Option<&str>,
-    template_ref: Option<&str>,
-    commit_sha: Option<&str>,
-) -> Result<()> {
     let answers_path = output_dir.join(&config.answers.file);
 
     let mut table = toml::map::Map::new();
@@ -112,19 +94,19 @@ pub fn write_answers_with_source(
     if let Some(version) = &config.template.version {
         meta.insert("version".to_string(), toml::Value::String(version.clone()));
     }
-    if let Some(source) = template_source {
+    if let Some(source) = source_info.url.as_deref() {
         meta.insert(
             "template_source".to_string(),
             toml::Value::String(source.to_string()),
         );
     }
-    if let Some(git_ref) = template_ref {
+    if let Some(git_ref) = source_info.git_ref.as_deref() {
         meta.insert(
             "template_ref".to_string(),
             toml::Value::String(git_ref.to_string()),
         );
     }
-    if let Some(sha) = commit_sha {
+    if let Some(sha) = source_info.commit_sha.as_deref() {
         meta.insert(
             "commit_sha".to_string(),
             toml::Value::String(sha.to_string()),
