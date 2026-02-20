@@ -115,9 +115,15 @@ pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
 
     if output_dir.exists() && !options.overwrite {
         // An empty dir is fine
-        let has_contents = std::fs::read_dir(&output_dir)
-            .map(|mut d| d.next().is_some())
-            .unwrap_or(false);
+        let has_contents = match std::fs::read_dir(&output_dir) {
+            Ok(mut d) => d.next().is_some(),
+            Err(e) => {
+                return Err(DicecutError::Io {
+                    context: format!("reading output directory {}", output_dir.display()),
+                    source: e,
+                });
+            }
+        };
         if has_contents {
             return Err(DicecutError::OutputExists { path: output_dir });
         }
