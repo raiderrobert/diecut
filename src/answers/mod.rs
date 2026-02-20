@@ -245,30 +245,13 @@ mod tests {
         variables_config.insert(
             "api_key".to_string(),
             crate::config::variable::VariableConfig {
-                var_type: crate::config::variable::VariableType::String,
-                prompt: None,
-                default: None,
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
                 secret: true,
+                ..Default::default()
             },
         );
         variables_config.insert(
             "public_var".to_string(),
-            crate::config::variable::VariableConfig {
-                var_type: crate::config::variable::VariableType::String,
-                prompt: None,
-                default: None,
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
-            },
+            crate::config::variable::VariableConfig::default(),
         );
 
         let config = crate::config::schema::TemplateConfig {
