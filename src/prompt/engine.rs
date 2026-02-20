@@ -329,43 +329,25 @@ mod tests {
         variables.insert(
             "name".to_string(),
             VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
                 default: Some(toml::Value::String("test".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
+                ..Default::default()
             },
         );
         variables.insert(
             "license".to_string(),
             VariableConfig {
                 var_type: VariableType::Select,
-                prompt: None,
                 default: Some(toml::Value::String("MIT".to_string())),
                 choices: Some(vec!["MIT".to_string(), "Apache-2.0".to_string()]),
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
+                ..Default::default()
             },
         );
         variables.insert(
             "use_ci".to_string(),
             VariableConfig {
                 var_type: VariableType::Bool,
-                prompt: None,
                 default: Some(toml::Value::Boolean(false)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
+                ..Default::default()
             },
         );
 
@@ -395,14 +377,8 @@ mod tests {
             "enabled".to_string(),
             VariableConfig {
                 var_type: VariableType::Bool,
-                prompt: None,
                 default: Some(toml::Value::Boolean(false)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
+                ..Default::default()
             },
         );
 
@@ -434,28 +410,16 @@ mod tests {
             "enable_feature".to_string(),
             VariableConfig {
                 var_type: VariableType::Bool,
-                prompt: None,
                 default: Some(toml::Value::Boolean(condition)),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
+                ..Default::default()
             },
         );
         variables.insert(
             "feature_config".to_string(),
             VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
                 default: Some(toml::Value::String("advanced".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
                 when: Some("enable_feature".to_string()),
-                computed: None,
-                secret: false,
+                ..Default::default()
             },
         );
 
@@ -485,43 +449,22 @@ mod tests {
         variables.insert(
             "author".to_string(),
             VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
                 default: Some(toml::Value::String("John Doe".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
+                ..Default::default()
             },
         );
         variables.insert(
             "author_email".to_string(),
             VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
                 default: Some(toml::Value::String("john@example.com".to_string())),
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
-                computed: None,
-                secret: false,
+                ..Default::default()
             },
         );
         variables.insert(
             "full_author".to_string(),
             VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: None,
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
                 computed: Some("{{ author }} <{{ author_email }}>".to_string()),
-                secret: false,
+                ..Default::default()
             },
         );
 
@@ -546,15 +489,8 @@ mod tests {
         variables.insert(
             "broken".to_string(),
             VariableConfig {
-                var_type: VariableType::String,
-                prompt: None,
-                default: None,
-                choices: None,
-                validation: None,
-                validation_message: None,
-                when: None,
                 computed: Some("{{ undefined_var }}".to_string()),
-                secret: false,
+                ..Default::default()
             },
         );
 
