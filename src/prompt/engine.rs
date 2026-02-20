@@ -193,7 +193,10 @@ fn prompt_variable(name: &str, var: &VariableConfig) -> Result<Value> {
                 }
             });
             let answer = prompt.prompt().map_err(|_| DicecutError::PromptCancelled)?;
-            let n: i64 = answer.parse().unwrap();
+            let n: i64 = answer.parse().map_err(|_| DicecutError::ValidationFailed {
+                name: name.to_string(),
+                message: "expected a valid integer".into(),
+            })?;
             Ok(Value::Number(serde_json::Number::from(n)))
         }
         VariableType::Float => {
@@ -203,20 +206,23 @@ fn prompt_variable(name: &str, var: &VariableConfig) -> Result<Value> {
                 default_str = f.to_string();
                 prompt = prompt.with_default(&default_str);
             }
-            prompt = prompt.with_validator(|input: &str| {
-                if input.parse::<f64>().is_ok() {
-                    Ok(inquire::validator::Validation::Valid)
-                } else {
-                    Ok(inquire::validator::Validation::Invalid(
-                        inquire::validator::ErrorMessage::Custom(
-                            "Must be a valid number".to_string(),
-                        ),
-                    ))
-                }
+            prompt = prompt.with_validator(|input: &str| match input.parse::<f64>() {
+                Ok(f) if f.is_finite() => Ok(inquire::validator::Validation::Valid),
+                _ => Ok(inquire::validator::Validation::Invalid(
+                    inquire::validator::ErrorMessage::Custom("Must be a finite number".to_string()),
+                )),
             });
             let answer = prompt.prompt().map_err(|_| DicecutError::PromptCancelled)?;
-            let f: f64 = answer.parse().unwrap();
-            Ok(serde_json::to_value(f).unwrap())
+            let f: f64 = answer.parse().map_err(|_| DicecutError::ValidationFailed {
+                name: name.to_string(),
+                message: "expected a valid float".into(),
+            })?;
+            Ok(
+                serde_json::to_value(f).map_err(|e| DicecutError::ValidationFailed {
+                    name: name.to_string(),
+                    message: e.to_string(),
+                })?,
+            )
         }
         VariableType::Select => {
             let choices = var.choices.as_ref().expect("select must have choices");
@@ -537,6 +543,29 @@ mod tests {
             result.get("full_author").unwrap(),
             "John Doe <john@example.com>"
         );
+    }
+
+    #[test]
+    fn test_float_validator_rejects_nonfinite() {
+        // Verify the validator logic: only finite floats are valid
+        let is_valid =
+            |input: &str| -> bool { matches!(input.parse::<f64>(), Ok(f) if f.is_finite()) };
+        assert!(!is_valid("inf"));
+        assert!(!is_valid("-inf"));
+        assert!(!is_valid("nan"));
+        assert!(!is_valid("not-a-number"));
+        assert!(is_valid("3.14"));
+        assert!(is_valid("-1.0"));
+        assert!(is_valid("0"));
+    }
+
+    #[test]
+    fn test_serde_json_silently_corrupts_infinity() {
+        // serde_json::to_value(f64::INFINITY) does not panic or error;
+        // it silently produces Value::Null, which is data corruption.
+        // This is why the validator must reject non-finite floats before they reach to_value.
+        let result = serde_json::to_value(f64::INFINITY).unwrap();
+        assert_eq!(result, serde_json::Value::Null);
     }
 
     /// Integration test: verify Tera errors in computed variables are caught and wrapped
