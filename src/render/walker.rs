@@ -8,6 +8,7 @@ use walkdir::WalkDir;
 use crate::adapter::ResolvedTemplate;
 use crate::config::schema::FilesConfig;
 use crate::error::{DicecutError, Result};
+use crate::render::build_context;
 use crate::render::file::{is_binary_file, render_path_component};
 
 pub struct GeneratedProject {
@@ -225,25 +226,9 @@ fn evaluate_conditional_files(
 }
 
 fn evaluate_when_expr(when_expr: &str, variables: &BTreeMap<String, Value>) -> Result<bool> {
-    let mut tera = Tera::default();
-    let template_str = format!("{{% if {when_expr} %}}true{{% else %}}false{{% endif %}}");
-    tera.add_raw_template("__when__", &template_str)
-        .map_err(|e| DicecutError::RenderError {
-            file: format!("(when expression: {when_expr})"),
-            source: e,
-        })?;
-
-    let mut context = Context::new();
-    for (k, v) in variables {
-        context.insert(k, v);
-    }
-
-    let result = tera
-        .render("__when__", &context)
-        .map_err(|e| DicecutError::RenderError {
-            file: format!("(when expression: {when_expr})"),
-            source: e,
-        })?;
-
-    Ok(result.trim() == "true")
+    let context = build_context(variables);
+    crate::render::eval_bool_expr(when_expr, &context).map_err(|e| DicecutError::WhenEvaluation {
+        name: format!("files.conditional[when={when_expr}]"),
+        source: e,
+    })
 }
