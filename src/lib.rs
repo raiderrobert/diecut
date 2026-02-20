@@ -14,7 +14,7 @@ use console::style;
 use tera::Value;
 
 use crate::adapter::resolve_template;
-use crate::answers::SourceInfo;
+use crate::answers::TemplateOrigin;
 use crate::error::{DicecutError, Result};
 use crate::prompt::{collect_variables, PromptOptions};
 use crate::render::{build_context, execute_plan, plan_render, GeneratedProject, GenerationPlan};
@@ -35,7 +35,7 @@ pub struct FullGenerationPlan {
     pub output_dir: PathBuf,
     pub config: crate::config::schema::TemplateConfig,
     pub variables: BTreeMap<String, Value>,
-    pub source_info: SourceInfo,
+    pub origin: TemplateOrigin,
     pub template_dir: PathBuf,
     pub no_hooks: bool,
 }
@@ -46,15 +46,8 @@ pub struct FullGenerationPlan {
 /// hooks, and rendering) but does **not** write any files to disk.
 pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
     let source = resolve_source(&options.template)?;
-    let (template_dir, source_info) = match &source {
-        TemplateSource::Local(path) => (
-            path.clone(),
-            SourceInfo {
-                url: None,
-                git_ref: None,
-                commit_sha: None,
-            },
-        ),
+    let (template_dir, origin) = match &source {
+        TemplateSource::Local(path) => (path.clone(), TemplateOrigin::Local),
         TemplateSource::Git {
             url,
             git_ref,
@@ -73,8 +66,8 @@ pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
             };
             (
                 path,
-                SourceInfo {
-                    url: Some(url.clone()),
+                TemplateOrigin::Git {
+                    url: url.clone(),
                     git_ref: git_ref.clone(),
                     commit_sha,
                 },
@@ -92,15 +85,20 @@ pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
         );
     }
 
-    if !options.no_hooks && source_info.url.is_some() && resolved.config.hooks.has_hooks() {
+    if !options.no_hooks
+        && matches!(origin, TemplateOrigin::Git { .. })
+        && resolved.config.hooks.has_hooks()
+    {
+        let url = if let TemplateOrigin::Git { url, .. } = &origin {
+            url.as_str()
+        } else {
+            "unknown"
+        };
         eprintln!(
             "{} This template contains hooks that will execute code on your machine",
             style("warning:").yellow().bold()
         );
-        eprintln!(
-            "  source: {}",
-            source_info.url.as_deref().unwrap_or("unknown")
-        );
+        eprintln!("  source: {url}");
         eprintln!("  use --no-hooks to skip hook execution");
     }
 
@@ -144,7 +142,7 @@ pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
         output_dir,
         config: resolved.config,
         variables,
-        source_info,
+        origin,
         template_dir,
         no_hooks: options.no_hooks,
     })
@@ -163,7 +161,7 @@ pub fn execute_generation(plan: FullGenerationPlan) -> Result<GeneratedProject> 
         &plan.output_dir,
         &plan.config,
         &plan.variables,
-        &plan.source_info,
+        &plan.origin,
     )?;
 
     if !plan.no_hooks {

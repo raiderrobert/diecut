@@ -7,10 +7,13 @@ use tera::Value;
 use crate::config::schema::TemplateConfig;
 use crate::error::{DicecutError, Result};
 
-pub struct SourceInfo {
-    pub url: Option<String>,
-    pub git_ref: Option<String>,
-    pub commit_sha: Option<String>,
+pub enum TemplateOrigin {
+    Local,
+    Git {
+        url: String,
+        git_ref: Option<String>,
+        commit_sha: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +83,7 @@ pub fn write_answers(
     output_dir: &Path,
     config: &TemplateConfig,
     variables: &BTreeMap<String, Value>,
-    source_info: &SourceInfo,
+    origin: &TemplateOrigin,
 ) -> Result<()> {
     let answers_path = output_dir.join(&config.answers.file);
 
@@ -94,23 +97,22 @@ pub fn write_answers(
     if let Some(version) = &config.template.version {
         meta.insert("version".to_string(), toml::Value::String(version.clone()));
     }
-    if let Some(source) = source_info.url.as_deref() {
+    if let TemplateOrigin::Git {
+        url,
+        git_ref,
+        commit_sha,
+    } = origin
+    {
         meta.insert(
             "template_source".to_string(),
-            toml::Value::String(source.to_string()),
+            toml::Value::String(url.clone()),
         );
-    }
-    if let Some(git_ref) = source_info.git_ref.as_deref() {
-        meta.insert(
-            "template_ref".to_string(),
-            toml::Value::String(git_ref.to_string()),
-        );
-    }
-    if let Some(sha) = source_info.commit_sha.as_deref() {
-        meta.insert(
-            "commit_sha".to_string(),
-            toml::Value::String(sha.to_string()),
-        );
+        if let Some(r) = git_ref {
+            meta.insert("template_ref".to_string(), toml::Value::String(r.clone()));
+        }
+        if let Some(sha) = commit_sha {
+            meta.insert("commit_sha".to_string(), toml::Value::String(sha.clone()));
+        }
     }
     meta.insert(
         "diecut_version".to_string(),
@@ -197,13 +199,13 @@ mod tests {
         );
         variables.insert("enabled".to_string(), Value::Bool(true));
 
-        let source_info = SourceInfo {
-            url: Some("https://example.com/repo.git".to_string()),
+        let origin = TemplateOrigin::Git {
+            url: "https://example.com/repo.git".to_string(),
             git_ref: Some("v1.0".to_string()),
             commit_sha: Some("deadbeef".to_string()),
         };
 
-        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+        write_answers(output_dir.path(), &config, &variables, &origin).unwrap();
 
         // Read back and verify
         let answers_file = output_dir.path().join(".diecut-answers.toml");
@@ -278,13 +280,13 @@ mod tests {
             Value::String("visible".to_string()),
         );
 
-        let source_info = SourceInfo {
-            url: None,
-            git_ref: None,
-            commit_sha: None,
-        };
-
-        write_answers(output_dir.path(), &config, &variables, &source_info).unwrap();
+        write_answers(
+            output_dir.path(),
+            &config,
+            &variables,
+            &TemplateOrigin::Local,
+        )
+        .unwrap();
 
         let answers_file = output_dir.path().join(".diecut-answers.toml");
         let content = fs::read_to_string(&answers_file).unwrap();
