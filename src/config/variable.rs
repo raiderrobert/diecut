@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum VariableType {
+    #[default]
     String,
     Bool,
     Int,
@@ -11,7 +12,7 @@ pub enum VariableType {
     Multiselect,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct VariableConfig {
     #[serde(rename = "type")]
     pub var_type: VariableType,
