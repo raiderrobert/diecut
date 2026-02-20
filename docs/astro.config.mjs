@@ -33,6 +33,16 @@ export default defineConfig({
           ],
         },
         {
+          label: "Tutorials",
+          items: [
+            { label: "Personal project template", slug: "tutorials/personal-template" },
+            { label: "Monorepo packages", slug: "tutorials/monorepo-packages" },
+            { label: "Repeating in-project patterns", slug: "tutorials/repeating-patterns" },
+            { label: "Multi-file feature scaffolding", slug: "tutorials/code-scaffolding" },
+            { label: "Structured content", slug: "tutorials/structured-content" },
+          ],
+        },
+        {
           label: "Reference",
           items: [
             { label: "Commands", slug: "reference/commands" },
