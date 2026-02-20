@@ -35,8 +35,7 @@ pub struct FullGenerationPlan {
     pub output_dir: PathBuf,
     pub config: crate::config::schema::TemplateConfig,
     pub variables: BTreeMap<String, Value>,
-    pub origin: TemplateOrigin,
-    pub template_dir: PathBuf,
+    origin: TemplateOrigin,
     pub no_hooks: bool,
 }
 
@@ -143,7 +142,6 @@ pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
         config: resolved.config,
         variables,
         origin,
-        template_dir,
         no_hooks: options.no_hooks,
     })
 }
