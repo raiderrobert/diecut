@@ -39,7 +39,9 @@ export default defineConfig({
             { label: "Monorepo packages", slug: "tutorials/monorepo-packages" },
             { label: "Repeating in-project patterns", slug: "tutorials/repeating-patterns" },
             { label: "Multi-file feature scaffolding", slug: "tutorials/code-scaffolding" },
+            { label: "FastAPI resource scaffolding", slug: "tutorials/fastapi-endpoint" },
             { label: "Structured content", slug: "tutorials/structured-content" },
+            { label: "Prompt and skill templates", slug: "tutorials/prompt-template" },
           ],
         },
         {

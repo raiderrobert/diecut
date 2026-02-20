@@ -3,11 +3,27 @@ title: Structured content with consistent schemas
 description: "Define the shape once. Every entry conforms — whether filled in by hand or by an LLM."
 ---
 
-You maintain a conference listing site. Every event has the same fields: name, dates, location, ticket price, tags. Someone adds an event by hand and invents a tag that doesn't exist in your system. Another entry has `ticketCost` instead of `ticket_price`. A third skips `featured` entirely.
+You maintain a conference listing site. A contributor submits this PR:
 
-The frontmatter drifts. Queries break. You spend time cleaning up instead of publishing.
+```markdown
+---
+name: "PyData NYC"
+startDate: 2026-09-18
+endDate: September 20, 2026
+timezone: US/Eastern
+city: New York
+ticketCost: 350
+tags:
+  - Python
+  - Data Science
+---
 
-The fix is not a style guide in a README. It's a template that enforces the schema at the point of entry — and refuses to accept values it doesn't know about.
+Three days of talks and workshops.
+```
+
+Four things are wrong: `endDate` is in a different format than `startDate`. `timezone` is `US/Eastern`, not a valid IANA zone. `city` is an invented field — your schema uses `location`. `ticketCost` is `ticket_price` misspelled. Your query that filters by `ticket_price` silently excludes this event. The timezone string fails your date library. You find out when the site renders.
+
+The fix is not a style guide in a README. It's a template that enforces the schema at the point of entry.
 
 ## Set up the template
 
@@ -112,7 +128,14 @@ A few things to note:
 - `ticket_price` is conditional — only shown when `free` is false.
 - `tags` is a `multiselect`. The user picks from a fixed list of choices. No freeform strings.
 
-These constraints are not documentation. They are enforced at runtime.
+These constraints are not documentation. They are enforced at generation time. A contributor who types a timezone not in the list sees:
+
+```text
+Timezone [America/New_York]: US/Eastern
+Error: "US/Eastern" is not a valid choice. Select a value from the list.
+```
+
+The file is not written. The invalid value never reaches the content directory.
 
 ## Write the template file
 
@@ -210,7 +233,27 @@ Only fields declared in `diecut.toml` appear. `ticketPrice` is present because t
 
 ## The LLM workflow
 
-An LLM can generate the same entry without interactive prompts. It reads `diecut.toml` to understand the schema, then calls diecut with `--defaults` and `-d` flags to pass each value:
+An LLM can generate the same entry without interactive prompts.
+
+Without a schema, an LLM asked to "add Grok Conf as a conference entry" might produce:
+
+```markdown
+---
+title: "Grok Conf"
+date: "April 15–17, 2026"
+location: "Greenville, South Carolina"
+price: "$279"
+categories:
+  - web
+  - javascript
+  - unconference
+isFeatured: false
+---
+```
+
+`title` instead of `name`. `date` instead of `startDate`/`endDate`. `price` as a string with a dollar sign instead of `ticket_price` as an integer. `categories` instead of `tags`, with freeform strings instead of approved choices. Your content layer ignores the entry silently.
+
+With diecut, the LLM reads `diecut.toml` to understand the schema, then calls:
 
 ```bash
 diecut new ./templates/event --defaults \
@@ -237,7 +280,11 @@ The schema constrains what the LLM can do:
 - It can only use tag values from the `choices` list. Passing `"JavaScript"` for `tags` would fail validation — that value is not in the list.
 - It cannot set `ticket_price` when `free=true` — the conditional makes that field inactive.
 
-The LLM reads the `diecut.toml` directly to know what fields exist and what values are valid. There is no separate documentation to maintain or drift from. The template is the spec.
+The LLM reads the `diecut.toml` directly to know what fields exist and what values are valid.
+
+Compare this to the alternative: a `CONTRIBUTING.md` documenting the required fields and valid tag values. Three months later someone adds `Rust` to the approved tags — in `diecut.toml` and in the multiselect choices, but not in the README. The LLM reads the README and generates entries without `Rust`, or reads a cached version and generates `Rust` when the template no longer accepts it.
+
+The `diecut.toml` the LLM reads is the same file that enforces constraints at generation time. They cannot drift from each other because they are the same artifact.
 
 ## Preview before writing
 

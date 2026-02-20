@@ -3,7 +3,9 @@ title: Repeating a pattern within a project
 description: Your codebase already has the right shape. Make it official.
 ---
 
-You have a React/TypeScript app where every feature module looks the same: `index.ts`, `store.ts`, `api.ts`, `types.ts`. When you need a new feature, you copy `users/` or `products/`, then spend ten minutes renaming types and fixing import paths throughout. The pattern is already there. This tutorial shows you how to extract it into a diecut template that lives inside the project itself, so adding the next feature takes seconds.
+You have a React/TypeScript app where every feature module looks the same: `index.ts`, `store.ts`, `api.ts`, `types.ts`. When you need a new feature, you copy `products/` and start renaming. You get `Order`, `OrderState`, `fetchOrders` — but the import in `api.ts` still reads `import type { Product } from './types'`. TypeScript catches that one. The `fetch('/api/products')` URL in the same file does not cause a type error. It silently hits the wrong endpoint until someone notices orders returning product data.
+
+This tutorial shows you how to extract the pattern into a template that lives inside the project. Adding the next feature is a single command.
 
 ## The existing pattern
 
@@ -24,6 +26,22 @@ src/features/
 ```
 
 Each module follows the same conventions: types are exported from `types.ts`, the API layer imports from there, and `index.ts` re-exports everything. You want `orders/` to look exactly the same.
+
+## What copy-paste produces
+
+Here is what `orders/api.ts` looks like after a hurried copy from `products/`:
+
+```typescript
+// orders/api.ts — after copying from products/
+import type { Product } from './types';         // wrong — should be Order
+
+export async function fetchOrders(): Promise<Product[]> {
+  const response = await fetch('/api/products'); // wrong URL — silent bug
+  return response.json();
+}
+```
+
+This compiles. TypeScript sees no error because `Product[]` is a valid return type. The fetch URL is wrong and nothing will tell you until an order view renders product data.
 
 ## Create the template directory
 
@@ -184,13 +202,15 @@ export async function fetchOrder(id: string): Promise<Order> {
 }
 ```
 
-Type names are correct, the import path matches, and the fetch URL uses the kebab-case slug. Nothing to rename manually.
+The `import type { Order }` on line 1 and `fetch('/api/orders')` on line 5 both derive from the single value `orders` typed at the prompt. There is no second place to update.
 
 ## The key insight
 
 You did not design a template from scratch. The pattern was already in your codebase — in `users/` and `products/`. You extracted it, named the parts that change, and wrote it down. Now adding a new feature module is a single command instead of a copy-paste session with a find-and-replace at the end.
 
-The template lives in the project it serves. Your teammates find it where they would look for it. It evolves alongside the codebase. When the pattern changes — say, you add a `store.ts` to every module — you update the template once and the next feature gets it automatically.
+The template lives in the project it serves. Your teammates find it where they would look for it. It evolves alongside the codebase.
+
+When the pattern changes — say, you add a `store.ts` to every module — without a template you add it to `users/`, `products/`, and `orders/`, but six months from now someone adds `notifications/` by copying an older module and it ships without a store, inconsistent with everything else. With the template, you add `store.ts.tera` once. Every module created after that gets it.
 
 ---
 

@@ -3,7 +3,9 @@ title: Building a personal project template
 description: Write your stack conventions down once. Use them everywhere.
 ---
 
-You start a new Python package roughly the same way every time: same folder layout, same `pyproject.toml` structure, same linting config, same CI workflow. You either copy an old project and scrub it clean, or prompt an LLM and get subtly different results each time. This tutorial shows you how to write that pattern down once as a diecut template, test it locally, push it to GitHub, and use it from anywhere.
+You start a new Python package roughly the same way every time: same folder layout, same `pyproject.toml` structure, same linting config, same CI workflow. You copy `old-service` to `my-lib`, run a search-and-replace for the project name, and push. Three days later you notice `pyproject.toml` still says `name = 'old-service'` because the old name appeared in a comment you didn't touch. Or the README still references your old author email. You've shipped the wrong metadata again.
+
+This tutorial shows you how to write that pattern down once as a diecut template, test it locally, push it to GitHub, and use it from anywhere.
 
 ## Set up the template directory
 
@@ -53,7 +55,9 @@ choices = ["MIT", "Apache-2.0", "GPL-3.0"]
 default = "MIT"
 ```
 
-`project_slug` is computed — it's derived from `project_name` with hyphens replaced by underscores. Python package names use underscores; project directory names conventionally use hyphens. The user only types one; diecut figures out the other. Computed variables are never shown as a prompt.
+`project_slug` is computed — it's derived from `project_name` with hyphens replaced by underscores. Python package names use underscores; project directory names conventionally use hyphens.
+
+Without this, you'd have to ask for both separately and trust the user types them consistently. If they enter `project_name = my-lib` but `project_slug = my_lib_utils` by mistake, the import in `test_package.py` (`from my_lib_utils import ...`) won't match the directory diecut creates (`src/my_lib/`). The computed variable eliminates that class of mismatch: one value is entered, the other is always derived from it.
 
 ## Add the template files
 
@@ -166,7 +170,7 @@ License [MIT]:
 [dry-run] would write: my-lib/tests/test_package.py
 ```
 
-Check that filenames look right — especially the `my_lib` directory name, which is the computed slug. If anything looks off, fix the template and re-run. No cleanup needed.
+The thing to verify is that `my_lib` appears, not `my-lib`. If you'd written `computed = '{{ project_name }}'` without the replace filter, the dry-run would show `src/my-lib/__init__.py` — a directory name Python can't import from. Catching that here costs nothing; catching it after `pip install -e .` fails costs you a confused ten minutes.
 
 Once you're satisfied, generate for real:
 
@@ -188,7 +192,7 @@ my-lib/
   .diecut-answers.toml
 ```
 
-`.diecut-answers.toml` records the variable values used. You can regenerate or inspect later.
+`.diecut-answers.toml` records the variable values used. If a teammate asks which license you picked, or you want to scaffold a closely related second package with the same author and description, the answers are already there — no digging through `pyproject.toml` to reconstruct what you typed.
 
 ## Push to GitHub and use from anywhere
 
@@ -217,7 +221,7 @@ diecut new gh:yourname/templates/python-pkg -o my-lib \
 
 ## The payoff
 
-Your conventions are now written down. The folder layout, the `pyproject.toml` structure, the linting config, the test setup — it's all in one place, version-controlled, and reproducible. Share the repo link with a teammate and they get the same starting point. Come back six months later and you're not reverse-engineering what you did last time.
+Six months from now, when you start `data-pipeline`, you run one command instead of opening `my-lib` and hunting for every `my-lib`, `my_lib`, and `Jane Doe` that needs changing. Your teammate onboards with `diecut new gh:yourname/templates/python-pkg -o their-tool` and gets `ruff` at line-length 100, `hatchling` as the build backend, and `pytest` in dev dependencies — exactly what you'd have set up for them, without a setup doc, without a call.
 
 ---
 

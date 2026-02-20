@@ -3,9 +3,34 @@ title: Scaffolding a multi-file feature
 description: Enter a name once. Get all the files.
 ---
 
-Every new entity in a TypeScript REST API means four files: a controller, a service, a repository, and a test. The entity name appears in class names, method names, import paths, and describe blocks across all of them. Copy-paste works until it doesn't — one unrenamed `ProductsController` hiding in what's supposed to be the orders module, and the error doesn't surface until runtime.
+Every new entity in a TypeScript REST API means four files: a controller, a service, a repository, and a test. The entity name appears in class names, method names, import paths, and describe blocks across all of them.
 
-There's a better way. Write the pattern down as a template. Type the name once. All four files generate correctly, every time.
+You scaffold the orders module by copying `products/`. You rename five of the six occurrences of `ProductsController`. The file compiles and the tests pass — `describe('ProductsController', ...)` in the test file matches the class name you forgot to rename in the implementation. Two weeks later, an error log shows `ProductsController` handling an orders request. You grep for it and find the test that confirmed the wrong thing.
+
+Write the pattern down as a template. Type the name once. All four files generate correctly, every time.
+
+## What copy-paste produces
+
+After copying `products.controller.ts` to `orders.controller.ts` and renaming most occurrences:
+
+```typescript
+// orders.controller.ts
+import { OrdersService } from './orders.service';       // renamed
+
+@Controller('orders')
+export class ProductsController {                       // missed this one
+  constructor(private readonly ordersService: OrdersService) {}
+}
+```
+
+```typescript
+// orders.controller.test.ts
+describe('ProductsController', () => {                  // missed this too
+  let controller: OrdersController;                     // renamed
+  ...
+```
+
+The test imports `OrdersController` but the describe block still reads `ProductsController`. The test passes. A Jest describe label is just a string — TypeScript does not check it.
 
 ## The template structure
 
@@ -46,7 +71,9 @@ Two variables, one prompt.
 
 `entity_name` is the only one shown to the user. `EntityName` is computed from it: hyphens replaced with spaces, title-cased, spaces removed — turning `orders` into `Orders` and `line-items` into `LineItems`. Use `entity_name` (with hyphens stripped) wherever a camelCase identifier is needed; for the common case of single-word entities like `orders`, `entity_name` and camelCase are identical.
 
-Computed variables are never prompted. They're always derived, always consistent.
+Computed variables are never prompted. They're always derived from the value the user typed.
+
+Without computed variables, `OrdersController` in the class name and `ordersService` in the constructor are typed separately — two strings, no enforced relationship. Here, both are rendered from `entity_name`. If you change `entity_name`, both change.
 
 ## Template files
 
@@ -201,7 +228,7 @@ describe('OrdersController', () => {
 });
 ```
 
-`OrdersController`, `ordersService`, `OrdersService` — all consistent, all correct. The entity name was typed once.
+`OrdersController`, `ordersService`, `OrdersService` — all derived from `entity_name = 'orders'`. In a copy-paste workflow, each of those three strings is typed separately. Any one of them can diverge. Here, there is one string and three renderings of it.
 
 ## Next entity
 
@@ -221,9 +248,17 @@ diecut new ./templates/endpoint -o src/endpoints/line-items -d entity_name=line-
 
 ## The alignment guarantee
 
-With copy-paste, a mismatch is always possible. You rename three occurrences and miss a fourth. The file compiles. The bug waits.
+With copy-paste, you find out when it fails — a 404, a stale describe block in the CI log, a class name in an error log that doesn't match the file you're reading. The bug waits.
 
-With a template, the entity name is a single source of truth. Every class name, every import path, every test describe block is derived from it at generation time. There's no fourth occurrence to miss. The files are either all right or all wrong — and you find out immediately, not at runtime.
+With a template, the entity name is a single source of truth. `OrdersController`, `ordersService`, `OrdersService` — all rendered from the same `entity_name = 'orders'` at generation time.
+
+Adding line items:
+
+```bash
+diecut new ./templates/endpoint -o src/endpoints/line-items -d entity_name=line-items
+```
+
+The describe block in the generated test reads `describe('LineItemsController', ...)`. There is no string to miss.
 
 ---
 
