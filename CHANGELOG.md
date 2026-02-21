@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.4](https://github.com/raiderrobert/diecut/compare/v0.3.3...v0.3.4) (2026-02-21)
+
+
+### Documentation
+
+* add examples to explain why they'd want this ([#101](https://github.com/raiderrobert/diecut/issues/101)) ([55d2146](https://github.com/raiderrobert/diecut/commit/55d2146c971bb52ff4c5410593c1a4b5096d4bb8))
+* improved the main page and examples ([a8160a7](https://github.com/raiderrobert/diecut/commit/a8160a798e680339d5ff6c9cd0d09296bfc22757))
+
 ## [0.3.3](https://github.com/raiderrobert/diecut/compare/v0.3.2...v0.3.3) (2026-02-20)
 
 
