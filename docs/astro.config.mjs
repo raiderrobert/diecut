@@ -26,10 +26,21 @@ export default defineConfig({
           ],
         },
         {
-          label: "Guides",
+          label: "How It Works",
           items: [
             { label: "Using Templates", slug: "using-templates" },
             { label: "Creating Templates", slug: "creating-templates" },
+          ],
+        },
+        {
+          label: "Examples",
+          items: [
+            { label: "Project template", slug: "examples/personal-template" },
+            { label: "Monorepo packages", slug: "examples/monorepo-packages" },
+            { label: "Repeating in-project patterns", slug: "examples/repeating-patterns" },
+            { label: "Multi-file feature scaffolding", slug: "examples/code-scaffolding" },
+{ label: "Structured content", slug: "examples/structured-content" },
+            { label: "Prompt and skill templates", slug: "examples/prompt-template" },
           ],
         },
         {

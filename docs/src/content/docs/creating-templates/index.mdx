@@ -141,10 +141,10 @@ default = true
 type = "select"
 prompt = "CI provider"
 choices = ["github-actions", "gitlab-ci"]
-when = "{{ use_ci }}"
+when = "use_ci"
 ```
 
-`ci_provider` is only prompted when `use_ci` is true. The `when` field takes a [Tera expression](https://keats.github.io/tera/docs/#expressions).
+`ci_provider` is only prompted when `use_ci` is true. The `when` field takes a bare Tera boolean expression — the same syntax used in `{% if ... %}` blocks.
 
 ## Conditional files
 
