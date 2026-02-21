@@ -203,19 +203,13 @@ describe("analytics", () => {
 
 `analytics` was typed once. Notice that `package.json` and `index.ts` use `@acme/analytics` (the scoped name) while `index.test.ts` uses `analytics` (the bare name). In a copy-paste workflow, getting these two forms right across all files is exactly the step that gets missed under time pressure. Here, both are computed from the same `package_name`.
 
-## What your team gets
+## The difference
 
-The `_templates/` directory is committed to the repo. Everyone on the team runs the same command and gets the same result.
+`_templates/` is committed to the repo alongside the source code. There's nothing to share or document separately — a new teammate clones the repo and the template is already there.
 
-When the team decides every package needs a `vitest.config.ts`: without a template, someone writes the config for `analytics`, then someone else adds a slightly different one to `payments`, and now you have two diverging configurations to reconcile. With the template, you add `vitest.config.ts` once to `_templates/package/template/`. The next `diecut new` picks it up. Packages that already exist keep their own files — you update them separately, on your own schedule, if at all.
+Without a template, package 3 gets created by copying package 1, and package 5 gets created by copying package 3. Each copy carries forward whatever adjustments the author made at the time. After a few rounds, the packages have quietly diverged. With a template, every new package starts from the same place.
 
-To add a second package later:
-
-```bash
-diecut new ./_templates/package -o packages/notifications
-```
-
-Same template, new name, done in seconds.
+When you decide the standard setup needs a `vitest.config.ts`, you add it once to `_templates/package/template/`. The next `diecut new` picks it up. Packages that already exist keep their own files — you update them separately, on your own schedule, if at all.
 
 ---
 

@@ -219,9 +219,13 @@ diecut new gh:yourname/templates/python-pkg -o my-lib \
   --defaults
 ```
 
-## The payoff
+## The difference
 
-Six months from now, when you start `data-pipeline`, you run one command instead of opening `my-lib` and hunting for every `my-lib`, `my_lib`, and `Jane Doe` that needs changing. Your teammate onboards with `diecut new gh:yourname/templates/python-pkg -o their-tool` and gets `ruff` at line-length 100, `hatchling` as the build backend, and `pytest` in dev dependencies — exactly what you'd have set up for them, without a setup doc, without a call. An agency keeps one repo of client project starters. Every new engagement starts from the right baseline, not from last month's client project with the wrong name in six places.
+Without a template, starting a new project means copying the last one and replacing every trace of the old name — in comments, in `pyproject.toml`, in the README. You catch the ones your editor flags, and you miss the ones it won't. The dry-run output earlier in this article shows exactly that distinction: `my-lib` and `my_lib` are two different strings, in two different contexts, and you have to find them both.
+
+With a template, the prompts replace the search-and-replace session. You type the project name once; the template renders it everywhere it belongs — as a directory name, as a package identifier, as a heading in the README.
+
+The template is also a specification: it records what a correct new project looks like — the build backend, the linter config, the test runner. When that spec changes — say you switch from `setuptools` to `hatchling` — you update the template once. Every project created after that gets the new baseline automatically.
 
 ---
 

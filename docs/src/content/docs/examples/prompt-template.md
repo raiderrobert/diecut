@@ -165,13 +165,13 @@ This is also how you batch-generate prompts for multiple clients from a script �
 
 Freeform input would let someone pass `tone=empathetic` or `tone=casual` and get a prompt that was never optimized for that value. The choices list is not documentation. It is the contract. Only values on the list are valid.
 
-## The core insight
+## The difference
 
-In most diecut templates, the template is scaffolding — the value is in the files it produces. Here, the value is in the template itself.
+The manual alternative is copying `system-prompt.md` for each new client and editing it. Someone removes the escalation logic for one client, another person rewords the fallback behavior, a third renames `escalation_contact` to something else. A few months in you have five diverged prompts and no clear canonical version.
 
-The expert work is the system prompt — the instructions, the constraints, the fallback behavior. That work lives in `system-prompt.md.tera`. It does not change when a new client is onboarded. The person instantiating a variant fills in company name, product name, and tone. They cannot reword the escalation logic. They cannot remove the response format constraints. They pick from the approved list of tones.
+With the template, the expert-crafted parts — the response format rules, the fallback behavior, the escalation logic in `system-prompt.md.tera` — are fixed. What varies is declared as variables in `diecut.toml`. A new client variant fills in `company_name`, `product_name`, and `tone`. It cannot rewrite the instructions.
 
-Push the `support-bot/` directory to a shared repo and every team member generates from the same base. A client-specific variant is a generated file, not a fork of the prompt.
+The `tone` variable makes this concrete. It is a `select` with four choices. Freeform input would let someone pass a value the prompt was never tested with. The choices list isn't documentation of what's allowed — it's what makes other values impossible.
 
 ## Versioning and updates
 

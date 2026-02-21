@@ -204,13 +204,13 @@ export async function fetchOrder(id: string): Promise<Order> {
 
 The `import type { Order }` on line 1 and `fetch('/api/orders')` on line 5 both derive from the single value `orders` typed at the prompt. There is no second place to update.
 
-## The key insight
+## The difference
 
-You did not design a template from scratch. The pattern was already in your codebase — in `users/` and `products/`. You extracted it, named the parts that change, and wrote it down. Now adding a new feature module is a single command instead of a copy-paste session with a find-and-replace at the end.
+The template pays off most when the pattern changes. When `store.ts` becomes standard, you add `store.ts.tera` to `_template/` once. Every module created after that gets it. Without the template, you update `users/`, `products/`, and `orders/`, but someone adding `notifications/` next quarter copies an older module and ships without a store.
 
-The template lives in the project it serves. Your teammates find it where they would look for it. It evolves alongside the codebase.
+`users/` and `products/` already existed when this template was written. Extracting a template meant naming the parts that vary and writing down what was already there — not designing something new from scratch.
 
-When the pattern changes — say, you add a `store.ts` to every module — without a template you add it to `users/`, `products/`, and `orders/`, but six months from now someone adds `notifications/` by copying an older module and it ships without a store, inconsistent with everything else. With the template, you add `store.ts.tera` once. Every module created after that gets it.
+The template lives in the project directory, next to the modules it produces. Teammates find it where they'd look.
 
 ---
 

@@ -246,19 +246,13 @@ diecut new ./templates/endpoint -o src/endpoints/line-items -d entity_name=line-
 
 `line-items` becomes `LineItemsController` and `LineItemsService` — the computed variable handles the casing transform.
 
-## The alignment guarantee
+## The difference
 
-With copy-paste, you find out when it fails — a 404, a stale describe block in the CI log, a class name in an error log that doesn't match the file you're reading. The bug waits.
+Copy-paste requires you to find every occurrence of a name and rename each one correctly. Miss one and nothing breaks immediately — the test still runs, the service still starts. The failure shows up later: a describe block that says `ProductsController` while you're debugging `OrdersService`, a class name in an error log that doesn't match the file you're reading.
 
-With a template, the entity name is a single source of truth. `OrdersController`, `OrdersService` — class names and import paths rendered from the same `entity_name = 'orders'` at generation time.
+The describe block example in this article is exactly that failure. The test imported `OrdersController` but the describe label still read `ProductsController`. It passed. TypeScript has no opinion on describe strings.
 
-Adding line items:
-
-```bash
-diecut new ./templates/endpoint -o src/endpoints/line-items -d entity_name=line-items
-```
-
-The describe block in the generated test reads `describe('LineItemsController', ...)`. There is no string to miss.
+A template has one input — `entity_name` — and everything else derives from it at generation time. There's nothing to rename and nothing to miss.
 
 ---
 

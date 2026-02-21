@@ -305,11 +305,13 @@ diecut new ./templates/event --defaults \
 
 The rendered content is printed to the terminal. Useful for inspecting the output before it lands in your content directory.
 
-## The core insight
+## The difference
 
-`diecut.toml` is the contract. Whether a human is filling in the values through prompts or an LLM is passing them with `-d` flags, the output always conforms to the declared schema. Fields that don't exist in the config cannot appear in the output. Values for `select` and `multiselect` variables must come from the defined choices.
+The PyData example at the start of this article — wrong field names, invented timezone strings, mismatched date formats — came from a contributor who didn't know the schema. A style guide in a README can go stale; `diecut.toml` is the schema, so it can't drift from itself.
 
-The schema travels with the template. Commit the `templates/event/` directory to your site repo and every contributor — human or automated — works from the same definition.
+For LLM workflows this matters directly: the LLM reads `diecut.toml` to understand what fields exist and what values are valid. That is the same file diecut uses to validate at generation time. There is no separate source of truth — no README, no wiki page — that can fall out of sync with what the tool accepts.
+
+Validation happens at generation time, before anything lands in the content directory. `US/Eastern` for the `timezone` field is rejected at the prompt, not discovered later when the date library fails at render time.
 
 ---
 
