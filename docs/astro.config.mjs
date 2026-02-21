@@ -35,7 +35,7 @@ export default defineConfig({
         {
           label: "Examples",
           items: [
-            { label: "Personal project template", slug: "examples/personal-template" },
+            { label: "Project template", slug: "examples/personal-template" },
             { label: "Monorepo packages", slug: "examples/monorepo-packages" },
             { label: "Repeating in-project patterns", slug: "examples/repeating-patterns" },
             { label: "Multi-file feature scaffolding", slug: "examples/code-scaffolding" },

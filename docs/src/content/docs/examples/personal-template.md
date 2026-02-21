@@ -1,9 +1,9 @@
 ---
-title: Building a personal project template
+title: Building a project template
 description: Write your stack conventions down once. Use them everywhere.
 ---
 
-You start a new Python package roughly the same way every time: same folder layout, same `pyproject.toml` structure, same linting config, same CI workflow. You copy `old-service` to `my-lib`, run a search-and-replace for the project name, and push. Three days later you notice `pyproject.toml` still says `name = 'old-service'` because the old name appeared in a comment you didn't touch. Or the README still references your old author email. You've shipped the wrong metadata again.
+You start new projects the same way every time. Your personal dev stack. Your team's standard service skeleton. Your agency's client project baseline. Same layout, same tooling, same CI workflow — you copy the last one, search-and-replace the project name, and push. Three days later you notice `pyproject.toml` still says `name = 'old-service'` because the old name appeared in a comment you didn't touch. Or the README still references the old author email. You've shipped the wrong metadata again.
 
 Write that pattern down once as a diecut template. Test it locally, push it to GitHub, use it from anywhere.
 
@@ -221,7 +221,7 @@ diecut new gh:yourname/templates/python-pkg -o my-lib \
 
 ## The payoff
 
-Six months from now, when you start `data-pipeline`, you run one command instead of opening `my-lib` and hunting for every `my-lib`, `my_lib`, and `Jane Doe` that needs changing. Your teammate onboards with `diecut new gh:yourname/templates/python-pkg -o their-tool` and gets `ruff` at line-length 100, `hatchling` as the build backend, and `pytest` in dev dependencies — exactly what you'd have set up for them, without a setup doc, without a call.
+Six months from now, when you start `data-pipeline`, you run one command instead of opening `my-lib` and hunting for every `my-lib`, `my_lib`, and `Jane Doe` that needs changing. Your teammate onboards with `diecut new gh:yourname/templates/python-pkg -o their-tool` and gets `ruff` at line-length 100, `hatchling` as the build backend, and `pytest` in dev dependencies — exactly what you'd have set up for them, without a setup doc, without a call. An agency keeps one repo of client project starters. Every new engagement starts from the right baseline, not from last month's client project with the wrong name in six places.
 
 ---
 
