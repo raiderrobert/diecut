@@ -69,11 +69,11 @@ computed = "{{ entity_name | replace(from='-', to=' ') | title | replace(from=' 
 
 Two variables, one prompt.
 
-`entity_name` is the only one shown to the user. `EntityName` is computed from it: hyphens replaced with spaces, title-cased, spaces removed — turning `orders` into `Orders` and `line-items` into `LineItems`. Use `entity_name` (with hyphens stripped) wherever a camelCase identifier is needed; for the common case of single-word entities like `orders`, `entity_name` and camelCase are identical.
+`entity_name` is the only one shown to the user. `EntityName` is computed from it: hyphens replaced with spaces, title-cased, spaces removed — turning `orders` into `Orders` and `line-items` into `LineItems`.
 
 Computed variables are never prompted. They're always derived from the value the user typed.
 
-Without computed variables, `OrdersController` in the class name and `ordersService` in the constructor are typed separately — two strings, no enforced relationship. Here, both are rendered from `entity_name`. If you change `entity_name`, both change.
+Without computed variables, `OrdersController` in the class name and `OrdersService` in the import are typed separately — two strings, no enforced relationship. Here, both are rendered from `entity_name`. If you change `entity_name`, both change.
 
 ## Template files
 
@@ -89,36 +89,36 @@ import { Update{{ EntityName }}Dto } from './dto/update-{{ entity_name }}.dto';
 
 @Controller('{{ entity_name }}')
 export class {{ EntityName }}Controller {
-  constructor(private readonly {{ entity_name | replace(from='-', to='') }}Service: {{ EntityName }}Service) {}
+  constructor(private readonly service: {{ EntityName }}Service) {}
 
   @Post()
   create(@Body() dto: Create{{ EntityName }}Dto) {
-    return this.{{ entity_name | replace(from='-', to='') }}Service.create(dto);
+    return this.service.create(dto);
   }
 
   @Get()
   findAll() {
-    return this.{{ entity_name | replace(from='-', to='') }}Service.findAll();
+    return this.service.findAll();
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.{{ entity_name | replace(from='-', to='') }}Service.findOne(id);
+    return this.service.findOne(id);
   }
 
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: Update{{ EntityName }}Dto) {
-    return this.{{ entity_name | replace(from='-', to='') }}Service.update(id, dto);
+    return this.service.update(id, dto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.{{ entity_name | replace(from='-', to='') }}Service.remove(id);
+    return this.service.remove(id);
   }
 }
 ```
 
-`EntityName` appears in the class name and import paths. `entityName` appears in the injected service property. Both come from `entity_name` — the single value the user typed.
+`EntityName` appears in the class name, import paths, and DTO references. `entity_name` sets the route path. Both come from the single value the user typed.
 
 ### The test
 
@@ -131,7 +131,7 @@ import { {{ EntityName }}Service } from './{{ entity_name }}.service';
 
 describe('{{ EntityName }}Controller', () => {
   let controller: {{ EntityName }}Controller;
-  let {{ entity_name | replace(from='-', to='') }}Service: jest.Mocked<{{ EntityName }}Service>;
+  let service: jest.Mocked<{{ EntityName }}Service>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -151,7 +151,7 @@ describe('{{ EntityName }}Controller', () => {
     }).compile();
 
     controller = module.get<{{ EntityName }}Controller>({{ EntityName }}Controller);
-    {{ entity_name | replace(from='-', to='') }}Service = module.get({{ EntityName }}Service);
+    service = module.get({{ EntityName }}Service);
   });
 
   it('should be defined', () => {
@@ -159,9 +159,9 @@ describe('{{ EntityName }}Controller', () => {
   });
 
   it('findAll delegates to service', async () => {
-    {{ entity_name | replace(from='-', to='') }}Service.findAll.mockResolvedValue([]);
+    service.findAll.mockResolvedValue([]);
     const result = await controller.findAll();
-    expect({{ entity_name | replace(from='-', to='') }}Service.findAll).toHaveBeenCalled();
+    expect(service.findAll).toHaveBeenCalled();
     expect(result).toEqual([]);
   });
 });
@@ -213,7 +213,7 @@ From the generated `orders.controller.ts`:
 ```typescript
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly service: OrdersService) {}
   ...
 }
 ```
@@ -223,12 +223,12 @@ From the generated `orders.controller.test.ts`:
 ```typescript
 describe('OrdersController', () => {
   let controller: OrdersController;
-  let ordersService: jest.Mocked<OrdersService>;
+  let service: jest.Mocked<OrdersService>;
   ...
 });
 ```
 
-`OrdersController`, `ordersService`, `OrdersService` — all derived from `entity_name = 'orders'`. In a copy-paste workflow, each of those three strings is typed separately. Any one of them can diverge. Here, there is one string and three renderings of it.
+`OrdersController`, `OrdersService` — class names and import paths rendered from `entity_name = 'orders'`. In a copy-paste workflow, each is typed separately. Any one can diverge. Here, there is one string and two renderings of it.
 
 ## Next entity
 
@@ -244,13 +244,13 @@ Adding line items:
 diecut new ./templates/endpoint -o src/endpoints/line-items -d entity_name=line-items
 ```
 
-`line-items` becomes `LineItemsController`, `lineItemsService`, `LineItemsService` — the computed variables handle the casing transforms.
+`line-items` becomes `LineItemsController` and `LineItemsService` — the computed variable handles the casing transform.
 
 ## The alignment guarantee
 
 With copy-paste, you find out when it fails — a 404, a stale describe block in the CI log, a class name in an error log that doesn't match the file you're reading. The bug waits.
 
-With a template, the entity name is a single source of truth. `OrdersController`, `ordersService`, `OrdersService` — all rendered from the same `entity_name = 'orders'` at generation time.
+With a template, the entity name is a single source of truth. `OrdersController`, `OrdersService` — class names and import paths rendered from the same `entity_name = 'orders'` at generation time.
 
 Adding line items:
 

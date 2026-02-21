@@ -74,6 +74,8 @@ Three variables, one prompt.
 
 Computed variables are never prompted. They're always derived from the value the user typed.
 
+The `s` suffix works for regular nouns: `order` → `orders`, `invoice` → `invoices`, `line_item` → `line_items`. Irregular plurals like `person` or `category` need a manual rename in the generated files after running.
+
 Without this, `line_item` → `LineItem` → `line_items` happens in three separate places that you type manually. Someone generates the router with `line_item`, the schema with `lineitem` (missing the underscore), and the test with `LineItems` (accidentally plural). The app wires up, the import fails at startup, and you spend ten minutes wondering why `LineItemCreate` isn't found. With computed variables, the derivation is in the template — there is no opportunity to type the name differently across files.
 
 ## Template files

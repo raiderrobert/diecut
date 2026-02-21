@@ -5,7 +5,7 @@ description: Your codebase already has the right shape. Make it official.
 
 You have a React/TypeScript app where every feature module looks the same: `index.ts`, `store.ts`, `api.ts`, `types.ts`. When you need a new feature, you copy `products/` and start renaming. You get `Order`, `OrderState`, `fetchOrders` — but the import in `api.ts` still reads `import type { Product } from './types'`. TypeScript catches that one. The `fetch('/api/products')` URL in the same file does not cause a type error. It silently hits the wrong endpoint until someone notices orders returning product data.
 
-This tutorial shows you how to extract the pattern into a template that lives inside the project. Adding the next feature is a single command.
+Extract the pattern into a template that lives inside the project. Adding the next feature module is one command.
 
 ## The existing pattern
 

@@ -5,7 +5,7 @@ description: Write your stack conventions down once. Use them everywhere.
 
 You start a new Python package roughly the same way every time: same folder layout, same `pyproject.toml` structure, same linting config, same CI workflow. You copy `old-service` to `my-lib`, run a search-and-replace for the project name, and push. Three days later you notice `pyproject.toml` still says `name = 'old-service'` because the old name appeared in a comment you didn't touch. Or the README still references your old author email. You've shipped the wrong metadata again.
 
-This tutorial shows you how to write that pattern down once as a diecut template, test it locally, push it to GitHub, and use it from anywhere.
+Write that pattern down once as a diecut template. Test it locally, push it to GitHub, use it from anywhere.
 
 ## Set up the template directory
 
