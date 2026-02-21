@@ -51,13 +51,13 @@ That's it. diecut prompts you for variables and generates a ready-to-go project.
 
 **[Project template](/examples/personal-template/)** — Your personal dev stack, your team's service skeleton, your agency's client baseline. Write the pattern down once. Run one command and you're in a working project, not a blank directory.
 
-**[Adding a new package to a monorepo](/examples/monorepo-packages/)** — Your monorepo has conventions: package layout, CI config, lint setup. Each new package should start from that baseline, not be hand-assembled. Keep a templates directory in your repo, or point at an existing well-structured package as the pattern.
+**[Monorepo packages](/examples/monorepo-packages/)** — Your monorepo has conventions: package layout, CI config, lint setup. Each new package should start from that baseline, not be hand-assembled. Keep a templates directory in your repo, or point at an existing well-structured package as the pattern.
 
-**[Repeating a pattern within an existing project](/examples/repeating-patterns/)** — Most people copy a folder and manually rename things. diecut makes it intentional: pick the folder that already represents the right shape, run `diecut new ./path/to/that-folder`, and get a prompt-driven copy with variable substitution baked in. New routes, feature modules, service clients — anything you repeat.
+**[Repeating in-project patterns](/examples/repeating-patterns/)** — Most people copy a folder and manually rename things. diecut makes it intentional: pick the folder that already represents the right shape, run `diecut new ./path/to/that-folder`, and get a prompt-driven copy with variable substitution baked in. New routes, feature modules, service clients — anything you repeat.
 
 **[Multi-file feature scaffolding](/examples/code-scaffolding/)** — Adding a new entity to an API means four files: controller, service, repository, test. The entity name appears in all of them. Copy-paste misses one; a template can't.
 
-**[Structured content with consistent schemas](/examples/structured-content/)** — Content sites with strict frontmatter schemas drift over time: wrong field names, invented tag values, missing fields. Define the shape once in a diecut template. Whether a human fills it in interactively or an LLM passes values with `-d` flags, the output always conforms.
+**[Structured content](/examples/structured-content/)** — Content sites with strict frontmatter schemas drift over time: wrong field names, invented tag values, missing fields. Define the shape once in a diecut template. Whether a human fills it in interactively or an LLM passes values with `-d` flags, the output always conforms.
 
 **[Prompt and skill templates](/examples/prompt-template/)** — You spend days getting a system prompt right. Then you need five variants of it. The craft is in the template; the personalization is mechanical. `select` variables constrain tone and persona to values the prompt was actually designed for.
 
