@@ -26,22 +26,22 @@ export default defineConfig({
           ],
         },
         {
-          label: "Guides",
+          label: "How It Works",
           items: [
             { label: "Using Templates", slug: "using-templates" },
             { label: "Creating Templates", slug: "creating-templates" },
           ],
         },
         {
-          label: "Tutorials",
+          label: "Examples",
           items: [
-            { label: "Personal project template", slug: "tutorials/personal-template" },
-            { label: "Monorepo packages", slug: "tutorials/monorepo-packages" },
-            { label: "Repeating in-project patterns", slug: "tutorials/repeating-patterns" },
-            { label: "Multi-file feature scaffolding", slug: "tutorials/code-scaffolding" },
-            { label: "FastAPI resource scaffolding", slug: "tutorials/fastapi-endpoint" },
-            { label: "Structured content", slug: "tutorials/structured-content" },
-            { label: "Prompt and skill templates", slug: "tutorials/prompt-template" },
+            { label: "Personal project template", slug: "examples/personal-template" },
+            { label: "Monorepo packages", slug: "examples/monorepo-packages" },
+            { label: "Repeating in-project patterns", slug: "examples/repeating-patterns" },
+            { label: "Multi-file feature scaffolding", slug: "examples/code-scaffolding" },
+            { label: "FastAPI resource scaffolding", slug: "examples/fastapi-endpoint" },
+            { label: "Structured content", slug: "examples/structured-content" },
+            { label: "Prompt and skill templates", slug: "examples/prompt-template" },
           ],
         },
         {
