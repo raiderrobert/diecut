@@ -34,7 +34,7 @@ templates/
   event/
     diecut.toml
     template/
-      event.md.tera
+      event.md.die
 ```
 
 ## Write the config
@@ -139,7 +139,7 @@ The file is not written. The invalid value never reaches the content directory.
 
 ## Write the template file
 
-Create `templates/event/template/event.md.tera`:
+Create `templates/event/template/event.md.die`:
 
 ```markdown
 ---

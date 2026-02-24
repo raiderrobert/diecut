@@ -38,11 +38,11 @@ acme/
 _templates/package/
   diecut.toml
   template/
-    package.json.tera
+    package.json.die
     tsconfig.json
     src/
-      index.ts.tera
-      index.test.ts.tera
+      index.ts.die
+      index.test.ts.die
 ```
 
 ### diecut.toml
@@ -66,7 +66,7 @@ Two variables. `package_name` is prompted once. `package_scope` is derived from 
 
 In the copy-paste workflow, this is where mistakes happen: `package.json` gets updated to `@acme/analytics` but the JSDoc comment in `index.ts` still says `@acme/auth` because it was easy to miss. Here, both come from the same computed value — if one is right, they're all right.
 
-### template/package.json.tera
+### template/package.json.die
 
 ```json
 {
@@ -100,7 +100,7 @@ In the copy-paste workflow, this is where mistakes happen: `package.json` gets u
 
 No variables here — this file is identical for every package. diecut copies it as-is.
 
-### template/src/index.ts.tera
+### template/src/index.ts.die
 
 ```typescript
 /**
@@ -110,7 +110,7 @@ No variables here — this file is identical for every package. diecut copies it
 export {};
 ```
 
-### template/src/index.test.ts.tera
+### template/src/index.test.ts.die
 
 ```typescript
 import { describe, it } from "vitest";

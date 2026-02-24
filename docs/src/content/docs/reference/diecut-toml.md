@@ -41,7 +41,7 @@ file = ".diecut-answers.toml"
 | `version` | string | --- | Template version |
 | `description` | string | --- | Short description |
 | `min_diecut_version` | string | --- | Minimum diecut version required |
-| `templates_suffix` | string | `".tera"` | File suffix that triggers template rendering |
+| `templates_suffix` | string | `".die"` | File suffix that triggers template rendering |
 | **[variables.NAME]** | | | Variable definitions |
 | `type` | enum | *required* | One of: `string`, `bool`, `int`, `float`, `select`, `multiselect` |
 | `prompt` | string | --- | Text shown to the user |
@@ -68,7 +68,7 @@ file = ".diecut-answers.toml"
 
 Template metadata. Only `name` is required.
 
-- **`templates_suffix`** -- Change from `.tera` to something else if you prefer (e.g., `.j2`, `.tmpl`). Files matching this suffix are rendered through the [Tera](https://keats.github.io/tera/) engine; others are copied as-is.
+- **`templates_suffix`** -- Change from `.die` to something else if you prefer (e.g., `.j2`, `.tmpl`). Files matching this suffix are rendered through the [Tera](https://keats.github.io/tera/) engine; others are copied as-is. The previous default was `.tera`; templates using `.tera` files will still work but diecut will print a deprecation warning suggesting migration to `.die`.
 - **`min_diecut_version`** -- If set, diecut will refuse to process the template if the installed version is too old.
 
 ## [variables]

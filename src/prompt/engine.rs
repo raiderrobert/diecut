@@ -301,7 +301,7 @@ mod tests {
                 version: None,
                 description: None,
                 min_diecut_version: None,
-                templates_suffix: ".tera".to_string(),
+                templates_suffix: None,
             },
             variables,
             files: Default::default(),

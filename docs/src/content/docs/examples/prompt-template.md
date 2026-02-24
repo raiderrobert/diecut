@@ -18,7 +18,7 @@ prompts/
   support-bot/
     diecut.toml
     template/
-      system-prompt.md.tera
+      system-prompt.md.die
 ```
 
 ## Write the config
@@ -60,7 +60,7 @@ A few things to note:
 
 ## Write the template file
 
-Create `prompts/support-bot/template/system-prompt.md.tera`:
+Create `prompts/support-bot/template/system-prompt.md.die`:
 
 ```markdown
 You are {{ assistant_name }}, a support assistant for {{ company_name }}.
@@ -169,7 +169,7 @@ Freeform input would let someone pass `tone=empathetic` or `tone=casual` and get
 
 The manual alternative is copying `system-prompt.md` for each new client and editing it. Someone removes the escalation logic for one client, another person rewords the fallback behavior, a third renames `escalation_contact` to something else. A few months in you have five diverged prompts and no clear canonical version.
 
-With the template, the expert-crafted parts — the response format rules, the fallback behavior, the escalation logic in `system-prompt.md.tera` — are fixed. What varies is declared as variables in `diecut.toml`. A new client variant fills in `company_name`, `product_name`, and `tone`. It cannot rewrite the instructions.
+With the template, the expert-crafted parts — the response format rules, the fallback behavior, the escalation logic in `system-prompt.md.die` — are fixed. What varies is declared as variables in `diecut.toml`. A new client variant fills in `company_name`, `product_name`, and `tone`. It cannot rewrite the instructions.
 
 The `tone` variable makes this concrete. It is a `select` with four choices. Freeform input would let someone pass a value the prompt was never tested with. The choices list isn't documentation of what's allowed — it's what makes other values impossible.
 

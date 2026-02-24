@@ -18,7 +18,7 @@ templates/
     template/
 ```
 
-Everything under `template/` becomes your generated project. Files ending in `.tera` are rendered through the Tera template engine and have the suffix stripped. Everything else is copied as-is.
+Everything under `template/` becomes your generated project. Files ending in `.die` are rendered through the Tera template engine and have the suffix stripped. Everything else is copied as-is.
 
 ## Write the config
 
@@ -63,7 +63,7 @@ Without this, you'd have to ask for both separately and trust the user types the
 
 ### pyproject.toml
 
-Create `templates/python-pkg/template/pyproject.toml.tera`:
+Create `templates/python-pkg/template/pyproject.toml.die`:
 
 ```toml
 [build-system]
@@ -88,7 +88,7 @@ line-length = 100
 
 ### Source package
 
-Create `templates/python-pkg/template/src/{{ project_slug }}/__init__.py.tera`:
+Create `templates/python-pkg/template/src/{{ project_slug }}/__init__.py.die`:
 
 ```python
 """{{ description }}"""
@@ -100,7 +100,7 @@ The directory name `{{ project_slug }}` is also rendered by diecut — path comp
 
 ### README
 
-Create `templates/python-pkg/template/README.md.tera`:
+Create `templates/python-pkg/template/README.md.die`:
 
 ````markdown
 # {{ project_name }}
@@ -120,7 +120,7 @@ pip install {{ project_name }}
 
 ### Tests
 
-Create `templates/python-pkg/template/tests/test_package.py.tera`:
+Create `templates/python-pkg/template/tests/test_package.py.die`:
 
 ```python
 from {{ project_slug }} import __version__
@@ -136,13 +136,13 @@ Your template directory now looks like this:
 templates/python-pkg/
   diecut.toml
   template/
-    pyproject.toml.tera
-    README.md.tera
+    pyproject.toml.die
+    README.md.die
     src/
       {{ project_slug }}/
-        __init__.py.tera
+        __init__.py.die
     tests/
-      test_package.py.tera
+      test_package.py.die
 ```
 
 ## Test it locally
