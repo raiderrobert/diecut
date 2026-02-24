@@ -11,7 +11,7 @@ Two files. That's all you need.
 hello/
   diecut.toml
   template/
-    hello.txt.tera
+    hello.txt.die
 ```
 
 The config — `diecut.toml`:
@@ -26,7 +26,7 @@ prompt = "Your name"
 default = "world"
 ```
 
-The template file — `template/hello.txt.tera`:
+The template file — `template/hello.txt.die`:
 
 ```text
 Hello, {{ name }}!
@@ -53,7 +53,7 @@ Hello, Alice!
 
 That's a template. You just made one.
 
-The `template/` directory contains your project files. Files ending in `.tera` are rendered through the [Tera template engine](https://keats.github.io/tera/), then have the `.tera` suffix stripped. Everything else is copied as-is.
+The `template/` directory contains your project files. Files ending in `.die` are rendered through the [Tera template engine](https://keats.github.io/tera/), then have the `.die` suffix stripped. Everything else is copied as-is.
 
 ## Variable types
 
@@ -169,7 +169,7 @@ conditional = [
 ]
 ```
 
-This excludes `src/cli.py.tera` when the user says no to the CLI entry point. The glob matches both the `.tera` source and any related files.
+This excludes `src/cli.py.die` when the user says no to the CLI entry point. The glob matches both the `.die` source and any related files.
 
 ## Computed variables
 
@@ -261,7 +261,7 @@ Transform values inline:
 
 ### A complete example
 
-A `Cargo.toml.tera` from a Rust CLI template:
+A `Cargo.toml.die` from a Rust CLI template:
 
 ```toml
 [package]

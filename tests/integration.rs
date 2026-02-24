@@ -42,7 +42,7 @@ fn test_load_config() {
     assert_eq!(config.template.name, "basic-test");
     assert_eq!(config.template.version.as_deref(), Some("0.1.0"));
     assert_eq!(config.variables.len(), 5);
-    assert_eq!(config.template.templates_suffix, ".tera");
+    assert_eq!(config.template.templates_suffix, None);
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn test_generate_basic_template() {
     let project_dir = output_dir.path().join("test-project");
     assert!(project_dir.exists(), "project directory should exist");
 
-    // Check .tera files were rendered and suffix stripped
+    // Check .die files were rendered and suffix stripped
     let readme = project_dir.join("README.md");
     assert!(readme.exists(), "README.md should exist (suffix stripped)");
     let readme_content = std::fs::read_to_string(&readme).unwrap();
@@ -104,7 +104,7 @@ fn test_generate_basic_template() {
     let main_content = std::fs::read_to_string(&main_rs).unwrap();
     assert!(main_content.contains("test-project"));
 
-    // Check .gitignore was copied verbatim (no .tera suffix)
+    // Check .gitignore was copied verbatim (no .die suffix)
     let gitignore = project_dir.join(".gitignore");
     assert!(gitignore.exists(), ".gitignore should be copied verbatim");
     let gitignore_content = std::fs::read_to_string(&gitignore).unwrap();
@@ -276,6 +276,89 @@ fn test_resolve_source_user_abbreviation_empty_remainder() {
     let mut abbrevs = std::collections::HashMap::new();
     abbrevs.insert("co".to_string(), "https://git.co.com/{}.git".to_string());
     assert!(resolve_source_full("co:", None, Some(&abbrevs)).is_err());
+}
+
+// --- Deprecated .tera suffix fallback ---
+
+#[test]
+fn test_tera_suffix_fallback_with_warning() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::write(
+        tmp.path().join("diecut.toml"),
+        r#"
+[template]
+name = "legacy-tera"
+"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(tmp.path().join("template")).unwrap();
+    std::fs::write(tmp.path().join("template/README.md.tera"), "# hello").unwrap();
+
+    let resolved = adapter::resolve_template(tmp.path()).unwrap();
+
+    assert_eq!(
+        resolved.config.template.templates_suffix.as_deref(),
+        Some(".tera"),
+        "should fall back to .tera when .tera files exist"
+    );
+    assert_eq!(resolved.warnings.len(), 1);
+    assert!(resolved.warnings[0].contains(".tera"));
+    assert!(resolved.warnings[0].contains(".die"));
+}
+
+#[test]
+fn test_explicit_tera_suffix_no_warning() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::write(
+        tmp.path().join("diecut.toml"),
+        r#"
+[template]
+name = "explicit-tera"
+templates_suffix = ".tera"
+"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(tmp.path().join("template")).unwrap();
+    std::fs::write(tmp.path().join("template/README.md.tera"), "# hello").unwrap();
+
+    let resolved = adapter::resolve_template(tmp.path()).unwrap();
+
+    assert_eq!(
+        resolved.config.template.templates_suffix.as_deref(),
+        Some(".tera"),
+        "should use explicitly set .tera suffix"
+    );
+    assert!(
+        resolved.warnings.is_empty(),
+        "no warning when suffix is explicitly set"
+    );
+}
+
+#[test]
+fn test_default_die_suffix_when_no_tera_files() {
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::write(
+        tmp.path().join("diecut.toml"),
+        r#"
+[template]
+name = "new-style"
+"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(tmp.path().join("template")).unwrap();
+    std::fs::write(tmp.path().join("template/README.md.die"), "# hello").unwrap();
+
+    let resolved = adapter::resolve_template(tmp.path()).unwrap();
+
+    assert_eq!(
+        resolved.config.template.templates_suffix.as_deref(),
+        Some(".die"),
+        "should default to .die when no .tera files"
+    );
+    assert!(
+        resolved.warnings.is_empty(),
+        "no warnings for new-style templates"
+    );
 }
 
 // --- Edge case: unsupported template format ---

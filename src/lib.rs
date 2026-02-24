@@ -198,7 +198,6 @@ mod tests {
 [template]
 name = "test-template"
 version = "1.0.0"
-templates_suffix = ".tera"
 
 [variables.project_name]
 type = "string"
@@ -206,7 +205,7 @@ default = "my-project"
 "#;
         fs::write(dir.join("diecut.toml"), config).unwrap();
         fs::create_dir_all(dir.join("template")).unwrap();
-        fs::write(dir.join("template/README.md.tera"), "# {{ project_name }}").unwrap();
+        fs::write(dir.join("template/README.md.die"), "# {{ project_name }}").unwrap();
     }
 
     #[test]
@@ -348,7 +347,6 @@ default = "my-project"
 [template]
 name = "test-with-hooks"
 version = "1.0.0"
-templates_suffix = ".tera"
 
 [hooks]
 post_create = "touch hook_ran.txt"

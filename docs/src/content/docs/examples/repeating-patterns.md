@@ -58,7 +58,7 @@ src/features/
     ...
 ```
 
-Everything under `_template/template/` becomes the generated module. Files ending in `.tera` are rendered through the Tera template engine and have the suffix stripped. Everything else is copied as-is.
+Everything under `_template/template/` becomes the generated module. Files ending in `.die` are rendered through the Tera template engine and have the suffix stripped. Everything else is copied as-is.
 
 ## Write the config
 
@@ -88,7 +88,7 @@ computed = "{{ feature_name | replace(from='-', to=' ') | title | replace(from='
 
 ### types.ts
 
-Create `src/features/_template/template/types.ts.tera`:
+Create `src/features/_template/template/types.ts.die`:
 
 ```typescript
 export interface {{ FeatureName }} {
@@ -104,7 +104,7 @@ export interface {{ FeatureName }}State {
 
 ### api.ts
 
-Create `src/features/_template/template/api.ts.tera`:
+Create `src/features/_template/template/api.ts.die`:
 
 ```typescript
 import type { {{ FeatureName }} } from './types';
@@ -122,7 +122,7 @@ export async function fetch{{ FeatureName }}(id: string): Promise<{{ FeatureName
 
 ### index.ts
 
-Create `src/features/_template/template/index.ts.tera`:
+Create `src/features/_template/template/index.ts.die`:
 
 ```typescript
 export type { {{ FeatureName }}, {{ FeatureName }}State } from './types';
@@ -135,9 +135,9 @@ Your template directory now looks like this:
 src/features/_template/
   diecut.toml
   template/
-    types.ts.tera
-    api.ts.tera
-    index.ts.tera
+    types.ts.die
+    api.ts.die
+    index.ts.die
 ```
 
 ## Preview before writing
@@ -206,7 +206,7 @@ The `import type { Order }` on line 1 and `fetch('/api/orders')` on line 5 both 
 
 ## The difference
 
-The template pays off most when the pattern changes. When `store.ts` becomes standard, you add `store.ts.tera` to `_template/` once. Every module created after that gets it. Without the template, you update `users/`, `products/`, and `orders/`, but someone adding `notifications/` next quarter copies an older module and ships without a store.
+The template pays off most when the pattern changes. When `store.ts` becomes standard, you add `store.ts.die` to `_template/` once. Every module created after that gets it. Without the template, you update `users/`, `products/`, and `orders/`, but someone adding `notifications/` next quarter copies an older module and ships without a store.
 
 `users/` and `products/` already existed when this template was written. Extracting a template meant naming the parts that vary and writing down what was already there — not designing something new from scratch.
 

@@ -28,13 +28,12 @@ pub struct TemplateMetadata {
     pub description: Option<String>,
     pub min_diecut_version: Option<String>,
 
-    #[serde(default = "default_templates_suffix")]
-    pub templates_suffix: String,
+    #[serde(default)]
+    pub templates_suffix: Option<String>,
 }
 
-fn default_templates_suffix() -> String {
-    ".tera".to_string()
-}
+pub const DEFAULT_TEMPLATES_SUFFIX: &str = ".die";
+pub const DEPRECATED_TERA_SUFFIX: &str = ".tera";
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct FilesConfig {

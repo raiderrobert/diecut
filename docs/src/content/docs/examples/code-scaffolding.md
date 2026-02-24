@@ -41,13 +41,13 @@ templates/
   endpoint/
     diecut.toml
     template/
-      {{ entity_name }}.controller.ts.tera
-      {{ entity_name }}.service.ts.tera
-      {{ entity_name }}.repository.ts.tera
-      {{ entity_name }}.controller.test.ts.tera
+      {{ entity_name }}.controller.ts.die
+      {{ entity_name }}.service.ts.die
+      {{ entity_name }}.repository.ts.die
+      {{ entity_name }}.controller.test.ts.die
 ```
 
-The filenames themselves contain `{{ entity_name }}`. diecut renders path components through Tera, so `{{ entity_name }}.controller.ts.tera` becomes `orders.controller.ts` in the output.
+The filenames themselves contain `{{ entity_name }}`. diecut renders path components through Tera, so `{{ entity_name }}.controller.ts.die` becomes `orders.controller.ts` in the output.
 
 ## diecut.toml
 
@@ -79,7 +79,7 @@ Without computed variables, `OrdersController` in the class name and `OrdersServ
 
 ### The controller
 
-`template/{{ entity_name }}.controller.ts.tera`:
+`template/{{ entity_name }}.controller.ts.die`:
 
 ```typescript
 import { Controller, Get, Post, Put, Delete, Param, Body } from '@nestjs/common';
@@ -122,7 +122,7 @@ export class {{ EntityName }}Controller {
 
 ### The test
 
-`template/{{ entity_name }}.controller.test.ts.tera`:
+`template/{{ entity_name }}.controller.test.ts.die`:
 
 ```typescript
 import { Test, TestingModule } from '@nestjs/testing';

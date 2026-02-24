@@ -46,7 +46,11 @@ pub fn plan_render(
     }
 
     let config = &resolved.config;
-    let suffix = &config.template.templates_suffix;
+    let suffix = config
+        .template
+        .templates_suffix
+        .as_deref()
+        .unwrap_or(crate::config::schema::DEFAULT_TEMPLATES_SUFFIX);
     let exclude_set = build_glob_set(&config.files.exclude)?;
     let copy_set = build_glob_set(&config.files.copy_without_render)?;
     let conditional_excludes = evaluate_conditional_files(&config.files, variables)?;
