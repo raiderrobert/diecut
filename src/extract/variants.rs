@@ -124,46 +124,27 @@ pub fn detect_separator(value: &str) -> &'static str {
     }
 }
 
+/// Check whether a variant is the canonical one (matches the input separator).
+///
+/// Canonical variants use the bare `{{ var_name }}` expression and do not get
+/// a computed variable in diecut.toml.
+pub fn is_canonical_variant(variant_name: &str, canonical_sep: &str) -> bool {
+    matches!(
+        (variant_name, canonical_sep),
+        ("kebab", "-") | ("snake", "_") | ("dot", ".")
+    )
+}
+
 /// Build a Tera expression for a variant, given the variable name and canonical separator.
+///
+/// Canonical variants use `{{ var_name }}` directly. Non-canonical variants reference
+/// their computed variable (e.g., `{{ var_name_snake }}`), which is defined in diecut.toml.
 fn tera_expr_for_variant(var_name: &str, variant_name: &str, canonical_sep: &str) -> String {
-    match (variant_name, canonical_sep) {
-        ("kebab", "-") => format!("{{{{ {var_name} }}}}"),
-        ("kebab", sep) => {
-            format!("{{{{ {var_name} | replace(from=\"{sep}\", to=\"-\") }}}}")
-        }
-        ("snake", "_") => format!("{{{{ {var_name} }}}}"),
-        ("snake", sep) => {
-            format!("{{{{ {var_name} | replace(from=\"{sep}\", to=\"_\") }}}}")
-        }
-        ("screaming_snake", sep) => {
-            if sep == "_" {
-                format!("{{{{ {var_name} | upper }}}}")
-            } else {
-                format!("{{{{ {var_name} | replace(from=\"{sep}\", to=\"_\") | upper }}}}")
-            }
-        }
-        ("screaming_kebab", sep) => {
-            if sep == "-" {
-                format!("{{{{ {var_name} | upper }}}}")
-            } else {
-                format!("{{{{ {var_name} | replace(from=\"{sep}\", to=\"-\") | upper }}}}")
-            }
-        }
-        ("pascal", sep) => {
-            format!(
-                "{{{{ {var_name} | replace(from=\"{sep}\", to=\" \") | title | replace(from=\" \", to=\"\") }}}}"
-            )
-        }
-        ("camel", _sep) => {
-            // No built-in camelCase filter in Tera, so we use a computed variable name
-            format!("{{{{ {var_name}_camel }}}}")
-        }
-        ("dot", ".") => format!("{{{{ {var_name} }}}}"),
-        ("dot", sep) => {
-            format!("{{{{ {var_name} | replace(from=\"{sep}\", to=\".\") }}}}")
-        }
-        _ => format!("{{{{ {var_name} }}}}"),
+    if variant_name == "verbatim" || is_canonical_variant(variant_name, canonical_sep) {
+        return format!("{{{{ {var_name} }}}}");
     }
+    // Non-canonical variants reference their computed variable name
+    format!("{{{{ {var_name}_{variant_name} }}}}")
 }
 
 /// Generate all case variants for a given variable value.
@@ -319,6 +300,6 @@ mod tests {
     #[test]
     fn test_tera_expr_snake_from_kebab() {
         let expr = tera_expr_for_variant("project_name", "snake", "-");
-        assert_eq!(expr, "{{ project_name | replace(from=\"-\", to=\"_\") }}");
+        assert_eq!(expr, "{{ project_name_snake }}");
     }
 }

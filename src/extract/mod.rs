@@ -23,7 +23,9 @@ use self::replace::{
     apply_path_replacements, apply_replacements, build_replacement_rules, ReplacementRule,
 };
 use self::scan::{scan_project, ScannedFile};
-use self::variants::{computed_expression, detect_separator, generate_variants, CaseVariant};
+use self::variants::{
+    computed_expression, detect_separator, generate_variants, is_canonical_variant, CaseVariant,
+};
 
 /// A variable with its value and confirmed case variants.
 #[derive(Debug, Clone)]
@@ -307,11 +309,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
                 continue;
             }
             // Skip the variant that matches the canonical separator
-            let is_canonical = matches!(
-                (variant.name, canonical_sep),
-                ("kebab", "-") | ("snake", "_") | ("dot", ".")
-            );
-            if is_canonical {
+            if is_canonical_variant(variant.name, canonical_sep) {
                 continue;
             }
 
