@@ -236,13 +236,8 @@ pub fn computed_expression(var_name: &str, variant_name: &str, canonical_sep: &s
         ("pascal", sep) => {
             format!("{var_name} | replace(from=\"{sep}\", to=\" \") | title | replace(from=\" \", to=\"\")")
         }
-        ("camel", _sep) => {
-            // Tera doesn't have a built-in camelCase, but we can chain:
-            // title-case then lowercase-first-char isn't directly expressible.
-            // Use a workaround: same as pascal — users may need to adjust.
-            format!(
-                "{var_name} | replace(from=\"-\", to=\" \") | title | replace(from=\" \", to=\"\")"
-            )
+        ("camel", sep) => {
+            format!("{var_name} | camelcase(sep=\"{sep}\")")
         }
         ("kebab", sep) if sep != "-" => {
             format!("{var_name} | replace(from=\"{sep}\", to=\"-\")")

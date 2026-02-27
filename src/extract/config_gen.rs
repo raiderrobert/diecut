@@ -84,7 +84,7 @@ pub fn generate_config_toml(options: &ConfigGenOptions) -> String {
         out.push_str("type = \"string\"\n");
         out.push_str(&format!(
             "computed = {}\n",
-            escape_toml_string(&var.expression)
+            escape_toml_string(&format!("{{{{ {} }}}}", var.expression))
         ));
         out.push('\n');
     }
