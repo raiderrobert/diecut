@@ -117,6 +117,26 @@ pub enum DicecutError {
         #[source]
         source: toml::de::Error,
     },
+
+    #[error("Source directory not found: {path}")]
+    #[diagnostic(help("Provide the path to an existing project directory"))]
+    ExtractSourceNotFound { path: PathBuf },
+
+    #[error("No variables provided for extraction")]
+    #[diagnostic(help(
+        "Use --var key=value to specify which values should become template variables"
+    ))]
+    ExtractNoVariables,
+
+    #[error("Output directory already exists: {path}")]
+    #[diagnostic(help(
+        "Choose a different output path with -o, or remove the existing directory"
+    ))]
+    ExtractOutputExists { path: PathBuf },
+
+    #[error("Directory already contains a diecut.toml: {path}")]
+    #[diagnostic(help("This directory is already a diecut template"))]
+    ExtractAlreadyTemplate { path: PathBuf },
 }
 
 pub type Result<T> = std::result::Result<T, DicecutError>;

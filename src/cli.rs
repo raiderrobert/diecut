@@ -49,4 +49,30 @@ pub enum Commands {
 
     /// List cached templates
     List,
+
+    /// Extract a template from an existing project
+    Extract {
+        /// Source project directory
+        source: String,
+
+        /// Variable values to templatize (can be repeated: --var key=value)
+        #[arg(long = "var", value_name = "KEY=VALUE")]
+        vars: Vec<String>,
+
+        /// Output directory for the extracted template
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Convert the source directory in-place
+        #[arg(long)]
+        in_place: bool,
+
+        /// Skip all interactive prompts
+        #[arg(long)]
+        batch: bool,
+
+        /// Show what would be extracted without writing files
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
