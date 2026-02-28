@@ -314,17 +314,23 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
             let (replaced, count) = apply_replacements(content, &rules);
 
             if count > 0 {
-                // Has template replacements — keep content, add .die suffix
-                let mut p = template_path.as_os_str().to_string_lossy().to_string();
-                p.push_str(DEFAULT_TEMPLATES_SUFFIX);
-                planned_files.push(PlannedExtractFile {
-                    template_path: PathBuf::from(p),
-                    content: ExtractedContent::Text {
-                        content: replaced,
-                        replacement_count: count,
-                    },
-                    stubbed: false,
-                });
+                // Has template replacements — but still drop if too deep
+                let depth = file.relative_path.components().count();
+                if depth > options.stub_depth {
+                    dropped_count += 1;
+                    dropped_paths.push(file.relative_path.clone());
+                } else {
+                    let mut p = template_path.as_os_str().to_string_lossy().to_string();
+                    p.push_str(DEFAULT_TEMPLATES_SUFFIX);
+                    planned_files.push(PlannedExtractFile {
+                        template_path: PathBuf::from(p),
+                        content: ExtractedContent::Text {
+                            content: replaced,
+                            replacement_count: count,
+                        },
+                        stubbed: false,
+                    });
+                }
             } else {
                 // No replacements — classify as boilerplate, content, or dropped
                 match classify_file(&file.relative_path, options.stub_depth) {
