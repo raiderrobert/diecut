@@ -164,11 +164,28 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         "\n{}",
         style(format!("Scanning {}...", source_dir.display())).bold()
     );
-    let scan_result = scan_project(source_dir, &scan_excludes)?;
+    let mut scan_result = scan_project(source_dir, &scan_excludes)?;
+
+    // Drop non-boilerplate files deeper than stub_depth before auto-detect sees them.
+    // This prevents frequency analysis from detecting variables that only appear in
+    // files that would be dropped anyway.
+    let pre_filter_count = scan_result.files.len();
+    scan_result.files.retain(|f| {
+        let depth = f.relative_path.components().count();
+        depth <= options.stub_depth
+            || classify_file(&f.relative_path, options.stub_depth) == FileRole::Boilerplate
+    });
+    let depth_dropped = pre_filter_count - scan_result.files.len();
+
     eprintln!(
-        "  {} files found, {} excluded",
+        "  {} files found, {} excluded{}",
         scan_result.files.len(),
-        scan_result.excluded_count
+        scan_result.excluded_count,
+        if depth_dropped > 0 {
+            format!(", {} too deep", depth_dropped)
+        } else {
+            String::new()
+        }
     );
 
     // Phase 2.5: Auto-detect variables (always runs), merge with explicit --var entries
@@ -293,7 +310,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
 
     // Phase 9: Apply replacements to files
     let mut planned_files = Vec::new();
-    let mut dropped_count = 0;
+    let mut dropped_count = depth_dropped;
     let mut dropped_paths = Vec::new();
 
     for file in &scan_result.files {
@@ -314,23 +331,17 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
             let (replaced, count) = apply_replacements(content, &rules);
 
             if count > 0 {
-                // Has template replacements — but still drop if too deep
-                let depth = file.relative_path.components().count();
-                if depth > options.stub_depth {
-                    dropped_count += 1;
-                    dropped_paths.push(file.relative_path.clone());
-                } else {
-                    let mut p = template_path.as_os_str().to_string_lossy().to_string();
-                    p.push_str(DEFAULT_TEMPLATES_SUFFIX);
-                    planned_files.push(PlannedExtractFile {
-                        template_path: PathBuf::from(p),
-                        content: ExtractedContent::Text {
-                            content: replaced,
-                            replacement_count: count,
-                        },
-                        stubbed: false,
-                    });
-                }
+                // Has template replacements — add .die suffix
+                let mut p = template_path.as_os_str().to_string_lossy().to_string();
+                p.push_str(DEFAULT_TEMPLATES_SUFFIX);
+                planned_files.push(PlannedExtractFile {
+                    template_path: PathBuf::from(p),
+                    content: ExtractedContent::Text {
+                        content: replaced,
+                        replacement_count: count,
+                    },
+                    stubbed: false,
+                });
             } else {
                 // No replacements — classify as boilerplate, content, or dropped
                 match classify_file(&file.relative_path, options.stub_depth) {
