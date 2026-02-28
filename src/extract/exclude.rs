@@ -28,6 +28,7 @@ const DEFAULT_EXCLUDES: &[&str] = &[
     ".nuxt",
     ".output",
     ".turbo",
+    ".worktrees",
     ".diecut-answers.toml",
 ];
 
