@@ -6,11 +6,11 @@ pub mod replace;
 pub mod scan;
 pub mod variants;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 use console::style;
-use inquire::{Confirm, Text};
+use inquire::{Confirm, Select, Text};
 
 use crate::config::schema::DEFAULT_TEMPLATES_SUFFIX;
 use crate::error::{DicecutError, Result};
@@ -74,9 +74,9 @@ pub struct ExtractOptions {
     pub variables: Vec<(String, String)>,
     pub output_dir: Option<PathBuf>,
     pub in_place: bool,
-    pub batch: bool,
+    pub yes: bool,
+    pub min_confidence: f64,
     pub dry_run: bool,
-    pub auto: bool,
 }
 
 /// Plan an extraction: scan the project, detect variants, build replacement rules.
@@ -133,41 +133,44 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         scan_result.excluded_count
     );
 
-    // Phase 2.5: Auto-detect variables if none provided and --auto is enabled
-    let variables = if options.variables.is_empty() && options.auto {
+    // Phase 2.5: Auto-detect variables (always runs), merge with explicit --var entries
+    let variables = {
+        let explicit_vars = options.variables.clone();
         let detect_result = auto_detect(source_dir, &scan_result);
 
-        if detect_result.candidates.is_empty() {
+        // Filter candidates below min_confidence threshold
+        let candidates: Vec<_> = detect_result
+            .candidates
+            .into_iter()
+            .filter(|c| c.confidence >= options.min_confidence)
+            .collect();
+
+        if candidates.is_empty() && explicit_vars.is_empty() {
             return Err(DicecutError::ExtractNoVariables);
         }
 
-        let accepted = if options.batch {
-            let accepted: Vec<_> = detect_result
-                .candidates
-                .into_iter()
-                .filter(|c| c.confidence >= 0.50)
-                .collect();
-            if accepted.is_empty() {
-                return Err(DicecutError::ExtractNoVariables);
-            }
-            print_auto_detected_batch(&accepted);
-            accepted
+        // Resolve auto-detected candidates (merge with explicit vars)
+        let auto_vars = if candidates.is_empty() {
+            vec![]
+        } else if options.yes {
+            resolve_candidates_yes(&candidates, &explicit_vars)
         } else {
-            let accepted = confirm_auto_detected_interactive(detect_result.candidates)?;
-            if accepted.is_empty() {
-                return Err(DicecutError::ExtractNoVariables);
-            }
-            accepted
+            confirm_auto_detected_interactive(candidates, &explicit_vars)?
         };
 
-        accepted
-            .into_iter()
-            .map(|c| (c.suggested_name, c.value))
-            .collect()
-    } else if options.variables.is_empty() {
-        return Err(DicecutError::ExtractNoVariables);
-    } else {
-        options.variables.clone()
+        // Merge: explicit vars first (pre-accepted), then auto-detected additions
+        let mut merged = explicit_vars;
+        for (name, value) in auto_vars {
+            if !merged.iter().any(|(n, _)| n == &name) {
+                merged.push((name, value));
+            }
+        }
+
+        if merged.is_empty() {
+            return Err(DicecutError::ExtractNoVariables);
+        }
+
+        merged
     };
 
     // Phase 3: Generate variants and count occurrences
@@ -192,7 +195,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
     }
 
     // Phase 4: Interactive variant confirmation
-    let confirmed_variables = if options.batch {
+    let confirmed_variables = if options.yes {
         // Batch mode: auto-accept all found variants
         extract_variables
             .into_iter()
@@ -218,12 +221,12 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
     };
 
     // Phase 5: Interactive exclude confirmation
-    if !options.batch {
+    if !options.yes {
         excludes = confirm_excludes_interactive(excludes)?;
     }
 
     // Phase 6: Detect conditional files
-    let detected_conditionals = if options.batch {
+    let detected_conditionals = if options.yes {
         vec![] // Batch mode: no conditional files
     } else {
         let detected = detect_conditional_files(source_dir);
@@ -301,7 +304,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
     }
 
     // Phase 10: Interactive file confirmation
-    if !options.batch {
+    if !options.yes {
         confirm_files_interactive(&planned_files)?;
     }
 
@@ -675,78 +678,160 @@ fn confirm_conditionals_interactive(
     Ok(confirmed)
 }
 
-fn print_auto_detected_batch(candidates: &[DetectedCandidate]) {
+fn resolve_candidates_yes(
+    candidates: &[DetectedCandidate],
+    explicit_vars: &[(String, String)],
+) -> Vec<(String, String)> {
     eprintln!(
         "\n{} Auto-detected variables {}",
         style("──").dim(),
         style("──────────────────────────────────").dim()
     );
+
+    // Group candidates by suggested_name
+    let mut groups: BTreeMap<String, Vec<&DetectedCandidate>> = BTreeMap::new();
     for c in candidates {
+        groups.entry(c.suggested_name.clone()).or_default().push(c);
+    }
+
+    let mut result = Vec::new();
+
+    for (name, mut group) in groups {
+        // Skip names already covered by explicit --var
+        if explicit_vars.iter().any(|(n, _)| n == &name) {
+            eprintln!(
+                "  {} {} (explicit --var, skipping auto-detect)",
+                style("·").dim(),
+                style(&name).dim()
+            );
+            continue;
+        }
+
+        // For name collisions, pick highest confidence
+        group.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        let winner = group[0];
+
         eprintln!(
             "  {} {} = {:?} ({:.0}% confidence, {})",
             style("✓").green(),
-            style(&c.suggested_name).bold(),
-            c.value,
-            c.confidence * 100.0,
-            c.tier
+            style(&winner.suggested_name).bold(),
+            winner.value,
+            winner.confidence * 100.0,
+            winner.tier
         );
-        eprintln!(
-            "    {}",
-            style(&c.reason).dim()
-        );
+        eprintln!("    {}", style(&winner.reason).dim());
+
+        if group.len() > 1 {
+            eprintln!(
+                "    {} {} other candidates for this name (picked highest confidence)",
+                style("⚠").yellow(),
+                group.len() - 1
+            );
+        }
+
+        result.push((winner.suggested_name.clone(), winner.value.clone()));
     }
+
+    result
 }
 
 fn confirm_auto_detected_interactive(
     candidates: Vec<DetectedCandidate>,
-) -> Result<Vec<DetectedCandidate>> {
+    explicit_vars: &[(String, String)],
+) -> Result<Vec<(String, String)>> {
     eprintln!(
         "\n{} Auto-detected variables {}",
         style("──").dim(),
         style("──────────────────────────────────").dim()
     );
 
+    // Group candidates by suggested_name
+    let mut groups: BTreeMap<String, Vec<DetectedCandidate>> = BTreeMap::new();
+    for c in candidates {
+        groups.entry(c.suggested_name.clone()).or_default().push(c);
+    }
+
     let mut accepted = Vec::new();
 
-    for candidate in candidates {
-        let default_accept = candidate.confidence >= 0.70;
-        eprintln!(
-            "\n  {} = {:?} ({:.0}% confidence, {})",
-            style(&candidate.suggested_name).bold(),
-            candidate.value,
-            candidate.confidence * 100.0,
-            candidate.tier
-        );
-        eprintln!("    {}", style(&candidate.reason).dim());
-        if candidate.total_occurrences > 0 {
+    for (name, mut group) in groups {
+        // Skip names already covered by explicit --var
+        if explicit_vars.iter().any(|(n, _)| n == &name) {
             eprintln!(
-                "    {} occurrences across {} files",
-                candidate.total_occurrences,
-                candidate.file_count
+                "\n  {} {} (provided via --var, skipping)",
+                style("·").dim(),
+                style(&name).dim()
             );
+            continue;
         }
 
-        let accept = Confirm::new(&format!("Accept \"{}\"?", candidate.suggested_name))
-            .with_default(default_accept)
-            .prompt()
-            .map_err(|_| DicecutError::PromptCancelled)?;
+        // Sort by confidence descending
+        group.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
 
-        if accept {
-            let name = Text::new("Variable name:")
-                .with_default(&candidate.suggested_name)
+        if group.len() == 1 {
+            // Single candidate — simple confirm
+            let candidate = &group[0];
+            eprintln!(
+                "\n  {} = {:?} ({:.0}% confidence, {})",
+                style(&candidate.suggested_name).bold(),
+                candidate.value,
+                candidate.confidence * 100.0,
+                candidate.tier
+            );
+            eprintln!("    {}", style(&candidate.reason).dim());
+            if candidate.total_occurrences > 0 {
+                eprintln!(
+                    "    {} occurrences across {} files",
+                    candidate.total_occurrences,
+                    candidate.file_count
+                );
+            }
+
+            let accept = Confirm::new(&format!("Accept \"{}\"?", candidate.suggested_name))
+                .with_default(true)
                 .prompt()
                 .map_err(|_| DicecutError::PromptCancelled)?;
 
-            let value = Text::new("Value:")
-                .with_default(&candidate.value)
+            if accept {
+                accepted.push((candidate.suggested_name.clone(), candidate.value.clone()));
+            }
+        } else {
+            // Name collision — show selection prompt
+            eprintln!(
+                "\n  {} Multiple candidates for {}:",
+                style("⚠").yellow(),
+                style(&name).bold()
+            );
+
+            let mut options: Vec<String> = group
+                .iter()
+                .map(|c| {
+                    format!(
+                        "{:?} ({:.0}% confidence, {})",
+                        c.value,
+                        c.confidence * 100.0,
+                        c.tier
+                    )
+                })
+                .collect();
+            options.push("Skip".to_string());
+
+            let selection = Select::new(&format!("Which value for \"{}\"?", name), options)
                 .prompt()
                 .map_err(|_| DicecutError::PromptCancelled)?;
 
-            accepted.push(DetectedCandidate {
-                suggested_name: name,
-                value,
-                ..candidate
-            });
+            if selection != "Skip" {
+                // Find the matching candidate
+                if let Some(chosen) = group.iter().find(|c| {
+                    format!(
+                        "{:?} ({:.0}% confidence, {})",
+                        c.value,
+                        c.confidence * 100.0,
+                        c.tier
+                    ) == selection
+                }) {
+                    accepted.push((chosen.suggested_name.clone(), chosen.value.clone()));
+                }
+            }
         }
     }
 

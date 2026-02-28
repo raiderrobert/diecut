@@ -67,16 +67,16 @@ pub enum Commands {
         #[arg(long)]
         in_place: bool,
 
-        /// Skip all interactive prompts
-        #[arg(long)]
-        batch: bool,
+        /// Accept all defaults without prompting
+        #[arg(short = 'y', long)]
+        yes: bool,
+
+        /// Minimum confidence threshold for auto-detected variables (0.0-1.0)
+        #[arg(long, default_value = "0.5")]
+        min_confidence: f64,
 
         /// Show what would be extracted without writing files
         #[arg(long)]
         dry_run: bool,
-
-        /// Auto-detect template variables from project metadata and content
-        #[arg(long)]
-        auto: bool,
     },
 }

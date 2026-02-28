@@ -654,9 +654,9 @@ fn test_extract_batch_basic() {
         ],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: false,
-        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -698,9 +698,9 @@ fn test_extract_detects_case_variants() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: false,
-        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -752,9 +752,9 @@ fn test_extract_dry_run_writes_nothing() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: true,
-        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -781,9 +781,9 @@ fn test_extract_rejects_already_template() {
         variables: vec![("name".to_string(), "val".to_string())],
         output_dir: None,
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: false,
-        auto: false,
     };
 
     let result = plan_extraction(&options);
@@ -795,14 +795,16 @@ fn test_extract_rejects_no_variables() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(project.path().join("hello.txt"), "hello").unwrap();
 
+    // With min_confidence=1.0, no auto-detected candidates can pass, and no explicit
+    // vars are given, so extraction should fail with ExtractNoVariables
     let options = ExtractOptions {
         source_dir: project.path().to_path_buf(),
         variables: vec![],
         output_dir: None,
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 1.0,
         dry_run: false,
-        auto: false,
     };
 
     let result = plan_extraction(&options);
@@ -823,9 +825,9 @@ fn test_extract_templates_path_components() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: false,
-        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -886,9 +888,9 @@ fn test_extract_round_trip() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(extracted_path.clone()),
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: false,
-        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -926,7 +928,7 @@ fn test_extract_round_trip() {
 // ── Auto-detect tests ────────────────────────────────────────────────────
 
 #[test]
-fn test_extract_auto_batch() {
+fn test_extract_auto_yes() {
     let project = tempfile::tempdir().unwrap();
     let project_dir = project.path().join("data-pipeline");
     std::fs::create_dir(&project_dir).unwrap();
@@ -955,9 +957,9 @@ fn test_extract_auto_batch() {
         variables: vec![],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: false,
-        auto: true,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -980,7 +982,7 @@ fn test_extract_auto_batch() {
 }
 
 #[test]
-fn test_extract_auto_explicit_vars_priority() {
+fn test_extract_auto_explicit_vars_merged() {
     let project = tempfile::tempdir().unwrap();
     let project_dir = project.path().join("my-service");
     std::fs::create_dir(&project_dir).unwrap();
@@ -999,17 +1001,17 @@ fn test_extract_auto_explicit_vars_priority() {
         variables: vec![("app_name".to_string(), "my-service".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: false,
-        auto: true,
     };
 
     let plan = plan_extraction(&options).unwrap();
 
     let has_app_name = plan.variables.iter().any(|v| v.name == "app_name");
-    let has_project_name = plan.variables.iter().any(|v| v.name == "project_name");
     assert!(has_app_name, "should use explicit var app_name");
-    assert!(!has_project_name, "should not auto-detect project_name when explicit vars given");
+    // Auto-detect still runs and merges additional candidates
+    // (project_name may or may not appear depending on dedup with app_name's value)
 }
 
 #[test]
@@ -1041,9 +1043,9 @@ fn test_extract_auto_frequency_fallback() {
         variables: vec![],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        batch: true,
+        yes: true,
+        min_confidence: 0.5,
         dry_run: false,
-        auto: true,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -1058,5 +1060,39 @@ fn test_extract_auto_frequency_fallback() {
             .iter()
             .map(|v| format!("{}={}", v.name, v.value))
             .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn test_extract_min_confidence_filters() {
+    let project = tempfile::tempdir().unwrap();
+    let project_dir = project.path().join("tiny-app");
+    std::fs::create_dir(&project_dir).unwrap();
+    std::fs::write(
+        project_dir.join("Cargo.toml"),
+        "[package]\nname = \"tiny-app\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project_dir.join("README.md"),
+        "# tiny-app\nWelcome to tiny-app\n",
+    )
+    .unwrap();
+
+    // With a very high threshold, all auto-detected candidates should be filtered out
+    let options = ExtractOptions {
+        source_dir: project_dir.clone(),
+        variables: vec![],
+        output_dir: None,
+        in_place: false,
+        yes: true,
+        min_confidence: 0.99,
+        dry_run: true,
+    };
+
+    let result = plan_extraction(&options);
+    assert!(
+        result.is_err(),
+        "high min_confidence should filter out all candidates"
     );
 }

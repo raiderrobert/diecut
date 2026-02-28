@@ -824,12 +824,13 @@ fn strip_npm_scope(name: &str) -> &str {
 }
 
 fn deduplicate_candidates(candidates: &mut Vec<DetectedCandidate>) {
+    // Only deduplicate by value (same literal from multiple tiers → keep highest confidence).
+    // Name collisions (e.g., two different "author" candidates) are preserved
+    // for the interactive/yes layer to resolve.
     let mut seen_value: HashMap<String, usize> = HashMap::new();
-    let mut seen_name: HashMap<String, usize> = HashMap::new();
     let mut to_remove = Vec::new();
 
     for (i, candidate) in candidates.iter().enumerate() {
-        // Deduplicate by value (same literal, different tiers)
         let value_key = candidate.value.to_lowercase();
         if let Some(&prev_idx) = seen_value.get(&value_key) {
             if candidate.confidence > candidates[prev_idx].confidence {
@@ -837,26 +838,9 @@ fn deduplicate_candidates(candidates: &mut Vec<DetectedCandidate>) {
                 seen_value.insert(value_key, i);
             } else {
                 to_remove.push(i);
-                continue;
             }
         } else {
             seen_value.insert(value_key, i);
-        }
-
-        // Deduplicate by suggested_name (e.g., two different "author" candidates)
-        let name_key = candidate.suggested_name.clone();
-        if let Some(&prev_idx) = seen_name.get(&name_key) {
-            if to_remove.contains(&prev_idx) {
-                // Previous holder was already removed, replace it
-                seen_name.insert(name_key, i);
-            } else if candidate.confidence > candidates[prev_idx].confidence {
-                to_remove.push(prev_idx);
-                seen_name.insert(name_key, i);
-            } else {
-                to_remove.push(i);
-            }
-        } else {
-            seen_name.insert(name_key, i);
         }
     }
 
@@ -1240,7 +1224,7 @@ mod tests {
     }
 
     #[test]
-    fn test_deduplication_by_suggested_name() {
+    fn test_name_collisions_preserved() {
         let mut candidates = vec![
             DetectedCandidate {
                 suggested_name: "author".to_string(),
@@ -1263,8 +1247,11 @@ mod tests {
         ];
 
         deduplicate_candidates(&mut candidates);
-        assert_eq!(candidates.len(), 1, "should deduplicate by suggested_name");
-        assert_eq!(candidates[0].value, "Alice Johnson", "should keep highest confidence");
+        assert_eq!(
+            candidates.len(),
+            2,
+            "name collisions should be preserved for interactive resolution"
+        );
     }
 
     #[test]

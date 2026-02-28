@@ -124,7 +124,7 @@ pub enum DicecutError {
 
     #[error("No variables provided for extraction")]
     #[diagnostic(help(
-        "Use --var key=value to specify variables, or --auto to detect them automatically"
+        "Use --var key=value to specify variables, or ensure the project has identifiable names in config files or directory name"
     ))]
     ExtractNoVariables,
 

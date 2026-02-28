@@ -11,23 +11,20 @@ pub fn run(
     vars: Vec<String>,
     output: Option<String>,
     in_place: bool,
-    batch: bool,
+    yes: bool,
+    min_confidence: f64,
     dry_run: bool,
-    auto: bool,
 ) -> Result<()> {
     let variables = parse_vars(&vars)?;
-
-    // Default auto to true when no vars are provided
-    let auto = auto || variables.is_empty();
 
     let options = ExtractOptions {
         source_dir: PathBuf::from(&source),
         variables,
         output_dir: output.map(PathBuf::from),
         in_place,
-        batch,
+        yes,
+        min_confidence,
         dry_run,
-        auto,
     };
 
     let plan = plan_extraction(&options)?;
