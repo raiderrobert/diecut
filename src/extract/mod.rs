@@ -734,7 +734,7 @@ fn resolve_candidates_yes(
         }
 
         // For name collisions, pick highest confidence
-        group.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        group.sort_by(|a, b| b.confidence.total_cmp(&a.confidence));
         let winner = group[0];
 
         eprintln!(
@@ -791,7 +791,7 @@ fn confirm_auto_detected_interactive(
         }
 
         // Sort by confidence descending
-        group.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        group.sort_by(|a, b| b.confidence.total_cmp(&a.confidence));
 
         if group.len() == 1 {
             // Single candidate — simple confirm

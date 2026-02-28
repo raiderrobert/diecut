@@ -97,7 +97,7 @@ pub fn auto_detect(project_dir: &Path, scan_result: &ScanResult) -> AutoDetectRe
     deduplicate_candidates(&mut candidates);
 
     // Sort by confidence descending
-    candidates.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+    candidates.sort_by(|a, b| b.confidence.total_cmp(&a.confidence));
 
     AutoDetectResult { candidates }
 }
@@ -614,7 +614,7 @@ fn detect_frequency(
     }
 
     // Sort by confidence, take top 5
-    freq_candidates.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+    freq_candidates.sort_by(|a, b| b.confidence.total_cmp(&a.confidence));
     freq_candidates.truncate(5);
 
     freq_candidates
