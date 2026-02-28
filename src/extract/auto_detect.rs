@@ -678,7 +678,19 @@ fn merge_similar_clusters(clusters: &mut HashMap<String, TokenCluster>) {
         }
     }
 
-    for (from, to) in &merge_map {
+    // Resolve merge chains: if A→B and B→C, then A→C
+    let resolved: HashMap<String, String> = merge_map
+        .keys()
+        .map(|k| {
+            let mut target = merge_map[k].clone();
+            while let Some(next) = merge_map.get(&target) {
+                target = next.clone();
+            }
+            (k.clone(), target)
+        })
+        .collect();
+
+    for (from, to) in &resolved {
         if let Some(removed) = clusters.remove(from) {
             if let Some(target) = clusters.get_mut(to) {
                 for lit in removed.literals {
