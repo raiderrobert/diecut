@@ -685,11 +685,17 @@ fn merge_similar_clusters(clusters: &mut HashMap<String, TokenCluster>) {
     }
 
     // Resolve merge chains: if A→B and B→C, then A→C
+    // Use a visited set to guard against cycles.
     let resolved: HashMap<String, String> = merge_map
         .keys()
         .map(|k| {
             let mut target = merge_map[k].clone();
+            let mut seen = HashSet::new();
+            seen.insert(k.clone());
             while let Some(next) = merge_map.get(&target) {
+                if !seen.insert(next.clone()) {
+                    break;
+                }
                 target = next.clone();
             }
             (k.clone(), target)
@@ -1140,17 +1146,25 @@ pub fn count_occurrences(value: &str, scan_result: &ScanResult) -> (usize, usize
     let mut total = 0;
 
     for file in &scan_result.files {
+        let mut counted_file = false;
+
         if let Some(ref content) = file.content {
             let hits = content.matches(value).count();
             if hits > 0 {
                 file_count += 1;
+                counted_file = true;
                 total += hits;
             }
         }
-        // Also check path
+
         let path_str = file.relative_path.to_string_lossy();
         let path_hits = path_str.matches(value).count();
-        total += path_hits;
+        if path_hits > 0 {
+            total += path_hits;
+            if !counted_file {
+                file_count += 1;
+            }
+        }
     }
 
     (file_count, total)

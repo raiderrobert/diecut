@@ -27,66 +27,11 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_' || c == '-'
 }
 
-/// Replace `literal` in `text` only at word boundaries.
+/// Apply replacement rules to a string, longest-match-first, in a single pass.
 ///
-/// A match is at a word boundary when the characters immediately before and
-/// after the match are not word-like (alphanumeric, `_`, or `-`), or the
-/// match is at the start/end of the string.
-///
-/// Multi-word literals (containing a separator like `-`, `_`, or `.`) always
-/// use boundary-aware replacement since false positives are unlikely but still
-/// possible in paths and compound tokens.
-fn replace_whole_word(text: &str, literal: &str, replacement: &str) -> (String, usize) {
-    let literal_len = literal.len();
-    let text_len = text.len();
-
-    if literal_len == 0 || text_len < literal_len {
-        return (text.to_string(), 0);
-    }
-
-    let mut result = String::with_capacity(text.len());
-    let mut count = 0;
-    let mut start = 0;
-
-    while start <= text_len - literal_len {
-        match text[start..].find(literal) {
-            Some(pos) => {
-                let match_start = start + pos;
-                let match_end = match_start + literal_len;
-
-                let ok_before = match_start == 0
-                    || !is_word_char(text[..match_start].chars().next_back().unwrap());
-                let ok_after = match_end == text_len
-                    || !is_word_char(text[match_end..].chars().next().unwrap());
-
-                if ok_before && ok_after {
-                    result.push_str(&text[start..match_start]);
-                    result.push_str(replacement);
-                    count += 1;
-                    start = match_end;
-                } else {
-                    // Not a word boundary — advance past the start of this match
-                    let next = match_start
-                        + text[match_start..]
-                            .char_indices()
-                            .nth(1)
-                            .map(|(i, _)| i)
-                            .unwrap_or(1);
-                    result.push_str(&text[start..next]);
-                    start = next;
-                }
-            }
-            None => break,
-        }
-    }
-
-    result.push_str(&text[start..]);
-    (result, count)
-}
-
-/// Apply replacement rules to a string, longest-match-first.
-///
-/// Uses word-boundary-aware matching to prevent replacing substrings
+/// All match positions are identified first against the original text, then
+/// applied in one pass so that replacement output is never re-scanned by later
+/// rules. Uses word-boundary-aware matching to prevent replacing substrings
 /// inside longer words (e.g., "app" inside "application").
 ///
 /// Returns the modified string and the number of replacements made.
@@ -95,19 +40,73 @@ pub fn apply_replacements(content: &str, rules: &[ReplacementRule]) -> (String, 
         return (content.to_string(), 0);
     }
 
-    let mut result = content.to_string();
-    let mut total_count = 0;
+    // Collect all (start, end, replacement_index) matches across all rules.
+    let mut matches: Vec<(usize, usize, usize)> = Vec::new();
 
-    for rule in rules {
+    for (rule_idx, rule) in rules.iter().enumerate() {
         if rule.literal.is_empty() {
             continue;
         }
-        let (replaced, count) = replace_whole_word(&result, &rule.literal, &rule.replacement);
-        if count > 0 {
-            result = replaced;
-            total_count += count;
+        let literal = &rule.literal;
+        let literal_len = literal.len();
+        let text_len = content.len();
+
+        if text_len < literal_len {
+            continue;
+        }
+
+        let mut start = 0;
+        while start <= text_len - literal_len {
+            match content[start..].find(literal) {
+                Some(pos) => {
+                    let match_start = start + pos;
+                    let match_end = match_start + literal_len;
+
+                    let ok_before = match_start == 0
+                        || !is_word_char(content[..match_start].chars().next_back().unwrap());
+                    let ok_after = match_end == text_len
+                        || !is_word_char(content[match_end..].chars().next().unwrap());
+
+                    if ok_before && ok_after {
+                        matches.push((match_start, match_end, rule_idx));
+                    }
+
+                    let next = match_start
+                        + content[match_start..]
+                            .char_indices()
+                            .nth(1)
+                            .map(|(i, _)| i)
+                            .unwrap_or(1);
+                    start = next;
+                }
+                None => break,
+            }
         }
     }
+
+    if matches.is_empty() {
+        return (content.to_string(), 0);
+    }
+
+    // Sort by start position; on tie, prefer the longer match (lower rule index
+    // already means longer literal due to build_replacement_rules sorting).
+    matches.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
+
+    // Greedily select non-overlapping matches.
+    let mut result = String::with_capacity(content.len());
+    let mut total_count = 0;
+    let mut cursor = 0;
+
+    for (m_start, m_end, rule_idx) in &matches {
+        if *m_start < cursor {
+            continue; // overlaps with a previously accepted match
+        }
+        result.push_str(&content[cursor..*m_start]);
+        result.push_str(&rules[*rule_idx].replacement);
+        total_count += 1;
+        cursor = *m_end;
+    }
+    result.push_str(&content[cursor..]);
 
     (result, total_count)
 }

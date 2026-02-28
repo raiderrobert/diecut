@@ -64,13 +64,20 @@ pub fn scan_project(project_dir: &Path, excludes: &[String]) -> crate::error::Re
         }
 
         let absolute_path = entry.path().to_path_buf();
-        let is_binary = is_binary_file(&absolute_path);
 
-        let content = if is_binary {
-            None
+        let (is_binary, content) = if is_binary_file(&absolute_path) {
+            (true, None)
         } else {
-            // If we can't read as UTF-8, treat as binary
-            std::fs::read_to_string(&absolute_path).ok()
+            match std::fs::read_to_string(&absolute_path) {
+                Ok(s) => (false, Some(s)),
+                Err(e) if e.kind() == std::io::ErrorKind::InvalidData => (true, None),
+                Err(e) => {
+                    return Err(crate::error::DicecutError::Io {
+                        context: format!("reading file {}", absolute_path.display()),
+                        source: e,
+                    });
+                }
+            }
         };
 
         files.push(ScannedFile {
