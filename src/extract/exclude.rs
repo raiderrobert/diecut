@@ -62,22 +62,11 @@ const DEFAULT_COPY_WITHOUT_RENDER: &[&str] = &[
 ];
 
 /// Detect which default exclude patterns actually exist in the project.
-pub fn detect_excludes(project_dir: &Path) -> Vec<String> {
-    let mut found = Vec::new();
-
-    for pattern in DEFAULT_EXCLUDES {
-        let clean = pattern.trim_end_matches('/');
-        // Skip glob patterns — they're always included
-        if clean.contains('*') {
-            found.push(pattern.to_string());
-            continue;
-        }
-        if project_dir.join(clean).exists() {
-            found.push(pattern.to_string());
-        }
-    }
-
-    found
+///
+/// All DEFAULT_EXCLUDES are always included because patterns like `node_modules`
+/// can appear at any depth (e.g. `docs/node_modules/`), not just the project root.
+pub fn detect_excludes(_project_dir: &Path) -> Vec<String> {
+    DEFAULT_EXCLUDES.iter().map(|s| s.to_string()).collect()
 }
 
 /// Detect which copy-without-render patterns are relevant based on files present.
@@ -191,14 +180,13 @@ mod tests {
     #[test]
     fn test_detect_excludes() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir(dir.path().join(".git")).unwrap();
-        std::fs::write(dir.path().join(".DS_Store"), "").unwrap();
 
         let found = detect_excludes(dir.path());
+        // All DEFAULT_EXCLUDES are always included regardless of what exists on disk
         assert!(found.iter().any(|e| e.contains(".git")));
         assert!(found.iter().any(|e| e == ".DS_Store"));
-        // Glob patterns should always be included
         assert!(found.iter().any(|e| e == "*.pyc"));
+        assert!(found.iter().any(|e| e.contains("node_modules")));
     }
 
     #[test]

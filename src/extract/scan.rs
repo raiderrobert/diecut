@@ -47,8 +47,12 @@ pub fn scan_project(project_dir: &Path, excludes: &[String]) -> crate::error::Re
                 .unwrap_or_else(|| std::io::Error::other("walkdir error")),
         })?;
 
-        // Skip directories themselves (we only care about files)
+        // Skip directories (including symlinks to directories, e.g. pnpm's
+        // node_modules/.pnpm uses symlinks that point to directories).
         if entry.file_type().is_dir() {
+            continue;
+        }
+        if entry.path_is_symlink() && entry.path().is_dir() {
             continue;
         }
 
@@ -122,6 +126,30 @@ mod tests {
         assert_eq!(result.files.len(), 1);
         assert_eq!(result.excluded_count, 1);
         assert_eq!(result.files[0].relative_path, PathBuf::from("README.md"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_scan_project_skips_symlinks_to_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("real.txt"), "hello").unwrap();
+
+        // Create a subdirectory and a symlink pointing to it
+        let subdir = dir.path().join("subdir");
+        std::fs::create_dir(&subdir).unwrap();
+        std::fs::write(subdir.join("nested.txt"), "nested").unwrap();
+        std::os::unix::fs::symlink(&subdir, dir.path().join("link-to-dir")).unwrap();
+
+        let result = scan_project(dir.path(), &[]).unwrap();
+        // Should find real.txt and subdir/nested.txt, but NOT choke on link-to-dir
+        let paths: Vec<String> = result
+            .files
+            .iter()
+            .map(|f| f.relative_path.to_string_lossy().to_string())
+            .collect();
+        assert!(paths.contains(&"real.txt".to_string()));
+        assert!(paths.contains(&"subdir/nested.txt".to_string()));
+        assert!(!paths.iter().any(|p| p.contains("link-to-dir")));
     }
 
     #[test]
