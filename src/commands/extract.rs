@@ -63,15 +63,19 @@ fn print_dry_run(plan: &diecut::extract::ExtractionPlan) {
         style(plan.output_dir.display()).cyan()
     );
 
-    let templated: Vec<_> = plan.files.iter().filter(|f| f.has_replacements).collect();
-    let copied: Vec<_> = plan.files.iter().filter(|f| !f.has_replacements).collect();
+    let templated: Vec<_> = plan.files.iter().filter(|f| f.has_replacements()).collect();
+    let copied: Vec<_> = plan
+        .files
+        .iter()
+        .filter(|f| !f.has_replacements())
+        .collect();
 
     eprintln!("\nTemplated files ({}):", templated.len());
     for file in &templated {
         eprintln!(
             "  {} ({} replacements)",
             file.template_path.display(),
-            file.replacement_count
+            file.replacement_count()
         );
     }
 

@@ -39,21 +39,47 @@ pub struct ExtractVariable {
     pub occurrence_counts: Vec<(String, usize, usize)>,
 }
 
+/// The content of an extracted template file.
+#[derive(Debug, Clone)]
+pub enum ExtractedContent {
+    /// A text file with optional template replacements applied.
+    Text {
+        content: String,
+        replacement_count: usize,
+    },
+    /// A binary file copied verbatim.
+    Binary(Vec<u8>),
+}
+
 /// A file that will be part of the extracted template.
 #[derive(Debug, Clone)]
 pub struct PlannedExtractFile {
     /// Relative path in the output template (may contain template expressions).
     pub template_path: PathBuf,
-    /// Content (with replacements applied), or None for binary files.
-    pub content: Option<String>,
-    /// Original bytes for binary files.
-    pub binary_content: Option<Vec<u8>>,
+    /// The file content (text with replacements, or binary bytes).
+    pub content: ExtractedContent,
+}
+
+impl PlannedExtractFile {
     /// Whether this file had template replacements applied.
-    pub has_replacements: bool,
-    /// Number of replacements made.
-    pub replacement_count: usize,
+    pub fn has_replacements(&self) -> bool {
+        matches!(&self.content, ExtractedContent::Text { replacement_count, .. } if *replacement_count > 0)
+    }
+
     /// Whether this is a binary file.
-    pub is_binary: bool,
+    pub fn is_binary(&self) -> bool {
+        matches!(&self.content, ExtractedContent::Binary(_))
+    }
+
+    /// Number of replacements made (0 for binary files).
+    pub fn replacement_count(&self) -> usize {
+        match &self.content {
+            ExtractedContent::Text {
+                replacement_count, ..
+            } => *replacement_count,
+            ExtractedContent::Binary(_) => 0,
+        }
+    }
 }
 
 /// The full extraction plan, ready to be executed or reviewed.
@@ -273,18 +299,13 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
                 })?;
             planned_files.push(PlannedExtractFile {
                 template_path,
-                content: None,
-                binary_content: Some(binary_content),
-                has_replacements: false,
-                replacement_count: 0,
-                is_binary: true,
+                content: ExtractedContent::Binary(binary_content),
             });
         } else if let Some(ref content) = file.content {
             let (replaced, count) = apply_replacements(content, &rules);
-            let has_replacements = count > 0;
 
             // Add .die suffix if file has template replacements
-            let final_path = if has_replacements {
+            let final_path = if count > 0 {
                 let mut p = template_path.as_os_str().to_string_lossy().to_string();
                 p.push_str(DEFAULT_TEMPLATES_SUFFIX);
                 PathBuf::from(p)
@@ -294,11 +315,10 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
 
             planned_files.push(PlannedExtractFile {
                 template_path: final_path,
-                content: Some(replaced),
-                binary_content: None,
-                has_replacements,
-                replacement_count: count,
-                is_binary: false,
+                content: ExtractedContent::Text {
+                    content: replaced,
+                    replacement_count: count,
+                },
             });
         }
     }
@@ -413,22 +433,28 @@ pub fn execute_extraction(plan: &ExtractionPlan, _in_place: bool) -> Result<()> 
             })?;
         }
 
-        if let Some(ref content) = file.content {
-            std::fs::write(&dest, content).map_err(|e| DicecutError::Io {
-                context: format!("writing file {}", dest.display()),
-                source: e,
-            })?;
-            if file.has_replacements {
-                rendered_count += 1;
-            } else {
+        match &file.content {
+            ExtractedContent::Text {
+                content,
+                replacement_count,
+            } => {
+                std::fs::write(&dest, content).map_err(|e| DicecutError::Io {
+                    context: format!("writing file {}", dest.display()),
+                    source: e,
+                })?;
+                if *replacement_count > 0 {
+                    rendered_count += 1;
+                } else {
+                    copied_count += 1;
+                }
+            }
+            ExtractedContent::Binary(bytes) => {
+                std::fs::write(&dest, bytes).map_err(|e| DicecutError::Io {
+                    context: format!("writing binary file {}", dest.display()),
+                    source: e,
+                })?;
                 copied_count += 1;
             }
-        } else if let Some(ref bytes) = file.binary_content {
-            std::fs::write(&dest, bytes).map_err(|e| DicecutError::Io {
-                context: format!("writing binary file {}", dest.display()),
-                source: e,
-            })?;
-            copied_count += 1;
         }
     }
 
@@ -838,9 +864,9 @@ fn confirm_auto_detected_interactive(
 }
 
 fn confirm_files_interactive(files: &[PlannedExtractFile]) -> Result<()> {
-    let templated: Vec<_> = files.iter().filter(|f| f.has_replacements).collect();
-    let copied: Vec<_> = files.iter().filter(|f| !f.has_replacements).collect();
-    let binary_count = files.iter().filter(|f| f.is_binary).count();
+    let templated: Vec<_> = files.iter().filter(|f| f.has_replacements()).collect();
+    let copied: Vec<_> = files.iter().filter(|f| !f.has_replacements()).collect();
+    let binary_count = files.iter().filter(|f| f.is_binary()).count();
 
     eprintln!(
         "\n{} Files to template {}",
@@ -855,7 +881,7 @@ fn confirm_files_interactive(files: &[PlannedExtractFile]) -> Result<()> {
         eprintln!(
             "    {:<40} {} replacements",
             file.template_path.display(),
-            file.replacement_count
+            file.replacement_count()
         );
     }
 
