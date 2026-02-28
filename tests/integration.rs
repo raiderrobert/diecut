@@ -965,10 +965,7 @@ fn test_extract_auto_yes() {
     let plan = plan_extraction(&options).unwrap();
     execute_extraction(&plan, false).unwrap();
 
-    let project_var = plan
-        .variables
-        .iter()
-        .find(|v| v.name == "project_name");
+    let project_var = plan.variables.iter().find(|v| v.name == "project_name");
     assert!(
         project_var.is_some(),
         "should auto-detect project_name, got vars: {:?}",
@@ -1050,9 +1047,10 @@ fn test_extract_auto_frequency_fallback() {
 
     let plan = plan_extraction(&options).unwrap();
 
-    let has_relevant_var = plan.variables.iter().any(|v| {
-        v.value.contains("cool") || v.name.contains("cool")
-    });
+    let has_relevant_var = plan
+        .variables
+        .iter()
+        .any(|v| v.value.contains("cool") || v.name.contains("cool"));
     assert!(
         has_relevant_var,
         "should detect cool-widget related variable, got: {:?}",

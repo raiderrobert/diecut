@@ -27,18 +27,12 @@ pub fn tera_with_filters() -> Tera {
 ///
 /// Splits on the separator (default `-`), lowercases the first word,
 /// title-cases the rest, and joins them.
-fn camelcase_filter(
-    value: &Value,
-    args: &HashMap<String, Value>,
-) -> Result<Value, tera::Error> {
+fn camelcase_filter(value: &Value, args: &HashMap<String, Value>) -> Result<Value, tera::Error> {
     let s = value
         .as_str()
         .ok_or_else(|| tera::Error::msg("camelcase filter requires a string value"))?;
 
-    let sep = args
-        .get("sep")
-        .and_then(|v| v.as_str())
-        .unwrap_or("-");
+    let sep = args.get("sep").and_then(|v| v.as_str()).unwrap_or("-");
 
     let words: Vec<&str> = s.split(sep).collect();
     if words.is_empty() {

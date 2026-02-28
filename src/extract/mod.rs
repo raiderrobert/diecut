@@ -15,6 +15,7 @@ use inquire::{Confirm, Select, Text};
 use crate::config::schema::DEFAULT_TEMPLATES_SUFFIX;
 use crate::error::{DicecutError, Result};
 
+use self::auto_detect::{auto_detect, DetectedCandidate};
 use self::conditional::{detect_conditional_files, patterns_for_variable, DetectedConditional};
 use self::config_gen::{
     generate_config_toml, ComputedVariable, ConditionalEntry, ConfigGenOptions, PromptedVariable,
@@ -23,7 +24,6 @@ use self::exclude::{detect_copy_without_render, detect_excludes};
 use self::replace::{
     apply_path_replacements, apply_replacements, build_replacement_rules, ReplacementRule,
 };
-use self::auto_detect::{auto_detect, DetectedCandidate};
 use self::scan::{scan_project, ScannedFile};
 use self::variants::{
     computed_expression, detect_separator, generate_variants, is_canonical_variant, CaseVariant,
@@ -781,8 +781,7 @@ fn confirm_auto_detected_interactive(
             if candidate.total_occurrences > 0 {
                 eprintln!(
                     "    {} occurrences across {} files",
-                    candidate.total_occurrences,
-                    candidate.file_count
+                    candidate.total_occurrences, candidate.file_count
                 );
             }
 

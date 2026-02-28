@@ -70,10 +70,8 @@ pub fn auto_detect(project_dir: &Path, scan_result: &ScanResult) -> AutoDetectRe
     candidates.extend(detect_git_metadata(project_dir, scan_result));
 
     // Collect values already covered by tiers 1-3
-    let covered_values: HashSet<String> = candidates
-        .iter()
-        .map(|c| c.value.to_lowercase())
-        .collect();
+    let covered_values: HashSet<String> =
+        candidates.iter().map(|c| c.value.to_lowercase()).collect();
 
     // Collect config values for frequency analysis boosting
     let config_values: HashSet<String> = candidates
@@ -107,10 +105,43 @@ pub fn auto_detect(project_dir: &Path, scan_result: &ScanResult) -> AutoDetectRe
 // ── Tier 1: Directory name ───────────────────────────────────────────────
 
 const GENERIC_DIR_NAMES: &[&str] = &[
-    "src", "app", "project", "tmp", "temp", "build", "dist", "out", "output", "lib", "bin",
-    "test", "tests", "example", "examples", "docs", "doc", "assets", "public", "static",
-    "vendor", "node_modules", "target", "pkg", "cmd", "internal", "api", "web", "server",
-    "client", "frontend", "backend", "service", "services", "workspace", "repo", "code",
+    "src",
+    "app",
+    "project",
+    "tmp",
+    "temp",
+    "build",
+    "dist",
+    "out",
+    "output",
+    "lib",
+    "bin",
+    "test",
+    "tests",
+    "example",
+    "examples",
+    "docs",
+    "doc",
+    "assets",
+    "public",
+    "static",
+    "vendor",
+    "node_modules",
+    "target",
+    "pkg",
+    "cmd",
+    "internal",
+    "api",
+    "web",
+    "server",
+    "client",
+    "frontend",
+    "backend",
+    "service",
+    "services",
+    "workspace",
+    "repo",
+    "code",
 ];
 
 fn detect_directory_name(project_dir: &Path, scan_result: &ScanResult) -> Vec<DetectedCandidate> {
@@ -143,10 +174,7 @@ fn detect_directory_name(project_dir: &Path, scan_result: &ScanResult) -> Vec<De
 
 // ── Tier 2: Ecosystem config files ───────────────────────────────────────
 
-fn detect_config_files(
-    project_dir: &Path,
-    scan_result: &ScanResult,
-) -> Vec<DetectedCandidate> {
+fn detect_config_files(project_dir: &Path, scan_result: &ScanResult) -> Vec<DetectedCandidate> {
     let mut candidates = Vec::new();
 
     if let Some(mut c) = parse_cargo_toml(project_dir, scan_result) {
@@ -252,8 +280,7 @@ fn parse_package_json(
         };
         if let Some(author_name) = author_str {
             if !author_name.is_empty() {
-                let (file_count, total_occurrences) =
-                    count_occurrences(&author_name, scan_result);
+                let (file_count, total_occurrences) = count_occurrences(&author_name, scan_result);
                 candidates.push(DetectedCandidate {
                     suggested_name: "author".to_string(),
                     value: author_name,
@@ -306,8 +333,8 @@ fn parse_pyproject_toml(
             let author_name = first
                 .get("name")
                 .and_then(|n| n.as_str())
-                .or_else(|| first.as_str().map(|s| s))
-                .map(|s| strip_email(s));
+                .or_else(|| first.as_str())
+                .map(strip_email);
             if let Some(name) = author_name {
                 if !name.is_empty() {
                     let (file_count, total_occurrences) = count_occurrences(&name, scan_result);
@@ -328,18 +355,12 @@ fn parse_pyproject_toml(
     Some(candidates)
 }
 
-fn parse_go_mod(
-    project_dir: &Path,
-    scan_result: &ScanResult,
-) -> Option<Vec<DetectedCandidate>> {
+fn parse_go_mod(project_dir: &Path, scan_result: &ScanResult) -> Option<Vec<DetectedCandidate>> {
     let path = project_dir.join("go.mod");
     let content = std::fs::read_to_string(&path).ok()?;
 
     let re = Regex::new(r"^module\s+(\S+)").unwrap();
-    let module_path = re
-        .captures(&content)?
-        .get(1)?
-        .as_str();
+    let module_path = re.captures(&content)?.get(1)?.as_str();
 
     let segments: Vec<&str> = module_path.split('/').collect();
 
@@ -386,10 +407,7 @@ fn parse_go_mod(
 
 // ── Tier 3: Git metadata ─────────────────────────────────────────────────
 
-fn detect_git_metadata(
-    project_dir: &Path,
-    scan_result: &ScanResult,
-) -> Vec<DetectedCandidate> {
+fn detect_git_metadata(project_dir: &Path, scan_result: &ScanResult) -> Vec<DetectedCandidate> {
     let mut candidates = Vec::new();
 
     // Try to get remote origin URL
@@ -518,30 +536,27 @@ fn detect_frequency(
 
         let normalized_key = words.join(" ");
 
-        let file_count = token_file_map
-            .get(token)
-            .map(|s| s.len())
-            .unwrap_or(0);
+        let file_count = token_file_map.get(token).map(|s| s.len()).unwrap_or(0);
 
         // Skip single-occurrence-single-file tokens
         if *count == 1 && file_count <= 1 {
             continue;
         }
 
-        let matches_dir = normalized_key == split_into_words(dir_name).join(" ")
-            && !dir_name.is_empty();
+        let matches_dir =
+            normalized_key == split_into_words(dir_name).join(" ") && !dir_name.is_empty();
         let in_config = config_values.contains(&token.to_lowercase());
 
-        let cluster = clusters.entry(normalized_key.clone()).or_insert_with(|| {
-            TokenCluster {
+        let cluster = clusters
+            .entry(normalized_key.clone())
+            .or_insert_with(|| TokenCluster {
                 normalized: words.clone(),
                 literals: Vec::new(),
                 total_occurrences: 0,
                 file_count: 0,
                 matches_dir_name: false,
                 in_config_value: false,
-            }
-        });
+            });
 
         if !cluster.literals.contains(token) {
             cluster.literals.push(token.clone());
@@ -564,7 +579,11 @@ fn detect_frequency(
 
     for (key, cluster) in &clusters {
         // Skip if already covered by higher tiers
-        if cluster.literals.iter().any(|l| covered_values.contains(&l.to_lowercase())) {
+        if cluster
+            .literals
+            .iter()
+            .any(|l| covered_values.contains(&l.to_lowercase()))
+        {
             continue;
         }
 
@@ -624,7 +643,11 @@ fn score_cluster(cluster: &TokenCluster) -> f64 {
     // Config value match (binary)
     let config_score = if cluster.in_config_value { 1.0 } else { 0.0 };
 
-    0.15 * occ_score + 0.20 * file_score + 0.35 * variant_score + 0.20 * dir_score + 0.10 * config_score
+    0.15 * occ_score
+        + 0.20 * file_score
+        + 0.35 * variant_score
+        + 0.20 * dir_score
+        + 0.10 * config_score
 }
 
 fn merge_similar_clusters(clusters: &mut HashMap<String, TokenCluster>) {
@@ -638,8 +661,14 @@ fn merge_similar_clusters(clusters: &mut HashMap<String, TokenCluster>) {
             }
             let dist = strsim::levenshtein(&keys[i], &keys[j]);
             if dist <= 1 {
-                let size_i = clusters.get(&keys[i]).map(|c| c.total_occurrences).unwrap_or(0);
-                let size_j = clusters.get(&keys[j]).map(|c| c.total_occurrences).unwrap_or(0);
+                let size_i = clusters
+                    .get(&keys[i])
+                    .map(|c| c.total_occurrences)
+                    .unwrap_or(0);
+                let size_j = clusters
+                    .get(&keys[j])
+                    .map(|c| c.total_occurrences)
+                    .unwrap_or(0);
                 if size_i >= size_j {
                     merge_map.insert(keys[j].clone(), keys[i].clone());
                 } else {
@@ -704,9 +733,7 @@ fn is_noise_token(token: &str, words: &[String]) -> bool {
 
     // All words are stopwords, file-format words, or very short
     if words.iter().all(|w| {
-        w.len() < 3
-            || STOPWORDS.contains(&w.as_str())
-            || FILE_FORMAT_WORDS.contains(&w.as_str())
+        w.len() < 3 || STOPWORDS.contains(&w.as_str()) || FILE_FORMAT_WORDS.contains(&w.as_str())
     }) {
         return true;
     }
@@ -715,69 +742,377 @@ fn is_noise_token(token: &str, words: &[String]) -> bool {
 }
 
 const FILE_FORMAT_WORDS: &[&str] = &[
-    "toml", "json", "yaml", "yml", "xml", "csv", "html", "css", "md", "txt",
-    "log", "cfg", "ini", "env", "lock", "mod", "rs", "js", "ts", "py", "go",
-    "rb", "java", "kt", "swift", "cpp", "hpp", "vue", "jsx", "tsx",
+    "toml", "json", "yaml", "yml", "xml", "csv", "html", "css", "md", "txt", "log", "cfg", "ini",
+    "env", "lock", "mod", "rs", "js", "ts", "py", "go", "rb", "java", "kt", "swift", "cpp", "hpp",
+    "vue", "jsx", "tsx",
 ];
 
 const LANGUAGE_KEYWORDS: &[&str] = &[
     // Rust
-    "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum", "extern",
-    "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut",
-    "pub", "ref", "return", "self", "static", "struct", "super", "trait", "true", "type",
-    "unsafe", "use", "where", "while", "yield",
+    "async",
+    "await",
+    "break",
+    "const",
+    "continue",
+    "crate",
+    "dyn",
+    "else",
+    "enum",
+    "extern",
+    "false",
+    "fn",
+    "for",
+    "if",
+    "impl",
+    "in",
+    "let",
+    "loop",
+    "match",
+    "mod",
+    "move",
+    "mut",
+    "pub",
+    "ref",
+    "return",
+    "self",
+    "static",
+    "struct",
+    "super",
+    "trait",
+    "true",
+    "type",
+    "unsafe",
+    "use",
+    "where",
+    "while",
+    "yield",
     // JS/TS
-    "abstract", "arguments", "boolean", "byte", "case", "catch", "char", "class", "debugger",
-    "default", "delete", "do", "double", "eval", "export", "extends", "final", "finally",
-    "float", "function", "goto", "implements", "import", "instanceof", "int", "interface",
-    "long", "native", "new", "null", "package", "private", "protected", "public", "short",
-    "switch", "synchronized", "this", "throw", "throws", "transient", "try", "typeof",
-    "undefined", "var", "void", "volatile", "with",
+    "abstract",
+    "arguments",
+    "boolean",
+    "byte",
+    "case",
+    "catch",
+    "char",
+    "class",
+    "debugger",
+    "default",
+    "delete",
+    "do",
+    "double",
+    "eval",
+    "export",
+    "extends",
+    "final",
+    "finally",
+    "float",
+    "function",
+    "goto",
+    "implements",
+    "import",
+    "instanceof",
+    "int",
+    "interface",
+    "long",
+    "native",
+    "new",
+    "null",
+    "package",
+    "private",
+    "protected",
+    "public",
+    "short",
+    "switch",
+    "synchronized",
+    "this",
+    "throw",
+    "throws",
+    "transient",
+    "try",
+    "typeof",
+    "undefined",
+    "var",
+    "void",
+    "volatile",
+    "with",
     // Python
-    "and", "as", "assert", "class", "def", "del", "elif", "except", "exec", "from",
-    "global", "is", "lambda", "nonlocal", "not", "or", "pass", "print", "raise",
-    "with", "yield",
+    "and",
+    "as",
+    "assert",
+    "class",
+    "def",
+    "del",
+    "elif",
+    "except",
+    "exec",
+    "from",
+    "global",
+    "is",
+    "lambda",
+    "nonlocal",
+    "not",
+    "or",
+    "pass",
+    "print",
+    "raise",
+    "with",
+    "yield",
     // Go
-    "chan", "defer", "fallthrough", "go", "goroutine", "interface", "map", "range",
-    "select", "func",
+    "chan",
+    "defer",
+    "fallthrough",
+    "go",
+    "goroutine",
+    "interface",
+    "map",
+    "range",
+    "select",
+    "func",
 ];
 
 const COMMON_LIBRARIES: &[&str] = &[
-    "react", "redux", "webpack", "babel", "eslint", "prettier", "jest", "mocha", "chai",
-    "express", "fastify", "next", "nuxt", "vue", "angular", "svelte",
-    "serde", "tokio", "actix", "axum", "clap", "anyhow", "thiserror", "tracing",
-    "reqwest", "hyper", "warp", "rocket", "diesel", "sqlx",
-    "django", "flask", "fastapi", "pytest", "numpy", "pandas", "scipy",
-    "spring", "hibernate", "junit", "maven", "gradle",
-    "gin", "echo", "fiber", "gorm",
-    "lodash", "axios", "moment", "dayjs", "ramda", "underscore",
-    "tailwind", "bootstrap", "material",
-    "typescript", "javascript", "python", "golang", "rustlang",
+    "react",
+    "redux",
+    "webpack",
+    "babel",
+    "eslint",
+    "prettier",
+    "jest",
+    "mocha",
+    "chai",
+    "express",
+    "fastify",
+    "next",
+    "nuxt",
+    "vue",
+    "angular",
+    "svelte",
+    "serde",
+    "tokio",
+    "actix",
+    "axum",
+    "clap",
+    "anyhow",
+    "thiserror",
+    "tracing",
+    "reqwest",
+    "hyper",
+    "warp",
+    "rocket",
+    "diesel",
+    "sqlx",
+    "django",
+    "flask",
+    "fastapi",
+    "pytest",
+    "numpy",
+    "pandas",
+    "scipy",
+    "spring",
+    "hibernate",
+    "junit",
+    "maven",
+    "gradle",
+    "gin",
+    "echo",
+    "fiber",
+    "gorm",
+    "lodash",
+    "axios",
+    "moment",
+    "dayjs",
+    "ramda",
+    "underscore",
+    "tailwind",
+    "bootstrap",
+    "material",
+    "typescript",
+    "javascript",
+    "python",
+    "golang",
+    "rustlang",
 ];
 
 const STOPWORDS: &[&str] = &[
     // English stopwords
-    "the", "and", "for", "are", "but", "not", "you", "all", "can", "had", "her", "was",
-    "one", "our", "out", "get", "set", "has", "his", "how", "its", "let", "may", "new",
-    "now", "old", "see", "way", "who", "did", "got", "has", "him", "into", "just",
-    "like", "make", "many", "some", "than", "them", "then", "very", "when", "with",
-    "have", "from", "been", "also", "each", "that", "this", "will", "your", "what",
-    "which", "their", "about", "would", "there", "could", "other", "after", "first",
-    "these", "those", "being", "where", "should", "because",
+    "the",
+    "and",
+    "for",
+    "are",
+    "but",
+    "not",
+    "you",
+    "all",
+    "can",
+    "had",
+    "her",
+    "was",
+    "one",
+    "our",
+    "out",
+    "get",
+    "set",
+    "has",
+    "his",
+    "how",
+    "its",
+    "let",
+    "may",
+    "new",
+    "now",
+    "old",
+    "see",
+    "way",
+    "who",
+    "did",
+    "got",
+    "has",
+    "him",
+    "into",
+    "just",
+    "like",
+    "make",
+    "many",
+    "some",
+    "than",
+    "them",
+    "then",
+    "very",
+    "when",
+    "with",
+    "have",
+    "from",
+    "been",
+    "also",
+    "each",
+    "that",
+    "this",
+    "will",
+    "your",
+    "what",
+    "which",
+    "their",
+    "about",
+    "would",
+    "there",
+    "could",
+    "other",
+    "after",
+    "first",
+    "these",
+    "those",
+    "being",
+    "where",
+    "should",
+    "because",
     // Short generic words common in code identifiers
-    "my", "no", "is", "on", "in", "to", "by", "do", "up", "so", "or",
-    "app", "run", "dry", "log", "cmd", "arg", "env", "dir", "key", "map",
-    "max", "min", "raw", "ref", "src", "str", "tmp", "url", "var", "buf",
-    "msg", "req", "res", "err", "pkg", "lib", "bin", "fmt", "ctx", "cfg",
-    "opt", "val", "idx", "len", "ptr", "num", "std", "gen", "pre", "sub",
+    "my",
+    "no",
+    "is",
+    "on",
+    "in",
+    "to",
+    "by",
+    "do",
+    "up",
+    "so",
+    "or",
+    "app",
+    "run",
+    "dry",
+    "log",
+    "cmd",
+    "arg",
+    "env",
+    "dir",
+    "key",
+    "map",
+    "max",
+    "min",
+    "raw",
+    "ref",
+    "src",
+    "str",
+    "tmp",
+    "url",
+    "var",
+    "buf",
+    "msg",
+    "req",
+    "res",
+    "err",
+    "pkg",
+    "lib",
+    "bin",
+    "fmt",
+    "ctx",
+    "cfg",
+    "opt",
+    "val",
+    "idx",
+    "len",
+    "ptr",
+    "num",
+    "std",
+    "gen",
+    "pre",
+    "sub",
     // Programming type/concept words
-    "string", "number", "bool", "boolean", "array", "object", "value", "result",
-    "error", "option", "none", "some", "true", "false", "null", "undefined",
-    "file", "path", "name", "type", "data", "info", "list", "item", "node",
-    "index", "count", "size", "length", "config", "settings", "options",
-    "input", "output", "source", "target", "test", "main", "init", "setup",
-    "todo", "fixme", "hack", "note", "warning", "debug", "trace", "level",
-    "mode", "flag", "status", "state", "cache", "hook", "hooks",
+    "string",
+    "number",
+    "bool",
+    "boolean",
+    "array",
+    "object",
+    "value",
+    "result",
+    "error",
+    "option",
+    "none",
+    "some",
+    "true",
+    "false",
+    "null",
+    "undefined",
+    "file",
+    "path",
+    "name",
+    "type",
+    "data",
+    "info",
+    "list",
+    "item",
+    "node",
+    "index",
+    "count",
+    "size",
+    "length",
+    "config",
+    "settings",
+    "options",
+    "input",
+    "output",
+    "source",
+    "target",
+    "test",
+    "main",
+    "init",
+    "setup",
+    "todo",
+    "fixme",
+    "hack",
+    "note",
+    "warning",
+    "debug",
+    "trace",
+    "level",
+    "mode",
+    "flag",
+    "status",
+    "state",
+    "cache",
+    "hook",
+    "hooks",
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -943,10 +1278,16 @@ mod tests {
         let scan = make_scan_result(vec![("index.js", "cool-widget stuff")]);
         let candidates = parse_package_json(dir.path(), &scan).unwrap();
 
-        let name_candidate = candidates.iter().find(|c| c.suggested_name == "project_name").unwrap();
+        let name_candidate = candidates
+            .iter()
+            .find(|c| c.suggested_name == "project_name")
+            .unwrap();
         assert_eq!(name_candidate.value, "cool-widget");
 
-        let author_candidate = candidates.iter().find(|c| c.suggested_name == "author").unwrap();
+        let author_candidate = candidates
+            .iter()
+            .find(|c| c.suggested_name == "author")
+            .unwrap();
         assert_eq!(author_candidate.value, "Bob Smith");
     }
 
@@ -978,7 +1319,9 @@ mod tests {
         let scan = make_scan_result(vec![("main.go", "package main // my-service by acme")]);
         let candidates = parse_go_mod(dir.path(), &scan).unwrap();
 
-        let project = candidates.iter().find(|c| c.suggested_name == "project_name");
+        let project = candidates
+            .iter()
+            .find(|c| c.suggested_name == "project_name");
         assert!(project.is_some());
         assert_eq!(project.unwrap().value, "my-service");
 
@@ -1001,7 +1344,11 @@ mod tests {
     #[test]
     fn test_tier2_malformed_cargo_toml() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("Cargo.toml"), "this is not valid toml {{{}}}").unwrap();
+        std::fs::write(
+            dir.path().join("Cargo.toml"),
+            "this is not valid toml {{{}}}",
+        )
+        .unwrap();
         let scan = make_scan_result(vec![]);
         assert!(parse_cargo_toml(dir.path(), &scan).is_none());
     }
@@ -1060,7 +1407,11 @@ mod tests {
             let words = split_into_words(&c.value);
             words == vec!["data", "pipeline"]
         });
-        assert!(found, "should find data-pipeline cluster, got: {:?}", candidates);
+        assert!(
+            found,
+            "should find data-pipeline cluster, got: {:?}",
+            candidates
+        );
     }
 
     #[test]
@@ -1078,16 +1429,17 @@ mod tests {
         // "async" alone should be filtered
         for c in &candidates {
             let lower = c.value.to_lowercase();
-            assert!(!LANGUAGE_KEYWORDS.contains(&lower.as_str()) || c.value.contains('-') || c.value.contains('_'));
+            assert!(
+                !LANGUAGE_KEYWORDS.contains(&lower.as_str())
+                    || c.value.contains('-')
+                    || c.value.contains('_')
+            );
         }
     }
 
     #[test]
     fn test_frequency_filters_short_tokens() {
-        let scan = make_scan_result(vec![
-            ("a.txt", "ab cd ef gh"),
-            ("b.txt", "ab cd ef gh"),
-        ]);
+        let scan = make_scan_result(vec![("a.txt", "ab cd ef gh"), ("b.txt", "ab cd ef gh")]);
 
         let covered = HashSet::new();
         let config_vals = HashSet::new();
@@ -1109,7 +1461,9 @@ mod tests {
         let config_vals = HashSet::new();
         let candidates = detect_frequency(&scan, &covered, &config_vals, "");
 
-        let has_widget = candidates.iter().any(|c| c.value.to_lowercase().contains("widget"));
+        let has_widget = candidates
+            .iter()
+            .any(|c| c.value.to_lowercase().contains("widget"));
         assert!(!has_widget, "covered values should be skipped");
     }
 
@@ -1295,7 +1649,10 @@ mod tests {
         let result = auto_detect(&project_dir, &scan);
 
         assert!(!result.candidates.is_empty());
-        let project_name = result.candidates.iter().find(|c| c.suggested_name == "project_name");
+        let project_name = result
+            .candidates
+            .iter()
+            .find(|c| c.suggested_name == "project_name");
         assert!(project_name.is_some(), "should detect project_name");
         assert_eq!(project_name.unwrap().value, "my-widget");
     }
