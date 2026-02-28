@@ -230,6 +230,25 @@ fn parse_cargo_toml(
         });
     }
 
+    if let Some(version) = parsed
+        .get("package")
+        .and_then(|p| p.get("version"))
+        .and_then(|v| v.as_str())
+    {
+        if !version.is_empty() {
+            let (file_count, total_occurrences) = count_occurrences(version, scan_result);
+            candidates.push(DetectedCandidate {
+                suggested_name: "version".to_string(),
+                value: version.to_string(),
+                tier: ConfidenceTier::ConfigFile,
+                confidence: 0.85,
+                reason: "Cargo.toml [package].version".to_string(),
+                file_count,
+                total_occurrences,
+            });
+        }
+    }
+
     if let Some(authors) = parsed
         .get("package")
         .and_then(|p| p.get("authors"))
@@ -278,6 +297,21 @@ fn parse_package_json(
             file_count,
             total_occurrences,
         });
+    }
+
+    if let Some(version) = parsed.get("version").and_then(|v| v.as_str()) {
+        if !version.is_empty() {
+            let (file_count, total_occurrences) = count_occurrences(version, scan_result);
+            candidates.push(DetectedCandidate {
+                suggested_name: "version".to_string(),
+                value: version.to_string(),
+                tier: ConfidenceTier::ConfigFile,
+                confidence: 0.85,
+                reason: "package.json \"version\"".to_string(),
+                file_count,
+                total_occurrences,
+            });
+        }
     }
 
     if let Some(author) = parsed.get("author") {
@@ -332,6 +366,25 @@ fn parse_pyproject_toml(
             file_count,
             total_occurrences,
         });
+    }
+
+    if let Some(version) = parsed
+        .get("project")
+        .and_then(|p| p.get("version"))
+        .and_then(|v| v.as_str())
+    {
+        if !version.is_empty() {
+            let (file_count, total_occurrences) = count_occurrences(version, scan_result);
+            candidates.push(DetectedCandidate {
+                suggested_name: "version".to_string(),
+                value: version.to_string(),
+                tier: ConfidenceTier::ConfigFile,
+                confidence: 0.85,
+                reason: "pyproject.toml [project].version".to_string(),
+                file_count,
+                total_occurrences,
+            });
+        }
     }
 
     if let Some(authors) = parsed
@@ -1287,7 +1340,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(
             dir.path().join("Cargo.toml"),
-            "[package]\nname = \"data-pipeline\"\nauthors = [\"Alice <alice@example.com>\"]\n",
+            "[package]\nname = \"data-pipeline\"\nversion = \"0.3.1\"\nauthors = [\"Alice <alice@example.com>\"]\n",
         )
         .unwrap();
 
@@ -1295,6 +1348,9 @@ mod tests {
         let candidates = parse_cargo_toml(dir.path(), &scan).unwrap();
 
         assert!(candidates.iter().any(|c| c.value == "data-pipeline"));
+        assert!(candidates
+            .iter()
+            .any(|c| c.value == "0.3.1" && c.suggested_name == "version" && c.confidence == 0.85));
         assert!(candidates.iter().any(|c| c.value == "Alice"));
     }
 
@@ -1303,7 +1359,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(
             dir.path().join("package.json"),
-            r#"{"name": "@myorg/cool-widget", "author": "Bob Smith <bob@example.com>"}"#,
+            r#"{"name": "@myorg/cool-widget", "version": "2.1.0", "author": "Bob Smith <bob@example.com>"}"#,
         )
         .unwrap();
 
@@ -1315,6 +1371,13 @@ mod tests {
             .find(|c| c.suggested_name == "project_name")
             .unwrap();
         assert_eq!(name_candidate.value, "cool-widget");
+
+        let version_candidate = candidates
+            .iter()
+            .find(|c| c.suggested_name == "version")
+            .unwrap();
+        assert_eq!(version_candidate.value, "2.1.0");
+        assert_eq!(version_candidate.confidence, 0.85);
 
         let author_candidate = candidates
             .iter()
@@ -1328,7 +1391,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(
             dir.path().join("pyproject.toml"),
-            "[project]\nname = \"my-tool\"\n\n[[project.authors]]\nname = \"Charlie\"\n",
+            "[project]\nname = \"my-tool\"\nversion = \"1.0.0\"\n\n[[project.authors]]\nname = \"Charlie\"\n",
         )
         .unwrap();
 
@@ -1336,6 +1399,9 @@ mod tests {
         let candidates = parse_pyproject_toml(dir.path(), &scan).unwrap();
 
         assert!(candidates.iter().any(|c| c.value == "my-tool"));
+        assert!(candidates
+            .iter()
+            .any(|c| c.value == "1.0.0" && c.suggested_name == "version" && c.confidence == 0.85));
         assert!(candidates.iter().any(|c| c.value == "Charlie"));
     }
 
@@ -1383,6 +1449,37 @@ mod tests {
         .unwrap();
         let scan = make_scan_result(vec![]);
         assert!(parse_cargo_toml(dir.path(), &scan).is_none());
+    }
+
+    #[test]
+    fn test_tier2_version_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("Cargo.toml"),
+            "[package]\nname = \"no-version-crate\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("package.json"),
+            r#"{"name": "no-version-pkg"}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("pyproject.toml"),
+            "[project]\nname = \"no-version-py\"\n",
+        )
+        .unwrap();
+
+        let scan = make_scan_result(vec![]);
+
+        let cargo = parse_cargo_toml(dir.path(), &scan).unwrap();
+        assert!(!cargo.iter().any(|c| c.suggested_name == "version"));
+
+        let pkg = parse_package_json(dir.path(), &scan).unwrap();
+        assert!(!pkg.iter().any(|c| c.suggested_name == "version"));
+
+        let pyproj = parse_pyproject_toml(dir.path(), &scan).unwrap();
+        assert!(!pyproj.iter().any(|c| c.suggested_name == "version"));
     }
 
     // ── Tier 3 tests ─────────────────────────────────────────────────
