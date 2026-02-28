@@ -6,7 +6,7 @@ use inquire::{Confirm, Select, Text};
 use crate::config::schema::DEFAULT_TEMPLATES_SUFFIX;
 use crate::error::{DicecutError, Result};
 
-use super::auto_detect::DetectedCandidate;
+use super::auto_detect::{ConfidenceTier, DetectedCandidate};
 use super::conditional::DetectedConditional;
 use super::variants::generate_variants;
 use super::{ExtractVariable, PlannedExtractFile};
@@ -194,6 +194,7 @@ pub fn resolve_candidates_yes(
     }
 
     let mut result = Vec::new();
+    let mut skipped_freq = 0;
 
     for (name, mut group) in groups {
         // Skip names already covered by explicit --var
@@ -209,6 +210,12 @@ pub fn resolve_candidates_yes(
         // For name collisions, pick highest confidence
         group.sort_by(|a, b| b.confidence.total_cmp(&a.confidence));
         let winner = group[0];
+
+        // Skip frequency-analysis candidates in -y mode — too noisy for auto-accept
+        if winner.tier == ConfidenceTier::FrequencyAnalysis {
+            skipped_freq += 1;
+            continue;
+        }
 
         eprintln!(
             "  {} {} = {:?} ({:.0}% confidence, {})",
@@ -229,6 +236,14 @@ pub fn resolve_candidates_yes(
         }
 
         result.push((winner.suggested_name.clone(), winner.value.clone()));
+    }
+
+    if skipped_freq > 0 {
+        eprintln!(
+            "  {} {} frequency-detected candidate(s) skipped (use interactive mode to review)",
+            style("·").dim(),
+            skipped_freq
+        );
     }
 
     result

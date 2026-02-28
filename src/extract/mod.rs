@@ -21,7 +21,10 @@ use self::conditional::{detect_conditional_files, patterns_for_variable};
 use self::config_gen::{
     generate_config_toml, ComputedVariable, ConditionalEntry, ConfigGenOptions, PromptedVariable,
 };
-use self::exclude::{all_default_excludes, detect_copy_without_render, relevant_config_excludes};
+use self::exclude::{
+    all_default_excludes, detect_copy_without_render, is_copy_without_render,
+    relevant_config_excludes,
+};
 use self::interactive::{
     confirm_auto_detected_interactive, confirm_conditionals_interactive,
     confirm_excludes_interactive, confirm_files_interactive, confirm_variants_interactive,
@@ -328,6 +331,19 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
                 stubbed: false,
             });
         } else if let Some(ref content) = file.content {
+            // Lock files and other copy-without-render files: skip replacement
+            if is_copy_without_render(&file.relative_path) {
+                planned_files.push(PlannedExtractFile {
+                    template_path,
+                    content: ExtractedContent::Text {
+                        content: content.clone(),
+                        replacement_count: 0,
+                    },
+                    stubbed: false,
+                });
+                continue;
+            }
+
             let (replaced, count) = apply_replacements(content, &rules);
 
             if count > 0 {

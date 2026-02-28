@@ -29,6 +29,8 @@ const DEFAULT_EXCLUDES: &[&str] = &[
     ".output",
     ".turbo",
     ".worktrees",
+    ".claude/worktrees",
+    ".astro",
     ".diecut-answers.toml",
 ];
 
@@ -117,6 +119,27 @@ pub fn detect_copy_without_render(
     }
 
     found
+}
+
+/// Check if a file should be copied without rendering (lock files, binary-like assets).
+///
+/// These files are included in the template but should never have replacements
+/// applied during extraction — they're copied verbatim.
+pub fn is_copy_without_render(path: &Path) -> bool {
+    for pattern in DEFAULT_COPY_WITHOUT_RENDER {
+        if let Some(ext) = pattern.strip_prefix("*.") {
+            if let Some(file_ext) = path.extension() {
+                if file_ext.to_string_lossy().eq_ignore_ascii_case(ext) {
+                    return true;
+                }
+            }
+        } else if let Some(file_name) = path.file_name() {
+            if file_name.to_string_lossy() == *pattern {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Check if a path should be excluded based on the exclude patterns.
@@ -230,6 +253,41 @@ mod tests {
         // Directory excludes that don't match should not appear
         assert!(!relevant.contains(&".git".to_string()));
         assert!(!relevant.contains(&"node_modules".to_string()));
+    }
+
+    #[test]
+    fn test_should_exclude_claude_worktrees() {
+        let excludes = all_default_excludes();
+        assert!(should_exclude(
+            Path::new(".claude/worktrees/agent-abc/Cargo.toml"),
+            &excludes
+        ));
+        // .claude/settings.local.json should NOT be excluded
+        assert!(!should_exclude(
+            Path::new(".claude/settings.local.json"),
+            &excludes
+        ));
+    }
+
+    #[test]
+    fn test_should_exclude_astro() {
+        let excludes = all_default_excludes();
+        assert!(should_exclude(
+            Path::new("docs/.astro/data-store.json"),
+            &excludes
+        ));
+        assert!(should_exclude(Path::new(".astro/settings.json"), &excludes));
+    }
+
+    #[test]
+    fn test_is_copy_without_render() {
+        assert!(is_copy_without_render(Path::new("Cargo.lock")));
+        assert!(is_copy_without_render(Path::new("pnpm-lock.yaml")));
+        assert!(is_copy_without_render(Path::new("package-lock.json")));
+        assert!(is_copy_without_render(Path::new("logo.png")));
+        assert!(is_copy_without_render(Path::new("deep/nested/file.lock")));
+        assert!(!is_copy_without_render(Path::new("src/main.rs")));
+        assert!(!is_copy_without_render(Path::new("README.md")));
     }
 
     #[test]
