@@ -4,6 +4,7 @@ pub mod config_gen;
 pub mod exclude;
 pub mod replace;
 pub mod scan;
+pub mod stub;
 pub mod variants;
 
 use std::collections::{BTreeMap, HashMap};
@@ -20,11 +21,12 @@ use self::conditional::{detect_conditional_files, patterns_for_variable, Detecte
 use self::config_gen::{
     generate_config_toml, ComputedVariable, ConditionalEntry, ConfigGenOptions, PromptedVariable,
 };
-use self::exclude::{detect_copy_without_render, detect_excludes};
+use self::exclude::{all_default_excludes, detect_copy_without_render, relevant_config_excludes};
 use self::replace::{
     apply_path_replacements, apply_replacements, build_replacement_rules, ReplacementRule,
 };
 use self::scan::scan_project;
+use self::stub::{classify_file, generate_stub, FileRole};
 use self::variants::{
     computed_expression, detect_separator, generate_variants, is_canonical_variant, CaseVariant,
 };
@@ -58,6 +60,8 @@ pub struct PlannedExtractFile {
     pub template_path: PathBuf,
     /// The file content (text with replacements, or binary bytes).
     pub content: ExtractedContent,
+    /// Whether this file was stubbed (content replaced with a minimal placeholder).
+    pub stubbed: bool,
 }
 
 impl PlannedExtractFile {
@@ -144,15 +148,15 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         });
     }
 
-    // Phase 1: Detect excludes
-    let mut excludes = detect_excludes(source_dir);
+    // Phase 1: All default excludes for scanning (safety — never walks into .git/, node_modules/, etc.)
+    let scan_excludes = all_default_excludes();
 
     // Phase 2: Scan project
     eprintln!(
         "\n{}",
         style(format!("Scanning {}...", source_dir.display())).bold()
     );
-    let scan_result = scan_project(source_dir, &excludes)?;
+    let scan_result = scan_project(source_dir, &scan_excludes)?;
     eprintln!(
         "  {} files found, {} excluded",
         scan_result.files.len(),
@@ -245,11 +249,6 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         confirm_variants_interactive(extract_variables)?
     };
 
-    // Phase 5: Interactive exclude confirmation
-    if !options.yes {
-        excludes = confirm_excludes_interactive(excludes)?;
-    }
-
     // Phase 6: Detect conditional files
     let detected_conditionals = if options.yes {
         vec![] // Batch mode: no conditional files
@@ -299,27 +298,62 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
             planned_files.push(PlannedExtractFile {
                 template_path,
                 content: ExtractedContent::Binary(binary_content),
+                stubbed: false,
             });
         } else if let Some(ref content) = file.content {
             let (replaced, count) = apply_replacements(content, &rules);
 
-            // Add .die suffix if file has template replacements
-            let final_path = if count > 0 {
+            if count > 0 {
+                // Has template replacements — keep content, add .die suffix
                 let mut p = template_path.as_os_str().to_string_lossy().to_string();
                 p.push_str(DEFAULT_TEMPLATES_SUFFIX);
-                PathBuf::from(p)
+                planned_files.push(PlannedExtractFile {
+                    template_path: PathBuf::from(p),
+                    content: ExtractedContent::Text {
+                        content: replaced,
+                        replacement_count: count,
+                    },
+                    stubbed: false,
+                });
             } else {
-                template_path
-            };
-
-            planned_files.push(PlannedExtractFile {
-                template_path: final_path,
-                content: ExtractedContent::Text {
-                    content: replaced,
-                    replacement_count: count,
-                },
-            });
+                // No replacements — classify as boilerplate or content
+                match classify_file(&file.relative_path) {
+                    FileRole::Boilerplate => {
+                        planned_files.push(PlannedExtractFile {
+                            template_path,
+                            content: ExtractedContent::Text {
+                                content: replaced,
+                                replacement_count: 0,
+                            },
+                            stubbed: false,
+                        });
+                    }
+                    FileRole::Content => {
+                        let stub = generate_stub(&file.relative_path);
+                        planned_files.push(PlannedExtractFile {
+                            template_path,
+                            content: ExtractedContent::Text {
+                                content: stub,
+                                replacement_count: 0,
+                            },
+                            stubbed: true,
+                        });
+                    }
+                }
+            }
         }
+    }
+
+    // Phase 9.5: Compute config-appropriate excludes from planned template files
+    // Only patterns that match files actually in the template are worth writing to diecut.toml
+    let template_paths: Vec<PathBuf> = planned_files
+        .iter()
+        .map(|f| f.template_path.clone())
+        .collect();
+    let mut config_excludes = relevant_config_excludes(&template_paths);
+
+    if !options.yes {
+        config_excludes = confirm_excludes_interactive(config_excludes)?;
     }
 
     // Phase 10: Interactive file confirmation
@@ -390,7 +424,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
             .unwrap_or_else(|| "template".to_string()),
         prompted_variables: prompted_vars,
         computed_variables: computed_vars,
-        exclude_patterns: excludes.clone(),
+        exclude_patterns: config_excludes.clone(),
         copy_without_render: copy_without_render.clone(),
         conditional_entries: conditional_entries.clone(),
     });
@@ -401,7 +435,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         config_toml,
         variables: confirmed_variables,
         conditional_entries,
-        exclude_patterns: excludes,
+        exclude_patterns: config_excludes,
         copy_without_render,
     })
 }
@@ -420,6 +454,7 @@ pub fn execute_extraction(plan: &ExtractionPlan, _in_place: bool) -> Result<()> 
     // Write template files
     let mut rendered_count = 0;
     let mut copied_count = 0;
+    let mut stubbed_count = 0;
 
     for file in &plan.files {
         let dest = template_dir.join(&file.template_path);
@@ -443,6 +478,8 @@ pub fn execute_extraction(plan: &ExtractionPlan, _in_place: bool) -> Result<()> 
                 })?;
                 if *replacement_count > 0 {
                     rendered_count += 1;
+                } else if file.stubbed {
+                    stubbed_count += 1;
                 } else {
                     copied_count += 1;
                 }
@@ -500,8 +537,8 @@ pub fn execute_extraction(plan: &ExtractionPlan, _in_place: bool) -> Result<()> 
         computed_count
     );
     eprintln!(
-        "  {} files templated, {} files copied",
-        rendered_count, copied_count
+        "  {} files templated, {} files copied, {} files stubbed",
+        rendered_count, copied_count, stubbed_count
     );
     if !plan.conditional_entries.is_empty() {
         eprintln!(
@@ -628,12 +665,16 @@ fn confirm_excludes_interactive(mut excludes: Vec<String>) -> Result<Vec<String>
         style("──").dim(),
         style("─────────────────────────────────────────────").dim()
     );
-    eprintln!("  Auto-detected:");
-    for e in &excludes {
-        eprintln!("    {}", e);
+    if excludes.is_empty() {
+        eprintln!("  No exclude patterns needed for this template.");
+    } else {
+        eprintln!("  Patterns matching template files:");
+        for e in &excludes {
+            eprintln!("    {}", e);
+        }
     }
 
-    let extra = Text::new("Add any others? (comma-separated, enter to accept)")
+    let extra = Text::new("Add extra exclude patterns? (comma-separated, enter to skip)")
         .with_default("")
         .prompt()
         .map_err(|_| DicecutError::PromptCancelled)?;
@@ -837,31 +878,60 @@ fn confirm_auto_detected_interactive(
 
 fn confirm_files_interactive(files: &[PlannedExtractFile]) -> Result<()> {
     let templated: Vec<_> = files.iter().filter(|f| f.has_replacements()).collect();
-    let copied: Vec<_> = files.iter().filter(|f| !f.has_replacements()).collect();
+    let boilerplate: Vec<_> = files
+        .iter()
+        .filter(|f| !f.has_replacements() && !f.stubbed && !f.is_binary())
+        .collect();
+    let stubbed: Vec<_> = files.iter().filter(|f| f.stubbed).collect();
     let binary_count = files.iter().filter(|f| f.is_binary()).count();
 
     eprintln!(
-        "\n{} Files to template {}",
+        "\n{} File plan {}",
         style("──").dim(),
-        style("────────────────────────────────────").dim()
+        style("──────────────────────────────────────────").dim()
     );
+
+    // Templated files
     eprintln!(
-        "  Will get {} suffix (template replacements made):",
+        "\n  {} ({} files, {} suffix):",
+        style("Templated").bold(),
+        templated.len(),
         DEFAULT_TEMPLATES_SUFFIX
     );
     for file in &templated {
         eprintln!(
-            "    {:<40} {} replacements",
+            "    {:<50} {} replacements",
             file.template_path.display(),
             file.replacement_count()
         );
     }
 
+    // Boilerplate files
     eprintln!(
-        "\n  Copied verbatim: {} files (including {} binary)",
-        copied.len(),
-        binary_count
+        "\n  {} (copied in full, {} files{}):",
+        style("Boilerplate").bold(),
+        boilerplate.len() + binary_count,
+        if binary_count > 0 {
+            format!(", {} binary", binary_count)
+        } else {
+            String::new()
+        }
     );
+    for file in &boilerplate {
+        eprintln!("    {}", file.template_path.display());
+    }
+
+    // Stubbed files
+    if !stubbed.is_empty() {
+        eprintln!(
+            "\n  {} (structure only, {} files):",
+            style("Stubbed").bold(),
+            stubbed.len()
+        );
+        for file in &stubbed {
+            eprintln!("    {}", file.template_path.display());
+        }
+    }
 
     let proceed = Confirm::new("Proceed?")
         .with_default(true)
