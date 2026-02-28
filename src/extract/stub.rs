@@ -1,12 +1,14 @@
 use std::path::Path;
 
-/// Whether a file is boilerplate (copy in full) or content (stub to placeholder).
+/// Whether a file is boilerplate (copy in full), content (stub), or too deep (drop).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileRole {
     /// Config, dotfiles, CI — copy verbatim into the template.
     Boilerplate,
     /// Prose, docs, source — stub to minimal placeholder.
     Content,
+    /// Content deeper than stub_depth — drop entirely.
+    Dropped,
 }
 
 /// Filenames (case-insensitive) that are always boilerplate.
@@ -35,10 +37,11 @@ const BOILERPLATE_EXTENSIONS: &[&str] = &[
 /// Directory prefixes — files under these dirs are boilerplate.
 const BOILERPLATE_DIR_PREFIXES: &[&str] = &[".github/", ".gitlab/", ".circleci/", ".vscode/"];
 
-/// Classify a file as boilerplate or content based on its relative path.
+/// Classify a file as boilerplate, content, or dropped based on its relative path.
 ///
 /// Only called for text files with 0 template replacements.
-pub fn classify_file(path: &Path) -> FileRole {
+/// Files deeper than `stub_depth` path components are dropped entirely.
+pub fn classify_file(path: &Path, stub_depth: usize) -> FileRole {
     let path_str = path.to_string_lossy();
 
     // Check directory prefix
@@ -64,7 +67,12 @@ pub fn classify_file(path: &Path) -> FileRole {
         }
     }
 
-    FileRole::Content
+    let depth = path.components().count();
+    if depth > stub_depth {
+        FileRole::Dropped
+    } else {
+        FileRole::Content
+    }
 }
 
 /// Generate a minimal stub for a content file.
@@ -125,7 +133,7 @@ mod tests {
     #[case("LICENSE", FileRole::Boilerplate)]
     #[case("Procfile", FileRole::Boilerplate)]
     fn classify_boilerplate_filenames(#[case] filename: &str, #[case] expected: FileRole) {
-        assert_eq!(classify_file(Path::new(filename)), expected);
+        assert_eq!(classify_file(Path::new(filename), 2), expected);
     }
 
     #[rstest]
@@ -139,7 +147,7 @@ mod tests {
     #[case("deploy.ps1", FileRole::Boilerplate)]
     #[case("app.conf", FileRole::Boilerplate)]
     fn classify_boilerplate_extensions(#[case] filename: &str, #[case] expected: FileRole) {
-        assert_eq!(classify_file(Path::new(filename)), expected);
+        assert_eq!(classify_file(Path::new(filename), 2), expected);
     }
 
     #[rstest]
@@ -149,19 +157,34 @@ mod tests {
     #[case(".circleci/config.yml", FileRole::Boilerplate)]
     #[case(".vscode/settings.json", FileRole::Boilerplate)]
     fn classify_boilerplate_directories(#[case] path: &str, #[case] expected: FileRole) {
-        assert_eq!(classify_file(Path::new(path)), expected);
+        assert_eq!(classify_file(Path::new(path), 2), expected);
     }
 
     #[rstest]
-    #[case("README.md")]
-    #[case("docs/guide.md")]
-    #[case("src/main.rs")]
-    #[case("src/lib.py")]
-    #[case("index.html")]
-    #[case("app.css")]
-    #[case("skills/convention-mining/SKILL.md")]
-    fn classify_content(#[case] path: &str) {
-        assert_eq!(classify_file(Path::new(path)), FileRole::Content);
+    #[case("README.md", 2)]
+    #[case("docs/guide.md", 2)]
+    #[case("src/main.rs", 2)]
+    #[case("src/lib.py", 2)]
+    #[case("index.html", 2)]
+    #[case("app.css", 2)]
+    #[case("skills/convention-mining/SKILL.md", 3)] // depth 3, stub_depth 3 → Content
+    fn classify_content(#[case] path: &str, #[case] stub_depth: usize) {
+        assert_eq!(
+            classify_file(Path::new(path), stub_depth),
+            FileRole::Content
+        );
+    }
+
+    #[rstest]
+    #[case("skills/convention-mining/SKILL.md", 2)] // depth 3 > stub_depth 2
+    #[case("skills/writing-skills/craft.md", 2)] // depth 3 > stub_depth 2
+    #[case("a/b/c/deep.md", 2)] // depth 4 > stub_depth 2
+    #[case("docs/guide.md", 1)] // depth 2 > stub_depth 1
+    fn classify_dropped(#[case] path: &str, #[case] stub_depth: usize) {
+        assert_eq!(
+            classify_file(Path::new(path), stub_depth),
+            FileRole::Dropped
+        );
     }
 
     // ── generate_stub ────────────────────────────────────────────────

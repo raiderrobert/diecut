@@ -96,6 +96,8 @@ pub struct ExtractionPlan {
     pub conditional_entries: Vec<ConditionalEntry>,
     pub exclude_patterns: Vec<String>,
     pub copy_without_render: Vec<String>,
+    pub dropped_count: usize,
+    pub dropped_paths: Vec<PathBuf>,
 }
 
 /// Options for the extraction process.
@@ -106,6 +108,7 @@ pub struct ExtractOptions {
     pub in_place: bool,
     pub yes: bool,
     pub min_confidence: f64,
+    pub stub_depth: usize,
     pub dry_run: bool,
 }
 
@@ -285,6 +288,8 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
 
     // Phase 9: Apply replacements to files
     let mut planned_files = Vec::new();
+    let mut dropped_count = 0;
+    let mut dropped_paths = Vec::new();
 
     for file in &scan_result.files {
         let template_path = apply_path_replacements(&file.relative_path, &rules);
@@ -316,8 +321,8 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
                     stubbed: false,
                 });
             } else {
-                // No replacements — classify as boilerplate or content
-                match classify_file(&file.relative_path) {
+                // No replacements — classify as boilerplate, content, or dropped
+                match classify_file(&file.relative_path, options.stub_depth) {
                     FileRole::Boilerplate => {
                         planned_files.push(PlannedExtractFile {
                             template_path,
@@ -339,6 +344,10 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
                             stubbed: true,
                         });
                     }
+                    FileRole::Dropped => {
+                        dropped_count += 1;
+                        dropped_paths.push(file.relative_path.clone());
+                    }
                 }
             }
         }
@@ -358,7 +367,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
 
     // Phase 10: Interactive file confirmation
     if !options.yes {
-        confirm_files_interactive(&planned_files)?;
+        confirm_files_interactive(&planned_files, dropped_count)?;
     }
 
     // Phase 11: Build conditional entries
@@ -437,6 +446,8 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         conditional_entries,
         exclude_patterns: config_excludes,
         copy_without_render,
+        dropped_count,
+        dropped_paths,
     })
 }
 
@@ -537,8 +548,8 @@ pub fn execute_extraction(plan: &ExtractionPlan, _in_place: bool) -> Result<()> 
         computed_count
     );
     eprintln!(
-        "  {} files templated, {} files copied, {} files stubbed",
-        rendered_count, copied_count, stubbed_count
+        "  {} files templated, {} files copied, {} files stubbed, {} files dropped",
+        rendered_count, copied_count, stubbed_count, plan.dropped_count
     );
     if !plan.conditional_entries.is_empty() {
         eprintln!(
@@ -876,7 +887,7 @@ fn confirm_auto_detected_interactive(
     Ok(accepted)
 }
 
-fn confirm_files_interactive(files: &[PlannedExtractFile]) -> Result<()> {
+fn confirm_files_interactive(files: &[PlannedExtractFile], dropped_count: usize) -> Result<()> {
     let templated: Vec<_> = files.iter().filter(|f| f.has_replacements()).collect();
     let boilerplate: Vec<_> = files
         .iter()
@@ -931,6 +942,11 @@ fn confirm_files_interactive(files: &[PlannedExtractFile]) -> Result<()> {
         for file in &stubbed {
             eprintln!("    {}", file.template_path.display());
         }
+    }
+
+    // Dropped files
+    if dropped_count > 0 {
+        eprintln!("\n  {} ({} files):", style("Dropped").bold(), dropped_count);
     }
 
     let proceed = Confirm::new("Proceed?")

@@ -6,6 +6,7 @@ use diecut::error::DicecutError;
 use diecut::extract::{execute_extraction, plan_extraction, ExtractOptions};
 use miette::Result;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     source: String,
     vars: Vec<String>,
@@ -13,6 +14,7 @@ pub fn run(
     in_place: bool,
     yes: bool,
     min_confidence: f64,
+    stub_depth: usize,
     dry_run: bool,
 ) -> Result<()> {
     let variables = parse_vars(&vars)?;
@@ -24,6 +26,7 @@ pub fn run(
         in_place,
         yes,
         min_confidence,
+        stub_depth,
         dry_run,
     };
 
@@ -64,11 +67,12 @@ fn print_dry_run(plan: &diecut::extract::ExtractionPlan) {
     );
 
     let templated: Vec<_> = plan.files.iter().filter(|f| f.has_replacements()).collect();
-    let copied: Vec<_> = plan
+    let boilerplate: Vec<_> = plan
         .files
         .iter()
-        .filter(|f| !f.has_replacements())
+        .filter(|f| !f.has_replacements() && !f.stubbed)
         .collect();
+    let stubbed: Vec<_> = plan.files.iter().filter(|f| f.stubbed).collect();
 
     eprintln!("\nTemplated files ({}):", templated.len());
     for file in &templated {
@@ -79,9 +83,23 @@ fn print_dry_run(plan: &diecut::extract::ExtractionPlan) {
         );
     }
 
-    eprintln!("\nCopied verbatim ({}):", copied.len());
-    for file in &copied {
+    eprintln!("\nBoilerplate ({}):", boilerplate.len());
+    for file in &boilerplate {
         eprintln!("  {}", file.template_path.display());
+    }
+
+    if !stubbed.is_empty() {
+        eprintln!("\nStubbed ({}):", stubbed.len());
+        for file in &stubbed {
+            eprintln!("  {}", file.template_path.display());
+        }
+    }
+
+    if plan.dropped_count > 0 {
+        eprintln!("\nDropped ({}):", plan.dropped_count);
+        for path in &plan.dropped_paths {
+            eprintln!("  {}", path.display());
+        }
     }
 
     eprintln!("\nVariables:");

@@ -75,6 +75,10 @@ pub enum Commands {
         #[arg(long, default_value = "0.5")]
         min_confidence: f64,
 
+        /// Max path depth for stubbing content files (deeper files are dropped)
+        #[arg(long, default_value = "2")]
+        stub_depth: usize,
+
         /// Show what would be extracted without writing files
         #[arg(long)]
         dry_run: bool,

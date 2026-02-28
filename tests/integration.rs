@@ -656,6 +656,7 @@ fn test_extract_batch_basic() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -700,6 +701,7 @@ fn test_extract_detects_case_variants() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -754,6 +756,7 @@ fn test_extract_dry_run_writes_nothing() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: true,
     };
 
@@ -783,6 +786,7 @@ fn test_extract_rejects_already_template() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -804,6 +808,7 @@ fn test_extract_rejects_no_variables() {
         in_place: false,
         yes: true,
         min_confidence: 1.0,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -827,6 +832,7 @@ fn test_extract_templates_path_components() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -890,6 +896,7 @@ fn test_extract_round_trip() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -959,6 +966,7 @@ fn test_extract_auto_yes() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -1000,6 +1008,7 @@ fn test_extract_auto_explicit_vars_merged() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -1042,6 +1051,7 @@ fn test_extract_auto_frequency_fallback() {
         in_place: false,
         yes: true,
         min_confidence: 0.5,
+        stub_depth: 2,
         dry_run: false,
     };
 
@@ -1085,6 +1095,7 @@ fn test_extract_min_confidence_filters() {
         in_place: false,
         yes: true,
         min_confidence: 0.99,
+        stub_depth: 2,
         dry_run: true,
     };
 
