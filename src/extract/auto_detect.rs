@@ -454,6 +454,7 @@ fn git_config_get(project_dir: &Path, key: &str) -> Option<String> {
         .arg("--get")
         .arg(key)
         .current_dir(project_dir)
+        .env("GIT_TERMINAL_PROMPT", "0")
         .output()
         .ok()?;
 
