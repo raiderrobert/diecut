@@ -1130,7 +1130,7 @@ const STOPWORDS: &[&str] = &[
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-fn count_occurrences(value: &str, scan_result: &ScanResult) -> (usize, usize) {
+pub fn count_occurrences(value: &str, scan_result: &ScanResult) -> (usize, usize) {
     let mut file_count = 0;
     let mut total = 0;
 

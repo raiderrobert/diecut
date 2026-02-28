@@ -15,7 +15,7 @@ use inquire::{Confirm, Select, Text};
 use crate::config::schema::DEFAULT_TEMPLATES_SUFFIX;
 use crate::error::{DicecutError, Result};
 
-use self::auto_detect::{auto_detect, DetectedCandidate};
+use self::auto_detect::{auto_detect, count_occurrences, DetectedCandidate};
 use self::conditional::{detect_conditional_files, patterns_for_variable, DetectedConditional};
 use self::config_gen::{
     generate_config_toml, ComputedVariable, ConditionalEntry, ConfigGenOptions, PromptedVariable,
@@ -24,7 +24,7 @@ use self::exclude::{detect_copy_without_render, detect_excludes};
 use self::replace::{
     apply_path_replacements, apply_replacements, build_replacement_rules, ReplacementRule,
 };
-use self::scan::{scan_project, ScannedFile};
+use self::scan::scan_project;
 use self::variants::{
     computed_expression, detect_separator, generate_variants, is_canonical_variant, CaseVariant,
 };
@@ -207,8 +207,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
 
         let mut occurrence_counts = Vec::new();
         for variant in &all_variants {
-            let (file_count, total_hits) =
-                count_variant_occurrences(&variant.literal, &scan_result.files);
+            let (file_count, total_hits) = count_occurrences(&variant.literal, &scan_result);
             occurrence_counts.push((variant.name.to_string(), file_count, total_hits));
         }
 
@@ -516,33 +515,6 @@ pub fn execute_extraction(plan: &ExtractionPlan, _in_place: bool) -> Result<()> 
 }
 
 // ── Interactive helpers ──────────────────────────────────────────────────
-
-fn count_variant_occurrences(literal: &str, files: &[ScannedFile]) -> (usize, usize) {
-    let mut file_count = 0;
-    let mut total_hits = 0;
-
-    for file in files {
-        if let Some(ref content) = file.content {
-            let hits = content.matches(literal).count();
-            if hits > 0 {
-                file_count += 1;
-                total_hits += hits;
-            }
-        }
-    }
-
-    // Also check path components
-    for file in files {
-        let path_str = file.relative_path.to_string_lossy();
-        let hits = path_str.matches(literal).count();
-        if hits > 0 {
-            // Don't double-count file_count if already counted from content
-            total_hits += hits;
-        }
-    }
-
-    (file_count, total_hits)
-}
 
 fn confirm_variants_interactive(variables: Vec<ExtractVariable>) -> Result<Vec<ExtractVariable>> {
     let mut confirmed = Vec::new();
