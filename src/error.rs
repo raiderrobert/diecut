@@ -128,6 +128,10 @@ pub enum DicecutError {
     ))]
     ExtractNoVariables,
 
+    #[error("Invalid --var argument: {input} (expected key=value)")]
+    #[diagnostic(help("Use --var key=value format, e.g., --var project_name=my-app"))]
+    ExtractInvalidVar { input: String },
+
     #[error("Output directory already exists: {path}")]
     #[diagnostic(help(
         "Choose a different output path with -o, or remove the existing directory"

@@ -45,7 +45,7 @@ fn parse_vars(vars: &[String]) -> diecut::error::Result<Vec<(String, String)>> {
     for var in vars {
         let (key, value) = var
             .split_once('=')
-            .ok_or_else(|| DicecutError::ExtractNoVariables)?;
+            .ok_or_else(|| DicecutError::ExtractInvalidVar { input: var.clone() })?;
         parsed.push((key.trim().to_string(), value.trim().to_string()));
     }
 
