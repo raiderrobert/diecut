@@ -656,6 +656,7 @@ fn test_extract_batch_basic() {
         in_place: false,
         batch: true,
         dry_run: false,
+        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -699,6 +700,7 @@ fn test_extract_detects_case_variants() {
         in_place: false,
         batch: true,
         dry_run: false,
+        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -752,6 +754,7 @@ fn test_extract_dry_run_writes_nothing() {
         in_place: false,
         batch: true,
         dry_run: true,
+        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -780,6 +783,7 @@ fn test_extract_rejects_already_template() {
         in_place: false,
         batch: true,
         dry_run: false,
+        auto: false,
     };
 
     let result = plan_extraction(&options);
@@ -798,6 +802,7 @@ fn test_extract_rejects_no_variables() {
         in_place: false,
         batch: true,
         dry_run: false,
+        auto: false,
     };
 
     let result = plan_extraction(&options);
@@ -820,6 +825,7 @@ fn test_extract_templates_path_components() {
         in_place: false,
         batch: true,
         dry_run: false,
+        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -882,6 +888,7 @@ fn test_extract_round_trip() {
         in_place: false,
         batch: true,
         dry_run: false,
+        auto: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -914,4 +921,142 @@ fn test_extract_round_trip() {
             );
         }
     }
+}
+
+// ── Auto-detect tests ────────────────────────────────────────────────────
+
+#[test]
+fn test_extract_auto_batch() {
+    let project = tempfile::tempdir().unwrap();
+    let project_dir = project.path().join("data-pipeline");
+    std::fs::create_dir(&project_dir).unwrap();
+    std::fs::write(
+        project_dir.join("Cargo.toml"),
+        "[package]\nname = \"data-pipeline\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project_dir.join("README.md"),
+        "# data-pipeline\nWelcome to data-pipeline\n",
+    )
+    .unwrap();
+    std::fs::create_dir(project_dir.join("src")).unwrap();
+    std::fs::write(
+        project_dir.join("src/main.rs"),
+        "fn main() {\n    println!(\"data-pipeline starting\");\n}\n",
+    )
+    .unwrap();
+
+    let output = tempfile::tempdir().unwrap();
+    let output_path = output.path().join("auto-extracted");
+
+    let options = ExtractOptions {
+        source_dir: project_dir.clone(),
+        variables: vec![],
+        output_dir: Some(output_path.clone()),
+        in_place: false,
+        batch: true,
+        dry_run: false,
+        auto: true,
+    };
+
+    let plan = plan_extraction(&options).unwrap();
+    execute_extraction(&plan, false).unwrap();
+
+    let project_var = plan
+        .variables
+        .iter()
+        .find(|v| v.name == "project_name");
+    assert!(
+        project_var.is_some(),
+        "should auto-detect project_name, got vars: {:?}",
+        plan.variables.iter().map(|v| &v.name).collect::<Vec<_>>()
+    );
+    assert_eq!(project_var.unwrap().value, "data-pipeline");
+
+    assert!(output_path.join("diecut.toml").exists());
+    let config = std::fs::read_to_string(output_path.join("diecut.toml")).unwrap();
+    assert!(config.contains("project_name"));
+}
+
+#[test]
+fn test_extract_auto_explicit_vars_priority() {
+    let project = tempfile::tempdir().unwrap();
+    let project_dir = project.path().join("my-service");
+    std::fs::create_dir(&project_dir).unwrap();
+    std::fs::write(
+        project_dir.join("Cargo.toml"),
+        "[package]\nname = \"my-service\"\n",
+    )
+    .unwrap();
+    std::fs::write(project_dir.join("README.md"), "# my-service\n").unwrap();
+
+    let output = tempfile::tempdir().unwrap();
+    let output_path = output.path().join("explicit-extracted");
+
+    let options = ExtractOptions {
+        source_dir: project_dir.clone(),
+        variables: vec![("app_name".to_string(), "my-service".to_string())],
+        output_dir: Some(output_path.clone()),
+        in_place: false,
+        batch: true,
+        dry_run: false,
+        auto: true,
+    };
+
+    let plan = plan_extraction(&options).unwrap();
+
+    let has_app_name = plan.variables.iter().any(|v| v.name == "app_name");
+    let has_project_name = plan.variables.iter().any(|v| v.name == "project_name");
+    assert!(has_app_name, "should use explicit var app_name");
+    assert!(!has_project_name, "should not auto-detect project_name when explicit vars given");
+}
+
+#[test]
+fn test_extract_auto_frequency_fallback() {
+    let project = tempfile::tempdir().unwrap();
+    let project_dir = project.path().join("cool-widget");
+    std::fs::create_dir(&project_dir).unwrap();
+    std::fs::write(
+        project_dir.join("main.txt"),
+        "cool-widget is great\ncool_widget module\nCoolWidget class\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project_dir.join("config.txt"),
+        "name = cool-widget\nmodule = cool_widget\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project_dir.join("test.txt"),
+        "testing cool-widget\nCOOL_WIDGET env\n",
+    )
+    .unwrap();
+
+    let output = tempfile::tempdir().unwrap();
+    let output_path = output.path().join("freq-extracted");
+
+    let options = ExtractOptions {
+        source_dir: project_dir.clone(),
+        variables: vec![],
+        output_dir: Some(output_path.clone()),
+        in_place: false,
+        batch: true,
+        dry_run: false,
+        auto: true,
+    };
+
+    let plan = plan_extraction(&options).unwrap();
+
+    let has_relevant_var = plan.variables.iter().any(|v| {
+        v.value.contains("cool") || v.name.contains("cool")
+    });
+    assert!(
+        has_relevant_var,
+        "should detect cool-widget related variable, got: {:?}",
+        plan.variables
+            .iter()
+            .map(|v| format!("{}={}", v.name, v.value))
+            .collect::<Vec<_>>()
+    );
 }

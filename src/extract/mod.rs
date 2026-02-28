@@ -1,3 +1,4 @@
+pub mod auto_detect;
 pub mod conditional;
 pub mod config_gen;
 pub mod exclude;
@@ -22,6 +23,7 @@ use self::exclude::{detect_copy_without_render, detect_excludes};
 use self::replace::{
     apply_path_replacements, apply_replacements, build_replacement_rules, ReplacementRule,
 };
+use self::auto_detect::{auto_detect, DetectedCandidate};
 use self::scan::{scan_project, ScannedFile};
 use self::variants::{
     computed_expression, detect_separator, generate_variants, is_canonical_variant, CaseVariant,
@@ -74,6 +76,7 @@ pub struct ExtractOptions {
     pub in_place: bool,
     pub batch: bool,
     pub dry_run: bool,
+    pub auto: bool,
 }
 
 /// Plan an extraction: scan the project, detect variants, build replacement rules.
@@ -84,10 +87,6 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         return Err(DicecutError::ExtractSourceNotFound {
             path: source_dir.clone(),
         });
-    }
-
-    if options.variables.is_empty() {
-        return Err(DicecutError::ExtractNoVariables);
     }
 
     // Check if this is already a template
@@ -134,10 +133,47 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         scan_result.excluded_count
     );
 
+    // Phase 2.5: Auto-detect variables if none provided and --auto is enabled
+    let variables = if options.variables.is_empty() && options.auto {
+        let detect_result = auto_detect(source_dir, &scan_result);
+
+        if detect_result.candidates.is_empty() {
+            return Err(DicecutError::ExtractNoVariables);
+        }
+
+        let accepted = if options.batch {
+            let accepted: Vec<_> = detect_result
+                .candidates
+                .into_iter()
+                .filter(|c| c.confidence >= 0.50)
+                .collect();
+            if accepted.is_empty() {
+                return Err(DicecutError::ExtractNoVariables);
+            }
+            print_auto_detected_batch(&accepted);
+            accepted
+        } else {
+            let accepted = confirm_auto_detected_interactive(detect_result.candidates)?;
+            if accepted.is_empty() {
+                return Err(DicecutError::ExtractNoVariables);
+            }
+            accepted
+        };
+
+        accepted
+            .into_iter()
+            .map(|c| (c.suggested_name, c.value))
+            .collect()
+    } else if options.variables.is_empty() {
+        return Err(DicecutError::ExtractNoVariables);
+    } else {
+        options.variables.clone()
+    };
+
     // Phase 3: Generate variants and count occurrences
     let mut extract_variables = Vec::new();
 
-    for (var_name, var_value) in &options.variables {
+    for (var_name, var_value) in &variables {
         let all_variants = generate_variants(var_name, var_value);
 
         let mut occurrence_counts = Vec::new();
@@ -637,6 +673,84 @@ fn confirm_conditionals_interactive(
     }
 
     Ok(confirmed)
+}
+
+fn print_auto_detected_batch(candidates: &[DetectedCandidate]) {
+    eprintln!(
+        "\n{} Auto-detected variables {}",
+        style("──").dim(),
+        style("──────────────────────────────────").dim()
+    );
+    for c in candidates {
+        eprintln!(
+            "  {} {} = {:?} ({:.0}% confidence, {})",
+            style("✓").green(),
+            style(&c.suggested_name).bold(),
+            c.value,
+            c.confidence * 100.0,
+            c.tier
+        );
+        eprintln!(
+            "    {}",
+            style(&c.reason).dim()
+        );
+    }
+}
+
+fn confirm_auto_detected_interactive(
+    candidates: Vec<DetectedCandidate>,
+) -> Result<Vec<DetectedCandidate>> {
+    eprintln!(
+        "\n{} Auto-detected variables {}",
+        style("──").dim(),
+        style("──────────────────────────────────").dim()
+    );
+
+    let mut accepted = Vec::new();
+
+    for candidate in candidates {
+        let default_accept = candidate.confidence >= 0.70;
+        eprintln!(
+            "\n  {} = {:?} ({:.0}% confidence, {})",
+            style(&candidate.suggested_name).bold(),
+            candidate.value,
+            candidate.confidence * 100.0,
+            candidate.tier
+        );
+        eprintln!("    {}", style(&candidate.reason).dim());
+        if candidate.total_occurrences > 0 {
+            eprintln!(
+                "    {} occurrences across {} files",
+                candidate.total_occurrences,
+                candidate.file_count
+            );
+        }
+
+        let accept = Confirm::new(&format!("Accept \"{}\"?", candidate.suggested_name))
+            .with_default(default_accept)
+            .prompt()
+            .map_err(|_| DicecutError::PromptCancelled)?;
+
+        if accept {
+            let name = Text::new("Variable name:")
+                .with_default(&candidate.suggested_name)
+                .prompt()
+                .map_err(|_| DicecutError::PromptCancelled)?;
+
+            let value = Text::new("Value:")
+                .with_default(&candidate.value)
+                .prompt()
+                .map_err(|_| DicecutError::PromptCancelled)?;
+
+            accepted.push(DetectedCandidate {
+                suggested_name: name,
+                value,
+                ..candidate
+            });
+        }
+    }
+
+    Ok(accepted)
 }
 
 fn confirm_files_interactive(files: &[PlannedExtractFile]) -> Result<()> {

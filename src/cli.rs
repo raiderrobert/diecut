@@ -74,5 +74,9 @@ pub enum Commands {
         /// Show what would be extracted without writing files
         #[arg(long)]
         dry_run: bool,
+
+        /// Auto-detect template variables from project metadata and content
+        #[arg(long)]
+        auto: bool,
     },
 }

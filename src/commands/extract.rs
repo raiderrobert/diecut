@@ -13,8 +13,12 @@ pub fn run(
     in_place: bool,
     batch: bool,
     dry_run: bool,
+    auto: bool,
 ) -> Result<()> {
     let variables = parse_vars(&vars)?;
+
+    // Default auto to true when no vars are provided
+    let auto = auto || variables.is_empty();
 
     let options = ExtractOptions {
         source_dir: PathBuf::from(&source),
@@ -23,6 +27,7 @@ pub fn run(
         in_place,
         batch,
         dry_run,
+        auto,
     };
 
     let plan = plan_extraction(&options)?;

@@ -26,6 +26,7 @@ fn main() -> miette::Result<()> {
             in_place,
             batch,
             dry_run,
-        } => commands::extract::run(source, vars, output, in_place, batch, dry_run),
+            auto,
+        } => commands::extract::run(source, vars, output, in_place, batch, dry_run, auto),
     }
 }

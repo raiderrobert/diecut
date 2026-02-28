@@ -124,7 +124,7 @@ pub enum DicecutError {
 
     #[error("No variables provided for extraction")]
     #[diagnostic(help(
-        "Use --var key=value to specify which values should become template variables"
+        "Use --var key=value to specify variables, or --auto to detect them automatically"
     ))]
     ExtractNoVariables,
 
