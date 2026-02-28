@@ -1,8 +1,18 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::process::Command;
+use std::sync::LazyLock;
 
 use regex_lite::Regex;
+
+static GO_MOD_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^module\s+(\S+)").unwrap());
+
+static TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"[a-zA-Z][a-zA-Z0-9]*(?:[-_.][a-zA-Z0-9]+)+|[A-Z][a-z]+(?:[A-Z][a-z]+)+|[a-z]+(?:[A-Z][a-z]+)+|[A-Z]{2,}(?:_[A-Z]{2,})+",
+    )
+    .unwrap()
+});
 
 use super::scan::ScanResult;
 use super::variants::split_into_words;
@@ -359,8 +369,7 @@ fn parse_go_mod(project_dir: &Path, scan_result: &ScanResult) -> Option<Vec<Dete
     let path = project_dir.join("go.mod");
     let content = std::fs::read_to_string(&path).ok()?;
 
-    let re = Regex::new(r"^module\s+(\S+)").unwrap();
-    let module_path = re.captures(&content)?.get(1)?.as_str();
+    let module_path = GO_MOD_RE.captures(&content)?.get(1)?.as_str();
 
     let segments: Vec<&str> = module_path.split('/').collect();
 
@@ -501,16 +510,12 @@ fn detect_frequency(
     dir_name: &str,
 ) -> Vec<DetectedCandidate> {
     // Tokenize all text file content
-    let token_re = Regex::new(
-        r"[a-zA-Z][a-zA-Z0-9]*(?:[-_.][a-zA-Z0-9]+)+|[A-Z][a-z]+(?:[A-Z][a-z]+)+|[a-z]+(?:[A-Z][a-z]+)+|[A-Z]{2,}(?:_[A-Z]{2,})+"
-    ).unwrap();
-
     let mut token_file_map: HashMap<String, HashSet<usize>> = HashMap::new();
     let mut token_counts: HashMap<String, usize> = HashMap::new();
 
     for (file_idx, file) in scan_result.files.iter().enumerate() {
         if let Some(ref content) = file.content {
-            for mat in token_re.find_iter(content) {
+            for mat in TOKEN_RE.find_iter(content) {
                 let token = mat.as_str().to_string();
                 token_file_map
                     .entry(token.clone())

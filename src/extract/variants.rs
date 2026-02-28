@@ -1,4 +1,9 @@
+use std::sync::LazyLock;
+
 use regex_lite::Regex;
+
+static CAMEL_SPLIT_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[A-Z][a-z]*|[a-z]+|[0-9]+").unwrap());
 
 /// A case variant of a variable value, with its literal text and Tera expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -26,8 +31,7 @@ pub fn split_into_words(value: &str) -> Vec<String> {
     }
 
     // camelCase / PascalCase splitting
-    let re = Regex::new(r"[A-Z][a-z]*|[a-z]+|[0-9]+").unwrap();
-    let words: Vec<String> = re
+    let words: Vec<String> = CAMEL_SPLIT_RE
         .find_iter(value)
         .map(|m| m.as_str().to_lowercase())
         .collect();
