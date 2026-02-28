@@ -55,15 +55,6 @@ pub struct AutoDetectResult {
     pub candidates: Vec<DetectedCandidate>,
 }
 
-struct TokenCluster {
-    normalized: Vec<String>,
-    literals: Vec<String>,
-    total_occurrences: usize,
-    file_count: usize,
-    matches_dir_name: bool,
-    in_config_value: bool,
-}
-
 // ── Entry point ──────────────────────────────────────────────────────────
 
 /// Run all 4 auto-detection tiers against a scanned project.
@@ -83,25 +74,8 @@ pub fn auto_detect(project_dir: &Path, scan_result: &ScanResult) -> AutoDetectRe
     let covered_values: HashSet<String> =
         candidates.iter().map(|c| c.value.to_lowercase()).collect();
 
-    // Collect config values for frequency analysis boosting
-    let config_values: HashSet<String> = candidates
-        .iter()
-        .filter(|c| c.tier == ConfidenceTier::ConfigFile)
-        .map(|c| c.value.to_lowercase())
-        .collect();
-
-    let dir_name = project_dir
-        .file_name()
-        .map(|n| n.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
-
     // Tier 4: Frequency analysis
-    candidates.extend(detect_frequency(
-        scan_result,
-        &covered_values,
-        &config_values,
-        &dir_name,
-    ));
+    candidates.extend(detect_frequency(scan_result, &covered_values));
 
     // Deduplicate by normalized word list, keeping highest confidence
     deduplicate_candidates(&mut candidates);
@@ -203,6 +177,26 @@ fn detect_config_files(project_dir: &Path, scan_result: &ScanResult) -> Vec<Dete
     candidates
 }
 
+fn push_config_candidate(
+    candidates: &mut Vec<DetectedCandidate>,
+    value: &str,
+    suggested_name: &str,
+    confidence: f64,
+    reason: &str,
+    scan_result: &ScanResult,
+) {
+    let (file_count, total_occurrences) = count_occurrences(value, scan_result);
+    candidates.push(DetectedCandidate {
+        suggested_name: suggested_name.to_string(),
+        value: value.to_string(),
+        tier: ConfidenceTier::ConfigFile,
+        confidence,
+        reason: reason.to_string(),
+        file_count,
+        total_occurrences,
+    });
+}
+
 fn parse_cargo_toml(
     project_dir: &Path,
     scan_result: &ScanResult,
@@ -218,16 +212,14 @@ fn parse_cargo_toml(
         .and_then(|p| p.get("name"))
         .and_then(|n| n.as_str())
     {
-        let (file_count, total_occurrences) = count_occurrences(name, scan_result);
-        candidates.push(DetectedCandidate {
-            suggested_name: "project_name".to_string(),
-            value: name.to_string(),
-            tier: ConfidenceTier::ConfigFile,
-            confidence: 0.90,
-            reason: "Cargo.toml [package].name".to_string(),
-            file_count,
-            total_occurrences,
-        });
+        push_config_candidate(
+            &mut candidates,
+            name,
+            "project_name",
+            0.90,
+            "Cargo.toml [package].name",
+            scan_result,
+        );
     }
 
     if let Some(version) = parsed
@@ -236,16 +228,14 @@ fn parse_cargo_toml(
         .and_then(|v| v.as_str())
     {
         if !version.is_empty() {
-            let (file_count, total_occurrences) = count_occurrences(version, scan_result);
-            candidates.push(DetectedCandidate {
-                suggested_name: "version".to_string(),
-                value: version.to_string(),
-                tier: ConfidenceTier::ConfigFile,
-                confidence: 0.85,
-                reason: "Cargo.toml [package].version".to_string(),
-                file_count,
-                total_occurrences,
-            });
+            push_config_candidate(
+                &mut candidates,
+                version,
+                "version",
+                0.85,
+                "Cargo.toml [package].version",
+                scan_result,
+            );
         }
     }
 
@@ -257,16 +247,14 @@ fn parse_cargo_toml(
         if let Some(first) = authors.first().and_then(|a| a.as_str()) {
             let author = strip_email(first);
             if !author.is_empty() {
-                let (file_count, total_occurrences) = count_occurrences(&author, scan_result);
-                candidates.push(DetectedCandidate {
-                    suggested_name: "author".to_string(),
-                    value: author.clone(),
-                    tier: ConfidenceTier::ConfigFile,
-                    confidence: 0.85,
-                    reason: "Cargo.toml [package].authors[0]".to_string(),
-                    file_count,
-                    total_occurrences,
-                });
+                push_config_candidate(
+                    &mut candidates,
+                    &author,
+                    "author",
+                    0.85,
+                    "Cargo.toml [package].authors[0]",
+                    scan_result,
+                );
             }
         }
     }
@@ -285,32 +273,27 @@ fn parse_package_json(
     let mut candidates = Vec::new();
 
     if let Some(name) = parsed.get("name").and_then(|n| n.as_str()) {
-        // Strip npm scope @org/
         let clean_name = strip_npm_scope(name);
-        let (file_count, total_occurrences) = count_occurrences(clean_name, scan_result);
-        candidates.push(DetectedCandidate {
-            suggested_name: "project_name".to_string(),
-            value: clean_name.to_string(),
-            tier: ConfidenceTier::ConfigFile,
-            confidence: 0.90,
-            reason: "package.json \"name\"".to_string(),
-            file_count,
-            total_occurrences,
-        });
+        push_config_candidate(
+            &mut candidates,
+            clean_name,
+            "project_name",
+            0.90,
+            "package.json \"name\"",
+            scan_result,
+        );
     }
 
     if let Some(version) = parsed.get("version").and_then(|v| v.as_str()) {
         if !version.is_empty() {
-            let (file_count, total_occurrences) = count_occurrences(version, scan_result);
-            candidates.push(DetectedCandidate {
-                suggested_name: "version".to_string(),
-                value: version.to_string(),
-                tier: ConfidenceTier::ConfigFile,
-                confidence: 0.85,
-                reason: "package.json \"version\"".to_string(),
-                file_count,
-                total_occurrences,
-            });
+            push_config_candidate(
+                &mut candidates,
+                version,
+                "version",
+                0.85,
+                "package.json \"version\"",
+                scan_result,
+            );
         }
     }
 
@@ -324,16 +307,14 @@ fn parse_package_json(
         };
         if let Some(author_name) = author_str {
             if !author_name.is_empty() {
-                let (file_count, total_occurrences) = count_occurrences(&author_name, scan_result);
-                candidates.push(DetectedCandidate {
-                    suggested_name: "author".to_string(),
-                    value: author_name,
-                    tier: ConfidenceTier::ConfigFile,
-                    confidence: 0.85,
-                    reason: "package.json \"author\"".to_string(),
-                    file_count,
-                    total_occurrences,
-                });
+                push_config_candidate(
+                    &mut candidates,
+                    &author_name,
+                    "author",
+                    0.85,
+                    "package.json \"author\"",
+                    scan_result,
+                );
             }
         }
     }
@@ -356,16 +337,14 @@ fn parse_pyproject_toml(
         .and_then(|p| p.get("name"))
         .and_then(|n| n.as_str())
     {
-        let (file_count, total_occurrences) = count_occurrences(name, scan_result);
-        candidates.push(DetectedCandidate {
-            suggested_name: "project_name".to_string(),
-            value: name.to_string(),
-            tier: ConfidenceTier::ConfigFile,
-            confidence: 0.90,
-            reason: "pyproject.toml [project].name".to_string(),
-            file_count,
-            total_occurrences,
-        });
+        push_config_candidate(
+            &mut candidates,
+            name,
+            "project_name",
+            0.90,
+            "pyproject.toml [project].name",
+            scan_result,
+        );
     }
 
     if let Some(version) = parsed
@@ -374,16 +353,14 @@ fn parse_pyproject_toml(
         .and_then(|v| v.as_str())
     {
         if !version.is_empty() {
-            let (file_count, total_occurrences) = count_occurrences(version, scan_result);
-            candidates.push(DetectedCandidate {
-                suggested_name: "version".to_string(),
-                value: version.to_string(),
-                tier: ConfidenceTier::ConfigFile,
-                confidence: 0.85,
-                reason: "pyproject.toml [project].version".to_string(),
-                file_count,
-                total_occurrences,
-            });
+            push_config_candidate(
+                &mut candidates,
+                version,
+                "version",
+                0.85,
+                "pyproject.toml [project].version",
+                scan_result,
+            );
         }
     }
 
@@ -400,16 +377,14 @@ fn parse_pyproject_toml(
                 .map(strip_email);
             if let Some(name) = author_name {
                 if !name.is_empty() {
-                    let (file_count, total_occurrences) = count_occurrences(&name, scan_result);
-                    candidates.push(DetectedCandidate {
-                        suggested_name: "author".to_string(),
-                        value: name,
-                        tier: ConfidenceTier::ConfigFile,
-                        confidence: 0.85,
-                        reason: "pyproject.toml [project].authors[0].name".to_string(),
-                        file_count,
-                        total_occurrences,
-                    });
+                    push_config_candidate(
+                        &mut candidates,
+                        &name,
+                        "author",
+                        0.85,
+                        "pyproject.toml [project].authors[0].name",
+                        scan_result,
+                    );
                 }
             }
         }
@@ -434,32 +409,29 @@ fn parse_go_mod(project_dir: &Path, scan_result: &ScanResult) -> Option<Vec<Dete
 
     let mut candidates = Vec::new();
 
-    let (file_count, total_occurrences) = count_occurrences(name, scan_result);
-    candidates.push(DetectedCandidate {
-        suggested_name: "project_name".to_string(),
-        value: name.to_string(),
-        tier: ConfidenceTier::ConfigFile,
-        confidence: 0.90,
-        reason: format!("go.mod module \"{}\"", module_path),
-        file_count,
-        total_occurrences,
-    });
+    push_config_candidate(
+        &mut candidates,
+        name,
+        "project_name",
+        0.90,
+        &format!("go.mod module \"{}\"", module_path),
+        scan_result,
+    );
 
     // Extract org name (second-to-last segment for github.com/org/repo patterns)
     if segments.len() >= 3 {
         let org = segments[segments.len() - 2];
         if !org.is_empty() && org != name {
-            let (org_file_count, org_total_occurrences) = count_occurrences(org, scan_result);
+            let (_, org_total_occurrences) = count_occurrences(org, scan_result);
             if org_total_occurrences > 0 {
-                candidates.push(DetectedCandidate {
-                    suggested_name: "org_name".to_string(),
-                    value: org.to_string(),
-                    tier: ConfidenceTier::ConfigFile,
-                    confidence: 0.85,
-                    reason: format!("go.mod module org \"{}\"", org),
-                    file_count: org_file_count,
-                    total_occurrences: org_total_occurrences,
-                });
+                push_config_candidate(
+                    &mut candidates,
+                    org,
+                    "org_name",
+                    0.85,
+                    &format!("go.mod module org \"{}\"", org),
+                    scan_result,
+                );
             }
         }
     }
@@ -559,8 +531,6 @@ fn parse_org_from_url(url: &str) -> Option<String> {
 fn detect_frequency(
     scan_result: &ScanResult,
     covered_values: &HashSet<String>,
-    config_values: &HashSet<String>,
-    dir_name: &str,
 ) -> Vec<DetectedCandidate> {
     // Tokenize all text file content
     let mut token_file_map: HashMap<String, HashSet<usize>> = HashMap::new();
@@ -579,64 +549,58 @@ fn detect_frequency(
         }
     }
 
-    // Build clusters by normalized word list
-    let mut clusters: HashMap<String, TokenCluster> = HashMap::new();
+    // Group tokens by normalized word list to find multi-variant clusters
+    struct Cluster {
+        literals: Vec<String>,
+        total_occurrences: usize,
+        files: HashSet<usize>,
+    }
+
+    let mut clusters: HashMap<String, Cluster> = HashMap::new();
 
     for (token, count) in &token_counts {
         let words = split_into_words(token);
-
-        // Filter noise
-        if words.iter().all(|w| w.len() < 3) {
-            continue;
-        }
-        if is_noise_token(token, &words) {
-            continue;
-        }
-
         let normalized_key = words.join(" ");
 
-        let file_count = token_file_map.get(token).map(|s| s.len()).unwrap_or(0);
-
-        // Skip single-occurrence-single-file tokens
-        if *count == 1 && file_count <= 1 {
+        // Token must be at least 4 chars
+        if token.len() < 4 {
             continue;
         }
 
-        let matches_dir =
-            normalized_key == split_into_words(dir_name).join(" ") && !dir_name.is_empty();
-        let in_config = config_values.contains(&token.to_lowercase());
-
-        let cluster = clusters
-            .entry(normalized_key.clone())
-            .or_insert_with(|| TokenCluster {
-                normalized: words.clone(),
-                literals: Vec::new(),
-                total_occurrences: 0,
-                file_count: 0,
-                matches_dir_name: false,
-                in_config_value: false,
-            });
+        let cluster = clusters.entry(normalized_key).or_insert_with(|| Cluster {
+            literals: Vec::new(),
+            total_occurrences: 0,
+            files: HashSet::new(),
+        });
 
         if !cluster.literals.contains(token) {
             cluster.literals.push(token.clone());
         }
         cluster.total_occurrences += count;
-        // Merge file sets for accurate file_count
-        let files_for_token = token_file_map.get(token).map(|s| s.len()).unwrap_or(0);
-        if files_for_token > cluster.file_count {
-            cluster.file_count = files_for_token;
+        if let Some(file_set) = token_file_map.get(token) {
+            cluster.files.extend(file_set);
         }
-        cluster.matches_dir_name = cluster.matches_dir_name || matches_dir;
-        cluster.in_config_value = cluster.in_config_value || in_config;
     }
 
-    // Merge near-misses using Levenshtein distance
-    merge_similar_clusters(&mut clusters);
-
-    // Score and convert to candidates
+    // Filter and convert to candidates
     let mut freq_candidates: Vec<DetectedCandidate> = Vec::new();
 
-    for (key, cluster) in &clusters {
+    for cluster in clusters.values() {
+        // Must have ≥2 distinct case variants (the key multi-variant heuristic)
+        if cluster.literals.len() < 2 {
+            continue;
+        }
+
+        // Must have ≥3 total occurrences
+        if cluster.total_occurrences < 3 {
+            continue;
+        }
+
+        // Must appear in ≥2 files
+        if cluster.files.len() < 2 {
+            continue;
+        }
+
         // Skip if already covered by higher tiers
         if cluster
             .literals
@@ -646,551 +610,41 @@ fn detect_frequency(
             continue;
         }
 
-        let score = score_cluster(cluster);
-
-        // Filter low-scoring candidates
-        if score < 0.30 {
-            continue;
-        }
-
         let best_literal = &cluster.literals[0];
-        let suggested_name = suggest_variable_name(&cluster.normalized, key);
+        let words = split_into_words(best_literal);
+        let suggested_name = if words.len() <= 3 {
+            words.join("_")
+        } else {
+            words[..3].join("_")
+        };
 
+        let file_count = cluster.files.len();
         freq_candidates.push(DetectedCandidate {
             suggested_name,
             value: best_literal.clone(),
             tier: ConfidenceTier::FrequencyAnalysis,
-            confidence: score,
+            confidence: 0.60,
             reason: format!(
                 "{} occurrences across {} files, {} variant(s)",
                 cluster.total_occurrences,
-                cluster.file_count,
+                file_count,
                 cluster.literals.len()
             ),
-            file_count: cluster.file_count,
+            file_count,
             total_occurrences: cluster.total_occurrences,
         });
     }
 
-    // Sort by confidence, take top 5
-    freq_candidates.sort_by(|a, b| b.confidence.total_cmp(&a.confidence));
+    // Sort by file_count * total_occurrences descending, take top 5
+    freq_candidates.sort_by(|a, b| {
+        let score_a = a.file_count * a.total_occurrences;
+        let score_b = b.file_count * b.total_occurrences;
+        score_b.cmp(&score_a)
+    });
     freq_candidates.truncate(5);
 
     freq_candidates
 }
-
-fn score_cluster(cluster: &TokenCluster) -> f64 {
-    // Occurrence count (log-scaled, 0.0..1.0)
-    let occ_score = (cluster.total_occurrences as f64).ln_1p() / 10.0_f64.ln_1p();
-    let occ_score = occ_score.min(1.0);
-
-    // File spread (log-scaled, 0.0..1.0)
-    let file_score = (cluster.file_count as f64).ln_1p() / 10.0_f64.ln_1p();
-    let file_score = file_score.min(1.0);
-
-    // Variant diversity
-    let variant_score = match cluster.literals.len() {
-        0 | 1 => 0.0,
-        2 => 0.5,
-        3 => 0.75,
-        _ => 1.0,
-    };
-
-    // Directory name match (binary)
-    let dir_score = if cluster.matches_dir_name { 1.0 } else { 0.0 };
-
-    // Config value match (binary)
-    let config_score = if cluster.in_config_value { 1.0 } else { 0.0 };
-
-    0.15 * occ_score
-        + 0.20 * file_score
-        + 0.35 * variant_score
-        + 0.20 * dir_score
-        + 0.10 * config_score
-}
-
-fn merge_similar_clusters(clusters: &mut HashMap<String, TokenCluster>) {
-    let keys: Vec<String> = clusters.keys().cloned().collect();
-    let mut merge_map: HashMap<String, String> = HashMap::new();
-
-    for i in 0..keys.len() {
-        for j in (i + 1)..keys.len() {
-            if merge_map.contains_key(&keys[j]) {
-                continue;
-            }
-            let dist = strsim::levenshtein(&keys[i], &keys[j]);
-            if dist <= 1 {
-                let size_i = clusters
-                    .get(&keys[i])
-                    .map(|c| c.total_occurrences)
-                    .unwrap_or(0);
-                let size_j = clusters
-                    .get(&keys[j])
-                    .map(|c| c.total_occurrences)
-                    .unwrap_or(0);
-                if size_i >= size_j {
-                    merge_map.insert(keys[j].clone(), keys[i].clone());
-                } else {
-                    merge_map.insert(keys[i].clone(), keys[j].clone());
-                }
-            }
-        }
-    }
-
-    // Resolve merge chains: if A→B and B→C, then A→C
-    // Use a visited set to guard against cycles.
-    let resolved: HashMap<String, String> = merge_map
-        .keys()
-        .map(|k| {
-            let mut target = merge_map[k].clone();
-            let mut seen = HashSet::new();
-            seen.insert(k.clone());
-            while let Some(next) = merge_map.get(&target) {
-                if !seen.insert(next.clone()) {
-                    break;
-                }
-                target = next.clone();
-            }
-            (k.clone(), target)
-        })
-        .collect();
-
-    for (from, to) in &resolved {
-        if let Some(removed) = clusters.remove(from) {
-            if let Some(target) = clusters.get_mut(to) {
-                for lit in removed.literals {
-                    if !target.literals.contains(&lit) {
-                        target.literals.push(lit);
-                    }
-                }
-                target.total_occurrences += removed.total_occurrences;
-                if removed.file_count > target.file_count {
-                    target.file_count = removed.file_count;
-                }
-                target.matches_dir_name = target.matches_dir_name || removed.matches_dir_name;
-                target.in_config_value = target.in_config_value || removed.in_config_value;
-            }
-        }
-    }
-}
-
-fn suggest_variable_name(words: &[String], _key: &str) -> String {
-    if words.len() <= 3 {
-        words.join("_")
-    } else {
-        // Truncate long names
-        words[..3].join("_")
-    }
-}
-
-// ── Noise filtering ──────────────────────────────────────────────────────
-
-fn is_noise_token(token: &str, words: &[String]) -> bool {
-    let lower = token.to_lowercase();
-
-    // Too short
-    if lower.len() < 3 {
-        return true;
-    }
-
-    // Language keywords
-    if LANGUAGE_KEYWORDS.contains(&lower.as_str()) {
-        return true;
-    }
-
-    // Common library names
-    if COMMON_LIBRARIES.contains(&lower.as_str()) {
-        return true;
-    }
-
-    // Stopwords (individual words)
-    if words.len() == 1 && STOPWORDS.contains(&lower.as_str()) {
-        return true;
-    }
-
-    // All words are stopwords, file-format words, or very short
-    if words.iter().all(|w| {
-        w.len() < 3 || STOPWORDS.contains(&w.as_str()) || FILE_FORMAT_WORDS.contains(&w.as_str())
-    }) {
-        return true;
-    }
-
-    false
-}
-
-const FILE_FORMAT_WORDS: &[&str] = &[
-    "toml", "json", "yaml", "yml", "xml", "csv", "html", "css", "md", "txt", "log", "cfg", "ini",
-    "env", "lock", "mod", "rs", "js", "ts", "py", "go", "rb", "java", "kt", "swift", "cpp", "hpp",
-    "vue", "jsx", "tsx",
-];
-
-const LANGUAGE_KEYWORDS: &[&str] = &[
-    // Rust
-    "async",
-    "await",
-    "break",
-    "const",
-    "continue",
-    "crate",
-    "dyn",
-    "else",
-    "enum",
-    "extern",
-    "false",
-    "fn",
-    "for",
-    "if",
-    "impl",
-    "in",
-    "let",
-    "loop",
-    "match",
-    "mod",
-    "move",
-    "mut",
-    "pub",
-    "ref",
-    "return",
-    "self",
-    "static",
-    "struct",
-    "super",
-    "trait",
-    "true",
-    "type",
-    "unsafe",
-    "use",
-    "where",
-    "while",
-    "yield",
-    // JS/TS
-    "abstract",
-    "arguments",
-    "boolean",
-    "byte",
-    "case",
-    "catch",
-    "char",
-    "class",
-    "debugger",
-    "default",
-    "delete",
-    "do",
-    "double",
-    "eval",
-    "export",
-    "extends",
-    "final",
-    "finally",
-    "float",
-    "function",
-    "goto",
-    "implements",
-    "import",
-    "instanceof",
-    "int",
-    "interface",
-    "long",
-    "native",
-    "new",
-    "null",
-    "package",
-    "private",
-    "protected",
-    "public",
-    "short",
-    "switch",
-    "synchronized",
-    "this",
-    "throw",
-    "throws",
-    "transient",
-    "try",
-    "typeof",
-    "undefined",
-    "var",
-    "void",
-    "volatile",
-    "with",
-    // Python
-    "and",
-    "as",
-    "assert",
-    "class",
-    "def",
-    "del",
-    "elif",
-    "except",
-    "exec",
-    "from",
-    "global",
-    "is",
-    "lambda",
-    "nonlocal",
-    "not",
-    "or",
-    "pass",
-    "print",
-    "raise",
-    "with",
-    "yield",
-    // Go
-    "chan",
-    "defer",
-    "fallthrough",
-    "go",
-    "goroutine",
-    "interface",
-    "map",
-    "range",
-    "select",
-    "func",
-];
-
-const COMMON_LIBRARIES: &[&str] = &[
-    "react",
-    "redux",
-    "webpack",
-    "babel",
-    "eslint",
-    "prettier",
-    "jest",
-    "mocha",
-    "chai",
-    "express",
-    "fastify",
-    "next",
-    "nuxt",
-    "vue",
-    "angular",
-    "svelte",
-    "serde",
-    "tokio",
-    "actix",
-    "axum",
-    "clap",
-    "anyhow",
-    "thiserror",
-    "tracing",
-    "reqwest",
-    "hyper",
-    "warp",
-    "rocket",
-    "diesel",
-    "sqlx",
-    "django",
-    "flask",
-    "fastapi",
-    "pytest",
-    "numpy",
-    "pandas",
-    "scipy",
-    "spring",
-    "hibernate",
-    "junit",
-    "maven",
-    "gradle",
-    "gin",
-    "echo",
-    "fiber",
-    "gorm",
-    "lodash",
-    "axios",
-    "moment",
-    "dayjs",
-    "ramda",
-    "underscore",
-    "tailwind",
-    "bootstrap",
-    "material",
-    "typescript",
-    "javascript",
-    "python",
-    "golang",
-    "rustlang",
-];
-
-const STOPWORDS: &[&str] = &[
-    // English stopwords
-    "the",
-    "and",
-    "for",
-    "are",
-    "but",
-    "not",
-    "you",
-    "all",
-    "can",
-    "had",
-    "her",
-    "was",
-    "one",
-    "our",
-    "out",
-    "get",
-    "set",
-    "has",
-    "his",
-    "how",
-    "its",
-    "let",
-    "may",
-    "new",
-    "now",
-    "old",
-    "see",
-    "way",
-    "who",
-    "did",
-    "got",
-    "has",
-    "him",
-    "into",
-    "just",
-    "like",
-    "make",
-    "many",
-    "some",
-    "than",
-    "them",
-    "then",
-    "very",
-    "when",
-    "with",
-    "have",
-    "from",
-    "been",
-    "also",
-    "each",
-    "that",
-    "this",
-    "will",
-    "your",
-    "what",
-    "which",
-    "their",
-    "about",
-    "would",
-    "there",
-    "could",
-    "other",
-    "after",
-    "first",
-    "these",
-    "those",
-    "being",
-    "where",
-    "should",
-    "because",
-    // Short generic words common in code identifiers
-    "my",
-    "no",
-    "is",
-    "on",
-    "in",
-    "to",
-    "by",
-    "do",
-    "up",
-    "so",
-    "or",
-    "app",
-    "run",
-    "dry",
-    "log",
-    "cmd",
-    "arg",
-    "env",
-    "dir",
-    "key",
-    "map",
-    "max",
-    "min",
-    "raw",
-    "ref",
-    "src",
-    "str",
-    "tmp",
-    "url",
-    "var",
-    "buf",
-    "msg",
-    "req",
-    "res",
-    "err",
-    "pkg",
-    "lib",
-    "bin",
-    "fmt",
-    "ctx",
-    "cfg",
-    "opt",
-    "val",
-    "idx",
-    "len",
-    "ptr",
-    "num",
-    "std",
-    "gen",
-    "pre",
-    "sub",
-    // Programming type/concept words
-    "string",
-    "number",
-    "bool",
-    "boolean",
-    "array",
-    "object",
-    "value",
-    "result",
-    "error",
-    "option",
-    "none",
-    "some",
-    "true",
-    "false",
-    "null",
-    "undefined",
-    "file",
-    "path",
-    "name",
-    "type",
-    "data",
-    "info",
-    "list",
-    "item",
-    "node",
-    "index",
-    "count",
-    "size",
-    "length",
-    "config",
-    "settings",
-    "options",
-    "input",
-    "output",
-    "source",
-    "target",
-    "test",
-    "main",
-    "init",
-    "setup",
-    "todo",
-    "fixme",
-    "hack",
-    "note",
-    "warning",
-    "debug",
-    "trace",
-    "level",
-    "mode",
-    "flag",
-    "status",
-    "state",
-    "cache",
-    "hook",
-    "hooks",
-];
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -1527,11 +981,10 @@ mod tests {
         ]);
 
         let covered = HashSet::new();
-        let config_vals = HashSet::new();
-        let candidates = detect_frequency(&scan, &covered, &config_vals, "");
+        let candidates = detect_frequency(&scan, &covered);
 
         assert!(!candidates.is_empty());
-        // Should find "data-pipeline" cluster
+        // Should find "data-pipeline" cluster (multi-variant)
         let found = candidates.iter().any(|c| {
             let words = split_into_words(&c.value);
             words == vec!["data", "pipeline"]
@@ -1544,35 +997,11 @@ mod tests {
     }
 
     #[test]
-    fn test_frequency_filters_keywords() {
-        let scan = make_scan_result(vec![
-            ("a.rs", "fn async_handler() {}"),
-            ("b.rs", "fn async_handler() {}"),
-            ("c.rs", "fn async_handler() {}"),
-        ]);
-
-        let covered = HashSet::new();
-        let config_vals = HashSet::new();
-        let candidates = detect_frequency(&scan, &covered, &config_vals, "");
-
-        // "async" alone should be filtered
-        for c in &candidates {
-            let lower = c.value.to_lowercase();
-            assert!(
-                !LANGUAGE_KEYWORDS.contains(&lower.as_str())
-                    || c.value.contains('-')
-                    || c.value.contains('_')
-            );
-        }
-    }
-
-    #[test]
     fn test_frequency_filters_short_tokens() {
         let scan = make_scan_result(vec![("a.txt", "ab cd ef gh"), ("b.txt", "ab cd ef gh")]);
 
         let covered = HashSet::new();
-        let config_vals = HashSet::new();
-        let candidates = detect_frequency(&scan, &covered, &config_vals, "");
+        let candidates = detect_frequency(&scan, &covered);
 
         assert!(candidates.is_empty(), "short tokens should be filtered");
     }
@@ -1587,8 +1016,7 @@ mod tests {
 
         let mut covered = HashSet::new();
         covered.insert("my-widget".to_string());
-        let config_vals = HashSet::new();
-        let candidates = detect_frequency(&scan, &covered, &config_vals, "");
+        let candidates = detect_frequency(&scan, &covered);
 
         let has_widget = candidates
             .iter()
@@ -1597,83 +1025,22 @@ mod tests {
     }
 
     #[test]
-    fn test_score_cluster_multi_variant_boost() {
-        let single_variant = TokenCluster {
-            normalized: vec!["my".into(), "app".into()],
-            literals: vec!["my-app".into()],
-            total_occurrences: 10,
-            file_count: 5,
-            matches_dir_name: false,
-            in_config_value: false,
-        };
+    fn test_frequency_requires_multi_variant() {
+        // Single variant only — should NOT be detected even with many occurrences
+        let scan = make_scan_result(vec![
+            ("a.txt", "async_handler async_handler async_handler"),
+            ("b.txt", "async_handler async_handler"),
+            ("c.txt", "async_handler"),
+        ]);
 
-        let multi_variant = TokenCluster {
-            normalized: vec!["my".into(), "app".into()],
-            literals: vec!["my-app".into(), "my_app".into(), "MyApp".into()],
-            total_occurrences: 10,
-            file_count: 5,
-            matches_dir_name: false,
-            in_config_value: false,
-        };
+        let covered = HashSet::new();
+        let candidates = detect_frequency(&scan, &covered);
 
-        assert!(score_cluster(&multi_variant) > score_cluster(&single_variant));
-    }
-
-    #[test]
-    fn test_score_cluster_dir_name_boost() {
-        let no_dir = TokenCluster {
-            normalized: vec!["my".into(), "app".into()],
-            literals: vec!["my-app".into()],
-            total_occurrences: 5,
-            file_count: 3,
-            matches_dir_name: false,
-            in_config_value: false,
-        };
-
-        let with_dir = TokenCluster {
-            normalized: vec!["my".into(), "app".into()],
-            literals: vec!["my-app".into()],
-            total_occurrences: 5,
-            file_count: 3,
-            matches_dir_name: true,
-            in_config_value: false,
-        };
-
-        assert!(score_cluster(&with_dir) > score_cluster(&no_dir));
-    }
-
-    #[test]
-    fn test_levenshtein_merging() {
-        let mut clusters = HashMap::new();
-        clusters.insert(
-            "data pipeline".to_string(),
-            TokenCluster {
-                normalized: vec!["data".into(), "pipeline".into()],
-                literals: vec!["data-pipeline".into()],
-                total_occurrences: 10,
-                file_count: 5,
-                matches_dir_name: false,
-                in_config_value: false,
-            },
+        assert!(
+            candidates.is_empty(),
+            "single-variant tokens should be filtered, got: {:?}",
+            candidates
         );
-        clusters.insert(
-            "data pipelin".to_string(), // typo / near miss
-            TokenCluster {
-                normalized: vec!["data".into(), "pipelin".into()],
-                literals: vec!["data-pipelin".into()],
-                total_occurrences: 2,
-                file_count: 1,
-                matches_dir_name: false,
-                in_config_value: false,
-            },
-        );
-
-        merge_similar_clusters(&mut clusters);
-
-        // Should merge into one cluster
-        assert_eq!(clusters.len(), 1);
-        let remaining = clusters.values().next().unwrap();
-        assert_eq!(remaining.total_occurrences, 12);
     }
 
     // ── Helper tests ─────────────────────────────────────────────────
@@ -1734,21 +1101,6 @@ mod tests {
             candidates.len(),
             2,
             "name collisions should be preserved for interactive resolution"
-        );
-    }
-
-    #[test]
-    fn test_suggest_variable_name() {
-        assert_eq!(
-            suggest_variable_name(&["my".into(), "app".into()], "my app"),
-            "my_app"
-        );
-        assert_eq!(
-            suggest_variable_name(
-                &["very".into(), "long".into(), "name".into(), "here".into()],
-                "very long name here"
-            ),
-            "very_long_name"
         );
     }
 
