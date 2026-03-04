@@ -24,19 +24,8 @@ fn main() -> miette::Result<()> {
             vars,
             output,
             in_place,
-            yes,
-            min_confidence,
             stub_depth,
             dry_run,
-        } => commands::extract::run(
-            source,
-            vars,
-            output,
-            in_place,
-            yes,
-            min_confidence,
-            stub_depth,
-            dry_run,
-        ),
+        } => commands::extract::run(source, vars, output, in_place, stub_depth, dry_run),
     }
 }

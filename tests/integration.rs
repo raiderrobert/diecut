@@ -654,14 +654,11 @@ fn test_extract_batch_basic() {
         ],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        yes: true,
-        min_confidence: 0.5,
         stub_depth: 2,
-        dry_run: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
-    execute_extraction(&plan, false).unwrap();
+    execute_extraction(&plan).unwrap();
 
     // Verify diecut.toml was created
     assert!(output_path.join("diecut.toml").exists());
@@ -699,10 +696,7 @@ fn test_extract_detects_case_variants() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        yes: true,
-        min_confidence: 0.5,
         stub_depth: 2,
-        dry_run: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -731,7 +725,7 @@ fn test_extract_detects_case_variants() {
         "should detect screaming_snake variant"
     );
 
-    execute_extraction(&plan, false).unwrap();
+    execute_extraction(&plan).unwrap();
 
     // The config should have computed variables for variants
     let config = std::fs::read_to_string(output_path.join("diecut.toml")).unwrap();
@@ -754,10 +748,7 @@ fn test_extract_dry_run_writes_nothing() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        yes: true,
-        min_confidence: 0.5,
         stub_depth: 2,
-        dry_run: true,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -784,10 +775,7 @@ fn test_extract_rejects_already_template() {
         variables: vec![("name".to_string(), "val".to_string())],
         output_dir: None,
         in_place: false,
-        yes: true,
-        min_confidence: 0.5,
         stub_depth: 2,
-        dry_run: false,
     };
 
     let result = plan_extraction(&options);
@@ -799,17 +787,13 @@ fn test_extract_rejects_no_variables() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(project.path().join("hello.txt"), "hello").unwrap();
 
-    // With min_confidence=1.0, no auto-detected candidates can pass, and no explicit
-    // vars are given, so extraction should fail with ExtractNoVariables
+    // No --var provided → should fail with ExtractNoVariables
     let options = ExtractOptions {
         source_dir: project.path().to_path_buf(),
         variables: vec![],
         output_dir: None,
         in_place: false,
-        yes: true,
-        min_confidence: 1.0,
         stub_depth: 2,
-        dry_run: false,
     };
 
     let result = plan_extraction(&options);
@@ -830,10 +814,7 @@ fn test_extract_templates_path_components() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        yes: true,
-        min_confidence: 0.5,
         stub_depth: 2,
-        dry_run: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -849,7 +830,7 @@ fn test_extract_templates_path_components() {
         "should template path components containing the variable value"
     );
 
-    execute_extraction(&plan, false).unwrap();
+    execute_extraction(&plan).unwrap();
 }
 
 #[test]
@@ -894,14 +875,11 @@ fn test_extract_round_trip() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(extracted_path.clone()),
         in_place: false,
-        yes: true,
-        min_confidence: 0.5,
         stub_depth: 2,
-        dry_run: false,
     };
 
     let plan = plan_extraction(&options).unwrap();
-    execute_extraction(&plan, false).unwrap();
+    execute_extraction(&plan).unwrap();
 
     // Verify the extracted template has the key structure
     assert!(extracted_path.join("diecut.toml").exists());
@@ -930,178 +908,4 @@ fn test_extract_round_trip() {
             );
         }
     }
-}
-
-// ── Auto-detect tests ────────────────────────────────────────────────────
-
-#[test]
-fn test_extract_auto_yes() {
-    let project = tempfile::tempdir().unwrap();
-    let project_dir = project.path().join("data-pipeline");
-    std::fs::create_dir(&project_dir).unwrap();
-    std::fs::write(
-        project_dir.join("Cargo.toml"),
-        "[package]\nname = \"data-pipeline\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    std::fs::write(
-        project_dir.join("README.md"),
-        "# data-pipeline\nWelcome to data-pipeline\n",
-    )
-    .unwrap();
-    std::fs::create_dir(project_dir.join("src")).unwrap();
-    std::fs::write(
-        project_dir.join("src/main.rs"),
-        "fn main() {\n    println!(\"data-pipeline starting\");\n}\n",
-    )
-    .unwrap();
-
-    let output = tempfile::tempdir().unwrap();
-    let output_path = output.path().join("auto-extracted");
-
-    let options = ExtractOptions {
-        source_dir: project_dir.clone(),
-        variables: vec![],
-        output_dir: Some(output_path.clone()),
-        in_place: false,
-        yes: true,
-        min_confidence: 0.5,
-        stub_depth: 2,
-        dry_run: false,
-    };
-
-    let plan = plan_extraction(&options).unwrap();
-    execute_extraction(&plan, false).unwrap();
-
-    let project_var = plan.variables.iter().find(|v| v.name == "project_name");
-    assert!(
-        project_var.is_some(),
-        "should auto-detect project_name, got vars: {:?}",
-        plan.variables.iter().map(|v| &v.name).collect::<Vec<_>>()
-    );
-    assert_eq!(project_var.unwrap().value, "data-pipeline");
-
-    assert!(output_path.join("diecut.toml").exists());
-    let config = std::fs::read_to_string(output_path.join("diecut.toml")).unwrap();
-    assert!(config.contains("project_name"));
-}
-
-#[test]
-fn test_extract_auto_explicit_vars_merged() {
-    let project = tempfile::tempdir().unwrap();
-    let project_dir = project.path().join("my-service");
-    std::fs::create_dir(&project_dir).unwrap();
-    std::fs::write(
-        project_dir.join("Cargo.toml"),
-        "[package]\nname = \"my-service\"\n",
-    )
-    .unwrap();
-    std::fs::write(project_dir.join("README.md"), "# my-service\n").unwrap();
-
-    let output = tempfile::tempdir().unwrap();
-    let output_path = output.path().join("explicit-extracted");
-
-    let options = ExtractOptions {
-        source_dir: project_dir.clone(),
-        variables: vec![("app_name".to_string(), "my-service".to_string())],
-        output_dir: Some(output_path.clone()),
-        in_place: false,
-        yes: true,
-        min_confidence: 0.5,
-        stub_depth: 2,
-        dry_run: false,
-    };
-
-    let plan = plan_extraction(&options).unwrap();
-
-    let has_app_name = plan.variables.iter().any(|v| v.name == "app_name");
-    assert!(has_app_name, "should use explicit var app_name");
-    // Auto-detect still runs and merges additional candidates
-    // (project_name may or may not appear depending on dedup with app_name's value)
-}
-
-#[test]
-fn test_extract_auto_frequency_fallback() {
-    let project = tempfile::tempdir().unwrap();
-    let project_dir = project.path().join("cool-widget");
-    std::fs::create_dir(&project_dir).unwrap();
-    std::fs::write(
-        project_dir.join("main.txt"),
-        "cool-widget is great\ncool_widget module\nCoolWidget class\n",
-    )
-    .unwrap();
-    std::fs::write(
-        project_dir.join("config.txt"),
-        "name = cool-widget\nmodule = cool_widget\n",
-    )
-    .unwrap();
-    std::fs::write(
-        project_dir.join("test.txt"),
-        "testing cool-widget\nCOOL_WIDGET env\n",
-    )
-    .unwrap();
-
-    let output = tempfile::tempdir().unwrap();
-    let output_path = output.path().join("freq-extracted");
-
-    let options = ExtractOptions {
-        source_dir: project_dir.clone(),
-        variables: vec![],
-        output_dir: Some(output_path.clone()),
-        in_place: false,
-        yes: true,
-        min_confidence: 0.5,
-        stub_depth: 2,
-        dry_run: false,
-    };
-
-    let plan = plan_extraction(&options).unwrap();
-
-    let has_relevant_var = plan
-        .variables
-        .iter()
-        .any(|v| v.value.contains("cool") || v.name.contains("cool"));
-    assert!(
-        has_relevant_var,
-        "should detect cool-widget related variable, got: {:?}",
-        plan.variables
-            .iter()
-            .map(|v| format!("{}={}", v.name, v.value))
-            .collect::<Vec<_>>()
-    );
-}
-
-#[test]
-fn test_extract_min_confidence_filters() {
-    let project = tempfile::tempdir().unwrap();
-    let project_dir = project.path().join("tiny-app");
-    std::fs::create_dir(&project_dir).unwrap();
-    std::fs::write(
-        project_dir.join("Cargo.toml"),
-        "[package]\nname = \"tiny-app\"\nversion = \"0.1.0\"\n",
-    )
-    .unwrap();
-    std::fs::write(
-        project_dir.join("README.md"),
-        "# tiny-app\nWelcome to tiny-app\n",
-    )
-    .unwrap();
-
-    // With a very high threshold, all auto-detected candidates should be filtered out
-    let options = ExtractOptions {
-        source_dir: project_dir.clone(),
-        variables: vec![],
-        output_dir: None,
-        in_place: false,
-        yes: true,
-        min_confidence: 0.99,
-        stub_depth: 2,
-        dry_run: true,
-    };
-
-    let result = plan_extraction(&options);
-    assert!(
-        result.is_err(),
-        "high min_confidence should filter out all candidates"
-    );
 }

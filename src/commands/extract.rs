@@ -6,14 +6,11 @@ use diecut::error::DicecutError;
 use diecut::extract::{execute_extraction, plan_extraction, ExtractOptions};
 use miette::Result;
 
-#[allow(clippy::too_many_arguments)]
 pub fn run(
     source: String,
     vars: Vec<String>,
     output: Option<String>,
     in_place: bool,
-    yes: bool,
-    min_confidence: f64,
     stub_depth: usize,
     dry_run: bool,
 ) -> Result<()> {
@@ -24,10 +21,7 @@ pub fn run(
         variables,
         output_dir: output.map(PathBuf::from),
         in_place,
-        yes,
-        min_confidence,
         stub_depth,
-        dry_run,
     };
 
     let plan = plan_extraction(&options)?;
@@ -37,7 +31,7 @@ pub fn run(
         return Ok(());
     }
 
-    execute_extraction(&plan, in_place)?;
+    execute_extraction(&plan)?;
 
     Ok(())
 }

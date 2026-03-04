@@ -67,14 +67,6 @@ pub enum Commands {
         #[arg(long)]
         in_place: bool,
 
-        /// Accept all defaults without prompting
-        #[arg(short = 'y', long)]
-        yes: bool,
-
-        /// Minimum confidence threshold for auto-detected variables (0.0-1.0)
-        #[arg(long, default_value = "0.5")]
-        min_confidence: f64,
-
         /// Max path depth for stubbing content files (deeper files are dropped)
         #[arg(long, default_value = "2")]
         stub_depth: usize,

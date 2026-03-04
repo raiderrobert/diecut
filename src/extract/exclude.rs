@@ -3,15 +3,12 @@ use std::path::Path;
 /// Default directories and files to exclude from template extraction.
 const DEFAULT_EXCLUDES: &[&str] = &[
     ".git",
-    ".git/",
     ".hg",
     ".svn",
     "node_modules",
-    "node_modules/",
     ".DS_Store",
     "Thumbs.db",
     "__pycache__",
-    "__pycache__/",
     "*.pyc",
     ".tox",
     ".nox",
@@ -19,7 +16,6 @@ const DEFAULT_EXCLUDES: &[&str] = &[
     ".ruff_cache",
     ".pytest_cache",
     "target",
-    "target/",
     ".venv",
     ".env",
     "dist",
@@ -89,10 +85,7 @@ pub fn relevant_config_excludes(template_files: &[std::path::PathBuf]) -> Vec<St
 }
 
 /// Detect which copy-without-render patterns are relevant based on files present.
-pub fn detect_copy_without_render(
-    _project_dir: &Path,
-    files: &[std::path::PathBuf],
-) -> Vec<String> {
+pub fn detect_copy_without_render(files: &[std::path::PathBuf]) -> Vec<String> {
     let mut found = Vec::new();
 
     for pattern in DEFAULT_COPY_WITHOUT_RENDER {
@@ -297,7 +290,7 @@ mod tests {
             PathBuf::from("font.woff2"),
             PathBuf::from("README.md"),
         ];
-        let found = detect_copy_without_render(Path::new("."), &files);
+        let found = detect_copy_without_render(&files);
         assert!(found.contains(&"*.png".to_string()));
         assert!(found.contains(&"*.woff2".to_string()));
         assert!(!found.contains(&"*.jpg".to_string()));

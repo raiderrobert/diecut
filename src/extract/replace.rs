@@ -133,17 +133,16 @@ pub fn apply_path_replacements(path: &Path, rules: &[ReplacementRule]) -> PathBu
     components.iter().collect()
 }
 
-/// Count occurrences of a literal in a string.
-pub fn count_occurrences(content: &str, literal: &str) -> usize {
-    if literal.is_empty() {
-        return 0;
-    }
-    content.matches(literal).count()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn count_occurrences(content: &str, literal: &str) -> usize {
+        if literal.is_empty() {
+            return 0;
+        }
+        content.matches(literal).count()
+    }
 
     fn make_rule(literal: &str, replacement: &str) -> ReplacementRule {
         ReplacementRule {

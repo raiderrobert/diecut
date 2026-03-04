@@ -1,8 +1,5 @@
-pub mod auto_detect;
-pub mod conditional;
 pub mod config_gen;
 pub mod exclude;
-pub mod interactive;
 pub mod replace;
 pub mod scan;
 pub mod stub;
@@ -16,24 +13,17 @@ use console::style;
 use crate::config::schema::DEFAULT_TEMPLATES_SUFFIX;
 use crate::error::{DicecutError, Result};
 
-use self::auto_detect::{auto_detect, count_occurrences};
-use self::conditional::{detect_conditional_files, patterns_for_variable};
 use self::config_gen::{
-    generate_config_toml, ComputedVariable, ConditionalEntry, ConfigGenOptions, PromptedVariable,
+    generate_config_toml, ComputedVariable, ConfigGenOptions, PromptedVariable,
 };
 use self::exclude::{
     all_default_excludes, detect_copy_without_render, is_copy_without_render,
     relevant_config_excludes,
 };
-use self::interactive::{
-    confirm_auto_detected_interactive, confirm_conditionals_interactive,
-    confirm_excludes_interactive, confirm_files_interactive, confirm_variants_interactive,
-    resolve_candidates_yes,
-};
 use self::replace::{
     apply_path_replacements, apply_replacements, build_replacement_rules, ReplacementRule,
 };
-use self::scan::scan_project;
+use self::scan::{count_occurrences, scan_project};
 use self::stub::{classify_file, generate_stub, FileRole};
 use self::variants::{
     computed_expression, detect_separator, generate_variants, is_canonical_variant, CaseVariant,
@@ -101,7 +91,6 @@ pub struct ExtractionPlan {
     pub files: Vec<PlannedExtractFile>,
     pub config_toml: String,
     pub variables: Vec<ExtractVariable>,
-    pub conditional_entries: Vec<ConditionalEntry>,
     pub exclude_patterns: Vec<String>,
     pub copy_without_render: Vec<String>,
     pub dropped_count: usize,
@@ -114,10 +103,7 @@ pub struct ExtractOptions {
     pub variables: Vec<(String, String)>,
     pub output_dir: Option<PathBuf>,
     pub in_place: bool,
-    pub yes: bool,
-    pub min_confidence: f64,
     pub stub_depth: usize,
-    pub dry_run: bool,
 }
 
 /// Plan an extraction: scan the project, detect variants, build replacement rules.
@@ -191,45 +177,11 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         }
     );
 
-    // Phase 2.5: Auto-detect variables (always runs), merge with explicit --var entries
-    let variables = {
-        let explicit_vars = options.variables.clone();
-        let detect_result = auto_detect(source_dir, &scan_result);
-
-        // Filter candidates below min_confidence threshold
-        let candidates: Vec<_> = detect_result
-            .candidates
-            .into_iter()
-            .filter(|c| c.confidence >= options.min_confidence)
-            .collect();
-
-        if candidates.is_empty() && explicit_vars.is_empty() {
-            return Err(DicecutError::ExtractNoVariables);
-        }
-
-        // Resolve auto-detected candidates (merge with explicit vars)
-        let auto_vars = if candidates.is_empty() {
-            vec![]
-        } else if options.yes {
-            resolve_candidates_yes(&candidates, &explicit_vars)
-        } else {
-            confirm_auto_detected_interactive(candidates, &explicit_vars)?
-        };
-
-        // Merge: explicit vars first (pre-accepted), then auto-detected additions
-        let mut merged = explicit_vars;
-        for (name, value) in auto_vars {
-            if !merged.iter().any(|(n, _)| n == &name) {
-                merged.push((name, value));
-            }
-        }
-
-        if merged.is_empty() {
-            return Err(DicecutError::ExtractNoVariables);
-        }
-
-        merged
-    };
+    // Validate that at least one --var was provided
+    let variables = options.variables.clone();
+    if variables.is_empty() {
+        return Err(DicecutError::ExtractNoVariables);
+    }
 
     // Phase 3: Generate variants and count occurrences
     let mut extract_variables = Vec::new();
@@ -251,43 +203,26 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         });
     }
 
-    // Phase 4: Interactive variant confirmation
-    let confirmed_variables = if options.yes {
-        // Batch mode: auto-accept all found variants
-        extract_variables
-            .into_iter()
-            .map(|mut var| {
-                var.variants.retain(|v| {
-                    var.occurrence_counts
-                        .iter()
-                        .any(|(name, _, hits)| name == v.name && *hits > 0)
-                        || v.name == "verbatim"
-                });
-                // Always keep at least the verbatim/canonical variant
-                if var.variants.is_empty() {
-                    let all = generate_variants(&var.name, &var.value);
-                    if let Some(first) = all.into_iter().next() {
-                        var.variants.push(first);
-                    }
+    // Phase 4: Auto-accept found variants (keep those with occurrences + verbatim)
+    let confirmed_variables: Vec<ExtractVariable> = extract_variables
+        .into_iter()
+        .map(|mut var| {
+            var.variants.retain(|v| {
+                var.occurrence_counts
+                    .iter()
+                    .any(|(name, _, hits)| name == v.name && *hits > 0)
+                    || v.name == "verbatim"
+            });
+            // Always keep at least the verbatim/canonical variant
+            if var.variants.is_empty() {
+                let all = generate_variants(&var.name, &var.value);
+                if let Some(first) = all.into_iter().next() {
+                    var.variants.push(first);
                 }
-                var
-            })
-            .collect()
-    } else {
-        confirm_variants_interactive(extract_variables)?
-    };
-
-    // Phase 6: Detect conditional files
-    let detected_conditionals = if options.yes {
-        vec![] // Batch mode: no conditional files
-    } else {
-        let detected = detect_conditional_files(source_dir);
-        if detected.is_empty() {
-            vec![]
-        } else {
-            confirm_conditionals_interactive(detected)?
-        }
-    };
+            }
+            var
+        })
+        .collect();
 
     // Phase 7: Build replacement rules
     let mut rules = Vec::new();
@@ -309,7 +244,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         .iter()
         .map(|f| f.relative_path.clone())
         .collect();
-    let copy_without_render = detect_copy_without_render(source_dir, &file_paths);
+    let copy_without_render = detect_copy_without_render(&file_paths);
 
     // Phase 9: Apply replacements to files
     let mut planned_files = Vec::new();
@@ -397,34 +332,9 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         .iter()
         .map(|f| f.template_path.clone())
         .collect();
-    let mut config_excludes = relevant_config_excludes(&template_paths);
+    let config_excludes = relevant_config_excludes(&template_paths);
 
-    if !options.yes {
-        config_excludes = confirm_excludes_interactive(config_excludes)?;
-    }
-
-    // Phase 10: Interactive file confirmation
-    if !options.yes {
-        confirm_files_interactive(&planned_files, dropped_count)?;
-    }
-
-    // Phase 11: Build conditional entries
-    let conditional_entries: Vec<ConditionalEntry> = detected_conditionals
-        .iter()
-        .map(|d| {
-            let patterns = patterns_for_variable(&d.variable)
-                .into_iter()
-                .map(|p| p.to_string())
-                .collect();
-            ConditionalEntry {
-                patterns,
-                variable: d.variable.clone(),
-                description: d.description.clone(),
-            }
-        })
-        .collect();
-
-    // Phase 12: Generate config
+    // Generate config
     let canonical_seps: HashMap<String, &str> = confirmed_variables
         .iter()
         .map(|v| (v.name.clone(), detect_separator(&v.value)))
@@ -473,7 +383,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         computed_variables: computed_vars,
         exclude_patterns: config_excludes.clone(),
         copy_without_render: copy_without_render.clone(),
-        conditional_entries: conditional_entries.clone(),
+        conditional_entries: vec![],
     });
 
     Ok(ExtractionPlan {
@@ -481,7 +391,6 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         files: planned_files,
         config_toml,
         variables: confirmed_variables,
-        conditional_entries,
         exclude_patterns: config_excludes,
         copy_without_render,
         dropped_count,
@@ -490,7 +399,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
 }
 
 /// Execute an extraction plan: write files and config to the output directory.
-pub fn execute_extraction(plan: &ExtractionPlan, _in_place: bool) -> Result<()> {
+pub fn execute_extraction(plan: &ExtractionPlan) -> Result<()> {
     let output_dir = &plan.output_dir;
     let template_dir = output_dir.join("template");
 
@@ -589,12 +498,6 @@ pub fn execute_extraction(plan: &ExtractionPlan, _in_place: bool) -> Result<()> 
         "  {} files templated, {} files copied, {} files stubbed, {} files dropped",
         rendered_count, copied_count, stubbed_count, plan.dropped_count
     );
-    if !plan.conditional_entries.is_empty() {
-        eprintln!(
-            "  {} conditional patterns added",
-            plan.conditional_entries.len()
-        );
-    }
     eprintln!("  Review diecut.toml to fine-tune");
 
     Ok(())

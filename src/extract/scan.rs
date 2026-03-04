@@ -98,6 +98,36 @@ pub fn scan_project(project_dir: &Path, excludes: &[String]) -> crate::error::Re
     })
 }
 
+/// Count how many files contain `value` and the total number of hits across all files.
+pub fn count_occurrences(value: &str, scan_result: &ScanResult) -> (usize, usize) {
+    let mut file_count = 0;
+    let mut total = 0;
+
+    for file in &scan_result.files {
+        let mut counted_file = false;
+
+        if let Some(ref content) = file.content {
+            let hits = content.matches(value).count();
+            if hits > 0 {
+                file_count += 1;
+                counted_file = true;
+                total += hits;
+            }
+        }
+
+        let path_str = file.relative_path.to_string_lossy();
+        let path_hits = path_str.matches(value).count();
+        if path_hits > 0 {
+            total += path_hits;
+            if !counted_file {
+                file_count += 1;
+            }
+        }
+    }
+
+    (file_count, total)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
