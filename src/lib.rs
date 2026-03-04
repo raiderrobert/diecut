@@ -2,6 +2,7 @@ pub mod adapter;
 pub mod answers;
 pub mod config;
 pub mod error;
+pub mod extract;
 pub mod hooks;
 pub mod prompt;
 pub mod render;

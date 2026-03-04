@@ -19,5 +19,24 @@ fn main() -> miette::Result<()> {
             template, output, data, defaults, overwrite, no_hooks, dry_run, verbose,
         ),
         Commands::List => commands::list::run(),
+        Commands::Extract {
+            source,
+            vars,
+            output,
+            in_place,
+            yes,
+            min_confidence,
+            stub_depth,
+            dry_run,
+        } => commands::extract::run(
+            source,
+            vars,
+            output,
+            in_place,
+            yes,
+            min_confidence,
+            stub_depth,
+            dry_run,
+        ),
     }
 }

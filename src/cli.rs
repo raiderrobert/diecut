@@ -49,4 +49,38 @@ pub enum Commands {
 
     /// List cached templates
     List,
+
+    /// Extract a template from an existing project
+    Extract {
+        /// Source project directory
+        source: String,
+
+        /// Variable values to templatize (can be repeated: --var key=value)
+        #[arg(long = "var", value_name = "KEY=VALUE")]
+        vars: Vec<String>,
+
+        /// Output directory for the extracted template
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Convert the source directory in-place
+        #[arg(long)]
+        in_place: bool,
+
+        /// Accept all defaults without prompting
+        #[arg(short = 'y', long)]
+        yes: bool,
+
+        /// Minimum confidence threshold for auto-detected variables (0.0-1.0)
+        #[arg(long, default_value = "0.5")]
+        min_confidence: f64,
+
+        /// Max path depth for stubbing content files (deeper files are dropped)
+        #[arg(long, default_value = "2")]
+        stub_depth: usize,
+
+        /// Show what would be extracted without writing files
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
