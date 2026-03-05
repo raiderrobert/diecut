@@ -1,0 +1,12 @@
+# Version control
+.git
+
+# Rust
+target
+Cargo.lock
+
+# macOS
+.DS_Store
+
+# Diecut
+.diecut-answers.toml

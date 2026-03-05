@@ -9,7 +9,7 @@ use console::style;
 use crate::config::schema::DEFAULT_TEMPLATES_SUFFIX;
 use crate::error::{DicecutError, Result};
 
-use self::exclude::all_default_excludes;
+use self::exclude::load_excludes;
 use self::replace::{
     apply_path_replacements, apply_replacements, build_replacement_rules, ReplacementRule,
 };
@@ -80,6 +80,7 @@ pub struct ExtractOptions {
     pub variables: Vec<(String, String)>,
     pub output_dir: Option<PathBuf>,
     pub in_place: bool,
+    pub exclude_file: Option<PathBuf>,
 }
 
 /// Plan an extraction: scan the project, build replacement rules, apply replacements.
@@ -122,7 +123,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
     }
 
     // Scan project
-    let scan_excludes = all_default_excludes();
+    let scan_excludes = load_excludes(options.exclude_file.as_deref());
     eprintln!(
         "\n{}",
         style(format!("Scanning {}...", source_dir.display())).bold()

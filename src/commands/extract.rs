@@ -11,6 +11,7 @@ pub fn run(
     vars: Vec<String>,
     output: Option<String>,
     in_place: bool,
+    exclude_from: Option<String>,
     dry_run: bool,
 ) -> Result<()> {
     let variables = parse_vars(&vars)?;
@@ -20,6 +21,7 @@ pub fn run(
         variables,
         output_dir: output.map(PathBuf::from),
         in_place,
+        exclude_file: exclude_from.map(PathBuf::from),
     };
 
     let plan = plan_extraction(&options)?;

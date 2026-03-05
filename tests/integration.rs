@@ -654,6 +654,7 @@ fn test_extract_batch_basic() {
         ],
         output_dir: Some(output_path.clone()),
         in_place: false,
+        exclude_file: None,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -691,6 +692,7 @@ fn test_extract_dry_run_writes_nothing() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
+        exclude_file: None,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -717,6 +719,7 @@ fn test_extract_rejects_already_template() {
         variables: vec![("name".to_string(), "val".to_string())],
         output_dir: None,
         in_place: false,
+        exclude_file: None,
     };
 
     let result = plan_extraction(&options);
@@ -734,6 +737,7 @@ fn test_extract_rejects_no_variables() {
         variables: vec![],
         output_dir: None,
         in_place: false,
+        exclude_file: None,
     };
 
     let result = plan_extraction(&options);
@@ -754,6 +758,7 @@ fn test_extract_templates_path_components() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
+        exclude_file: None,
     };
 
     let plan = plan_extraction(&options).unwrap();

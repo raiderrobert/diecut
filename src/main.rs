@@ -24,7 +24,8 @@ fn main() -> miette::Result<()> {
             vars,
             output,
             in_place,
+            exclude_from,
             dry_run,
-        } => commands::extract::run(source, vars, output, in_place, dry_run),
+        } => commands::extract::run(source, vars, output, in_place, exclude_from, dry_run),
     }
 }

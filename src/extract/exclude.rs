@@ -1,41 +1,20 @@
 use std::path::Path;
 
-/// Default directories and files to exclude from template extraction.
-const DEFAULT_EXCLUDES: &[&str] = &[
-    ".git",
-    ".hg",
-    ".svn",
-    "node_modules",
-    ".DS_Store",
-    "Thumbs.db",
-    "__pycache__",
-    "*.pyc",
-    ".tox",
-    ".nox",
-    ".mypy_cache",
-    ".ruff_cache",
-    ".pytest_cache",
-    "target",
-    ".venv",
-    ".env",
-    "dist",
-    "build",
-    ".next",
-    ".nuxt",
-    ".output",
-    ".turbo",
-    ".worktrees",
-    ".claude/worktrees",
-    ".astro",
-    ".diecut-answers.toml",
-];
+const DEFAULT_EXCLUDES: &str = include_str!("default_excludes.txt");
 
-/// Return all default exclude patterns for use during scanning.
-///
-/// All DEFAULT_EXCLUDES are always used during the scan phase because patterns
-/// like `node_modules` can appear at any depth (e.g. `docs/node_modules/`).
-pub fn all_default_excludes() -> Vec<String> {
-    DEFAULT_EXCLUDES.iter().map(|s| s.to_string()).collect()
+/// Load exclude patterns from a file, or use the built-in defaults.
+pub fn load_excludes(override_file: Option<&Path>) -> Vec<String> {
+    let text = match override_file {
+        Some(path) => {
+            std::fs::read_to_string(path).unwrap_or_else(|_| DEFAULT_EXCLUDES.to_string())
+        }
+        None => DEFAULT_EXCLUDES.to_string(),
+    };
+    text.lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| l.to_string())
+        .collect()
 }
 
 /// Check if a path should be excluded based on the exclude patterns.
@@ -45,19 +24,15 @@ pub fn should_exclude(relative_path: &Path, excludes: &[String]) -> bool {
     for pattern in excludes {
         let clean = pattern.trim_end_matches('/');
 
-        if clean.contains('*') {
-            // Glob-style matching: *.pyc matches any .pyc file
-            if let Some(ext) = clean.strip_prefix("*.") {
-                if let Some(file_ext) = relative_path.extension() {
-                    if file_ext.to_string_lossy().eq_ignore_ascii_case(ext) {
-                        return true;
-                    }
+        if let Some(ext) = clean.strip_prefix("*.") {
+            if let Some(file_ext) = relative_path.extension() {
+                if file_ext.to_string_lossy().eq_ignore_ascii_case(ext) {
+                    return true;
                 }
             }
             continue;
         }
 
-        // Exact directory/file match at any level
         for component in relative_path.components() {
             if let std::path::Component::Normal(os_str) = component {
                 if os_str.to_string_lossy() == clean {
@@ -66,7 +41,6 @@ pub fn should_exclude(relative_path: &Path, excludes: &[String]) -> bool {
             }
         }
 
-        // Full path match
         if path_str == clean || path_str.starts_with(&format!("{clean}/")) {
             return true;
         }
@@ -78,38 +52,31 @@ pub fn should_exclude(relative_path: &Path, excludes: &[String]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
 
     #[test]
-    fn test_should_exclude_git() {
-        let excludes = vec![".git/".to_string()];
-        assert!(should_exclude(Path::new(".git/config"), &excludes));
+    fn test_load_defaults() {
+        let excludes = load_excludes(None);
+        assert!(excludes.contains(&".git".to_string()));
+        assert!(excludes.contains(&"target".to_string()));
+        assert!(excludes.contains(&".DS_Store".to_string()));
+        assert!(!excludes.iter().any(|e| e.starts_with('#')));
+    }
+
+    #[test]
+    fn test_should_exclude_matches() {
+        let excludes = vec![".git".to_string(), "*.pyc".to_string()];
         assert!(should_exclude(Path::new(".git/HEAD"), &excludes));
-    }
-
-    #[test]
-    fn test_should_exclude_node_modules() {
-        let excludes = vec!["node_modules".to_string()];
-        assert!(should_exclude(
-            Path::new("node_modules/express/index.js"),
-            &excludes
-        ));
-    }
-
-    #[test]
-    fn test_should_exclude_glob() {
-        let excludes = vec!["*.pyc".to_string()];
-        assert!(should_exclude(
-            Path::new("module/__pycache__/foo.pyc"),
-            &excludes
-        ));
-        assert!(!should_exclude(Path::new("module/foo.py"), &excludes));
-    }
-
-    #[test]
-    fn test_should_not_exclude_normal_file() {
-        let excludes = vec![".git/".to_string(), "node_modules".to_string()];
+        assert!(should_exclude(Path::new("pkg/foo.pyc"), &excludes));
         assert!(!should_exclude(Path::new("src/main.rs"), &excludes));
-        assert!(!should_exclude(Path::new("README.md"), &excludes));
+    }
+
+    #[test]
+    fn test_override_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("excludes.txt");
+        std::fs::write(&file, "# custom\nvendor\n*.log\n").unwrap();
+
+        let excludes = load_excludes(Some(&file));
+        assert_eq!(excludes, vec!["vendor", "*.log"]);
     }
 }

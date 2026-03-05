@@ -67,6 +67,10 @@ pub enum Commands {
         #[arg(long)]
         in_place: bool,
 
+        /// File with exclude patterns (one per line, # comments)
+        #[arg(long, value_name = "FILE")]
+        exclude_from: Option<String>,
+
         /// Show what would be extracted without writing files
         #[arg(long)]
         dry_run: bool,
