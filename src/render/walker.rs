@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use tera::{Context, Value};
+use tera::{Context, Tera, Value};
 use walkdir::WalkDir;
 
 use crate::adapter::ResolvedTemplate;
@@ -104,7 +104,7 @@ pub fn plan_render(
                 source: e,
             })?;
 
-            let mut tera = crate::render::tera_with_filters();
+            let mut tera = Tera::default();
             let template_name = rel_str.to_string();
             let parse_result = tera.add_raw_template(&template_name, &content);
             let render_result = parse_result.and_then(|_| tera.render(&template_name, context));

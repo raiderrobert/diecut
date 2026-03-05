@@ -654,7 +654,6 @@ fn test_extract_batch_basic() {
         ],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        stub_depth: 2,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -680,62 +679,6 @@ fn test_extract_batch_basic() {
 }
 
 #[test]
-fn test_extract_detects_case_variants() {
-    let project = tempfile::tempdir().unwrap();
-    std::fs::write(
-        project.path().join("config.toml"),
-        "[package]\nname = \"my-app\"\nmodule = \"my_app\"\nclass = \"MyApp\"\nenv = \"MY_APP_PORT\"\n",
-    )
-    .unwrap();
-
-    let output = tempfile::tempdir().unwrap();
-    let output_path = output.path().join("extracted");
-
-    let options = ExtractOptions {
-        source_dir: project.path().to_path_buf(),
-        variables: vec![("project_name".to_string(), "my-app".to_string())],
-        output_dir: Some(output_path.clone()),
-        in_place: false,
-        stub_depth: 2,
-    };
-
-    let plan = plan_extraction(&options).unwrap();
-
-    // Should detect variants used in the file
-    let var = plan
-        .variables
-        .iter()
-        .find(|v| v.name == "project_name")
-        .unwrap();
-    let variant_names: Vec<&str> = var.variants.iter().map(|v| v.name).collect();
-    assert!(
-        variant_names.contains(&"kebab"),
-        "should detect kebab variant"
-    );
-    assert!(
-        variant_names.contains(&"snake"),
-        "should detect snake variant"
-    );
-    assert!(
-        variant_names.contains(&"pascal"),
-        "should detect pascal variant"
-    );
-    assert!(
-        variant_names.contains(&"screaming_snake"),
-        "should detect screaming_snake variant"
-    );
-
-    execute_extraction(&plan).unwrap();
-
-    // The config should have computed variables for variants
-    let config = std::fs::read_to_string(output_path.join("diecut.toml")).unwrap();
-    assert!(
-        config.contains("project_name_snake"),
-        "should have snake computed var"
-    );
-}
-
-#[test]
 fn test_extract_dry_run_writes_nothing() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(project.path().join("hello.txt"), "hello my-app").unwrap();
@@ -748,7 +691,6 @@ fn test_extract_dry_run_writes_nothing() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        stub_depth: 2,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -775,7 +717,6 @@ fn test_extract_rejects_already_template() {
         variables: vec![("name".to_string(), "val".to_string())],
         output_dir: None,
         in_place: false,
-        stub_depth: 2,
     };
 
     let result = plan_extraction(&options);
@@ -793,7 +734,6 @@ fn test_extract_rejects_no_variables() {
         variables: vec![],
         output_dir: None,
         in_place: false,
-        stub_depth: 2,
     };
 
     let result = plan_extraction(&options);
@@ -814,7 +754,6 @@ fn test_extract_templates_path_components() {
         variables: vec![("project_name".to_string(), "my-app".to_string())],
         output_dir: Some(output_path.clone()),
         in_place: false,
-        stub_depth: 2,
     };
 
     let plan = plan_extraction(&options).unwrap();
@@ -831,81 +770,4 @@ fn test_extract_templates_path_components() {
     );
 
     execute_extraction(&plan).unwrap();
-}
-
-#[test]
-fn test_extract_round_trip() {
-    // Step 1: Generate a project from an existing template
-    let template_dir = fixture_path("basic-template");
-    let resolved = adapter::resolve_template(&template_dir).unwrap();
-
-    let mut variables = BTreeMap::new();
-    variables.insert(
-        "project_name".to_string(),
-        tera::Value::String("my-app".to_string()),
-    );
-    variables.insert(
-        "author".to_string(),
-        tera::Value::String("Jane Doe".to_string()),
-    );
-    variables.insert("use_docker".to_string(), tera::Value::Bool(false));
-    variables.insert(
-        "license".to_string(),
-        tera::Value::String("MIT".to_string()),
-    );
-    variables.insert(
-        "project_slug".to_string(),
-        tera::Value::String("my-app".to_string()),
-    );
-
-    let context = build_context(&variables);
-    let generated = tempfile::tempdir().unwrap();
-    walk_and_render(&resolved, generated.path(), &variables, &context).unwrap();
-
-    // The generated project has files under generated/my-app/
-    let project_dir = generated.path().join("my-app");
-    assert!(project_dir.exists(), "generated project should exist");
-
-    // Step 2: Extract it back into a template
-    let extracted = tempfile::tempdir().unwrap();
-    let extracted_path = extracted.path().join("extracted-template");
-
-    let options = ExtractOptions {
-        source_dir: project_dir.clone(),
-        variables: vec![("project_name".to_string(), "my-app".to_string())],
-        output_dir: Some(extracted_path.clone()),
-        in_place: false,
-        stub_depth: 2,
-    };
-
-    let plan = plan_extraction(&options).unwrap();
-    execute_extraction(&plan).unwrap();
-
-    // Verify the extracted template has the key structure
-    assert!(extracted_path.join("diecut.toml").exists());
-    assert!(extracted_path.join("template").exists());
-
-    let config = std::fs::read_to_string(extracted_path.join("diecut.toml")).unwrap();
-    assert!(config.contains("project_name"));
-
-    // Verify template files exist and contain template syntax
-    let template_files: Vec<_> = walkdir::WalkDir::new(extracted_path.join("template"))
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .collect();
-    assert!(!template_files.is_empty(), "should have template files");
-
-    // Files with .die suffix should contain template expressions
-    for entry in &template_files {
-        if entry.path().to_string_lossy().ends_with(".die") {
-            let content = std::fs::read_to_string(entry.path()).unwrap();
-            assert!(
-                content.contains("{{") || content.contains("{%"),
-                "file {} should contain template syntax, got: {}",
-                entry.path().display(),
-                content
-            );
-        }
-    }
 }

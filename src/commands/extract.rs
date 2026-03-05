@@ -11,7 +11,6 @@ pub fn run(
     vars: Vec<String>,
     output: Option<String>,
     in_place: bool,
-    stub_depth: usize,
     dry_run: bool,
 ) -> Result<()> {
     let variables = parse_vars(&vars)?;
@@ -21,7 +20,6 @@ pub fn run(
         variables,
         output_dir: output.map(PathBuf::from),
         in_place,
-        stub_depth,
     };
 
     let plan = plan_extraction(&options)?;
@@ -61,12 +59,11 @@ fn print_dry_run(plan: &diecut::extract::ExtractionPlan) {
     );
 
     let templated: Vec<_> = plan.files.iter().filter(|f| f.has_replacements()).collect();
-    let boilerplate: Vec<_> = plan
+    let copied: Vec<_> = plan
         .files
         .iter()
-        .filter(|f| !f.has_replacements() && !f.stubbed)
+        .filter(|f| !f.has_replacements())
         .collect();
-    let stubbed: Vec<_> = plan.files.iter().filter(|f| f.stubbed).collect();
 
     eprintln!("\nTemplated files ({}):", templated.len());
     for file in &templated {
@@ -77,33 +74,14 @@ fn print_dry_run(plan: &diecut::extract::ExtractionPlan) {
         );
     }
 
-    eprintln!("\nBoilerplate ({}):", boilerplate.len());
-    for file in &boilerplate {
+    eprintln!("\nCopied ({}):", copied.len());
+    for file in &copied {
         eprintln!("  {}", file.template_path.display());
-    }
-
-    if !stubbed.is_empty() {
-        eprintln!("\nStubbed ({}):", stubbed.len());
-        for file in &stubbed {
-            eprintln!("  {}", file.template_path.display());
-        }
-    }
-
-    if plan.dropped_count > 0 {
-        eprintln!("\nDropped ({}):", plan.dropped_count);
-        for path in &plan.dropped_paths {
-            eprintln!("  {}", path.display());
-        }
     }
 
     eprintln!("\nVariables:");
     for var in &plan.variables {
         eprintln!("  {} = {:?}", var.name, var.value);
-        for variant in &var.variants {
-            if variant.name != "verbatim" {
-                eprintln!("    {} → {}", variant.name, variant.literal);
-            }
-        }
     }
 
     eprintln!("\nGenerated diecut.toml:");

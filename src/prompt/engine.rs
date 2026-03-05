@@ -96,7 +96,7 @@ fn evaluate_computed(
     computed_expr: &str,
     values: &BTreeMap<String, Value>,
 ) -> Result<Value> {
-    let mut tera = crate::render::tera_with_filters();
+    let mut tera = tera::Tera::default();
     tera.add_raw_template("__computed__", computed_expr)
         .map_err(|e| DicecutError::ComputedEvaluation {
             name: name.to_string(),

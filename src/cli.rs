@@ -67,10 +67,6 @@ pub enum Commands {
         #[arg(long)]
         in_place: bool,
 
-        /// Max path depth for stubbing content files (deeper files are dropped)
-        #[arg(long, default_value = "2")]
-        stub_depth: usize,
-
         /// Show what would be extracted without writing files
         #[arg(long)]
         dry_run: bool,
