@@ -4,7 +4,7 @@
 name = "diecut"
 version = "0.3.4"
 edition = "2021"
-license = "MIT"
+license = "LicenseRef-PolyForm-Shield-1.0.0"
 rust-version = "1.75"
 description = "A single binary project template generator"
 
