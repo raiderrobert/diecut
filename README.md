@@ -60,4 +60,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and workflow.
 
 ## License
 
-[MIT](LICENSE)
+[PolyForm Shield 1.0.0](LICENSE)
