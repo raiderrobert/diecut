@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.5](https://github.com/raiderrobert/diecut/compare/v0.3.4...v0.3.5) (2026-03-15)
+
+
+### Miscellaneous
+
+* remove claude code action workflows ([#127](https://github.com/raiderrobert/diecut/issues/127)) ([ca5c230](https://github.com/raiderrobert/diecut/commit/ca5c23050ec5ff7af7f01b45c5557fafe75473e4))
+* switch license from MIT to PolyForm Shield 1.0.0 ([#124](https://github.com/raiderrobert/diecut/issues/124)) ([da51075](https://github.com/raiderrobert/diecut/commit/da510750dfd80267cc5a5525a6e173b9e67ec1fb))
+* update license reference in README to PolyForm Shield ([#126](https://github.com/raiderrobert/diecut/issues/126)) ([1f6e875](https://github.com/raiderrobert/diecut/commit/1f6e875d1d4556a404f6ecdda52933f577ed325e))
+
+
+### Documentation
+
+* add value props to README ([94bd1f4](https://github.com/raiderrobert/diecut/commit/94bd1f4fffaf83c5b9c2bfaae767e763b9215b89))
+* rewrite doc link separators as colons ([7446ce0](https://github.com/raiderrobert/diecut/commit/7446ce0198940b25d74d681c198fb4ceb60beaa6))
+
 ## [0.3.4](https://github.com/raiderrobert/diecut/compare/v0.3.3...v0.3.4) (2026-02-24)
 
 
