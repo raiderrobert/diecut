@@ -54,11 +54,11 @@ Example templates: [diecut-templates](https://github.com/raiderrobert/diecut-tem
 
 Full documentation: **[diecut.dev](https://diecut.dev/)**
 
-- [Getting Started](https://diecut.dev/getting-started/) - Install and generate your first project
-- [Using Templates](https://diecut.dev/using-templates/) - Sources, overrides, abbreviations
-- [Creating Templates](https://diecut.dev/creating-templates/) - Build your own templates
-- [Commands Reference](https://diecut.dev/reference/commands/) - All CLI commands and options
-- [diecut.toml Reference](https://diecut.dev/reference/diecut-toml/) - Complete config file reference
+- [Getting Started](https://diecut.dev/getting-started/): Install and generate your first project
+- [Using Templates](https://diecut.dev/using-templates/): Sources, overrides, abbreviations
+- [Creating Templates](https://diecut.dev/creating-templates/): Build your own templates
+- [Commands Reference](https://diecut.dev/reference/commands/): All CLI commands and options
+- [diecut.toml Reference](https://diecut.dev/reference/diecut-toml/): Complete config file reference
 
 ## Contributing
 
