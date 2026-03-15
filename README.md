@@ -4,7 +4,16 @@
 
 <h1 align="center">diecut</h1>
 
-<p align="center">A project template generator written in Rust.</p>
+<p align="center">A project template generator, written in Rust.</p>
+
+- **Single binary.** No runtime dependencies. Download one file and go.
+- **Easy to make.** A `diecut.toml` and a folder — that's a template.
+- **Multi-template repos.** One repo, many templates. Use subpaths to pick the one you want.
+- **Any Git host.** GitHub, GitLab, Codeberg — or any Git URL.
+- **Interactive prompts.** Variables with types, defaults, validation, and computed values.
+- **Conditional files.** Include or exclude files based on user choices.
+- **Post-generation hooks.** Run shell commands after generation (`git init`, `cargo build`, etc.).
+- **Template caching.** Fetched templates are cached locally for instant re-use.
 
 ## Install
 
@@ -23,9 +32,12 @@ Or grab a binary from [GitHub Releases](https://github.com/raiderrobert/diecut/r
 ## Quick Start
 
 ```bash
-# Generate from a GitHub repo (with subpath for multi-template repos)
 diecut new gh:raiderrobert/diecut-templates/rust-cli --output my-project
+```
 
+Diecut prompts you for variables and generates a ready-to-go project.
+
+```bash
 # Use defaults without prompting
 diecut new gh:raiderrobert/diecut-templates/python-pkg --defaults --output my-project
 
@@ -36,17 +48,11 @@ diecut new ./my-template --output my-project
 diecut list
 ```
 
-### Example templates
-
-[diecut-templates](https://github.com/raiderrobert/diecut-templates) has example simple templates to help give you an idea of what's possible:
-
-```bash
-diecut new gh:raiderrobert/diecut-templates/python-pkg --output my-project
-```
+Example templates: [diecut-templates](https://github.com/raiderrobert/diecut-templates)
 
 ## Documentation
 
-Full documentation: **[diecut docs](https://diecut.dev/)**
+Full documentation: **[diecut.dev](https://diecut.dev/)**
 
 - [Getting Started](https://diecut.dev/getting-started/) — install and generate your first project
 - [Using Templates](https://diecut.dev/using-templates/) — sources, overrides, abbreviations
