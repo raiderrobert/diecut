@@ -7,9 +7,9 @@
 <p align="center">A project template generator, written in Rust.</p>
 
 - **Single binary.** No runtime dependencies. Download one file and go.
-- **Easy to make.** A `diecut.toml` and a folder — that's a template.
+- **Easy to make.** A `diecut.toml` and a folder and that's a template.
 - **Multi-template repos.** One repo, many templates. Use subpaths to pick the one you want.
-- **Any Git host.** GitHub, GitLab, Codeberg — or any Git URL.
+- **Any Git host.** GitHub, GitLab, Codeberg -or any Git URL.
 - **Interactive prompts.** Variables with types, defaults, validation, and computed values.
 - **Conditional files.** Include or exclude files based on user choices.
 - **Post-generation hooks.** Run shell commands after generation (`git init`, `cargo build`, etc.).
@@ -54,11 +54,11 @@ Example templates: [diecut-templates](https://github.com/raiderrobert/diecut-tem
 
 Full documentation: **[diecut.dev](https://diecut.dev/)**
 
-- [Getting Started](https://diecut.dev/getting-started/) — install and generate your first project
-- [Using Templates](https://diecut.dev/using-templates/) — sources, overrides, abbreviations
-- [Creating Templates](https://diecut.dev/creating-templates/) — build your own templates
-- [Commands Reference](https://diecut.dev/reference/commands/) — all CLI commands and options
-- [diecut.toml Reference](https://diecut.dev/reference/diecut-toml/) — complete config file reference
+- [Getting Started](https://diecut.dev/getting-started/) -install and generate your first project
+- [Using Templates](https://diecut.dev/using-templates/) -sources, overrides, abbreviations
+- [Creating Templates](https://diecut.dev/creating-templates/) -build your own templates
+- [Commands Reference](https://diecut.dev/reference/commands/) -all CLI commands and options
+- [diecut.toml Reference](https://diecut.dev/reference/diecut-toml/) -complete config file reference
 
 ## Contributing
 
