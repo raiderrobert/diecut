@@ -50,6 +50,33 @@ pub enum Commands {
     /// List cached templates
     List,
 
+    /// Create a template by finding commonality across 2+ projects
+    Distill {
+        /// Project directories to compare (minimum 2)
+        #[arg(required = true, num_args = 2..)]
+        projects: Vec<String>,
+
+        /// Variable values as they appear in the first project
+        #[arg(short, long = "var", value_name = "KEY=VALUE")]
+        vars: Vec<String>,
+
+        /// Output directory for the template
+        #[arg(short, long, default_value = "distilled-template")]
+        output: String,
+
+        /// Max directory depth (0 = top-level only, 1 = one level of subdirs)
+        #[arg(long, default_value = "1")]
+        depth: usize,
+
+        /// Show what would be generated without writing
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Overwrite output directory if it exists
+        #[arg(long)]
+        force: bool,
+    },
+
     /// Extract a template from an existing project
     Extract {
         /// Source project directory

@@ -18,6 +18,14 @@ fn main() -> miette::Result<()> {
         } => commands::new::run(
             template, output, data, defaults, overwrite, no_hooks, dry_run, verbose,
         ),
+        Commands::Distill {
+            projects,
+            vars,
+            output,
+            depth,
+            dry_run,
+            force,
+        } => commands::distill::run(projects, vars, output, depth, dry_run, force),
         Commands::List => commands::list::run(),
         Commands::Extract {
             source,
