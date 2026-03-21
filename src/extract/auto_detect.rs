@@ -1126,7 +1126,7 @@ mod tests {
         )
         .unwrap();
 
-        let scan = crate::extract::scan::scan_project(&project_dir, &[]).unwrap();
+        let scan = crate::extract::scan::scan_project(&project_dir, &[], None).unwrap();
         let result = auto_detect(&project_dir, &scan);
 
         assert!(!result.candidates.is_empty());
