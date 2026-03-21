@@ -1302,3 +1302,62 @@ fn distill_errors_with_one_project() {
         "error should mention requiring at least 2 projects, got: {err_str}"
     );
 }
+
+#[test]
+fn distill_then_new_produces_working_project() {
+    let project_a = fixture_path("distill-project-a");
+    let project_b = fixture_path("distill-project-b");
+    let template_dir = tempfile::tempdir().unwrap();
+    let output_dir = tempfile::tempdir().unwrap();
+
+    // Step 1: Distill a template from the two projects
+    let plan = plan_distill(DistillOptions {
+        projects: vec![project_a.clone(), project_b.clone()],
+        variables: vec![("project_name".to_string(), "my-tool".to_string())],
+        output_dir: template_dir.path().to_path_buf(),
+        max_depth: None,
+        dry_run: false,
+        force: true,
+    })
+    .unwrap();
+    execute_distill(&plan).unwrap();
+
+    // Verify diecut.toml exists and contains the variable
+    let config_content = std::fs::read_to_string(template_dir.path().join("diecut.toml")).unwrap();
+    assert!(
+        config_content.contains("project_name"),
+        "diecut.toml should contain project_name variable"
+    );
+
+    // Step 2: Generate a new project from the distilled template
+    let new_project_path = output_dir.path().join("new-project");
+    let gen_result = diecut::generate(diecut::GenerateOptions {
+        template: template_dir.path().to_string_lossy().to_string(),
+        output: Some(new_project_path.to_string_lossy().to_string()),
+        data: vec![("project_name".to_string(), "brand-new-tool".to_string())],
+        defaults: true,
+        overwrite: false,
+        no_hooks: true,
+    });
+    assert!(
+        gen_result.is_ok(),
+        "diecut new failed: {:?}",
+        gen_result.err()
+    );
+
+    // Step 3: Verify the generated project has correct substitutions in README.md
+    let readme_path = new_project_path.join("README.md");
+    assert!(
+        readme_path.exists(),
+        "README.md should exist in generated project"
+    );
+    let readme = std::fs::read_to_string(&readme_path).unwrap();
+    assert!(
+        readme.contains("brand-new-tool"),
+        "README should contain new project name, got: {readme}"
+    );
+    assert!(
+        !readme.contains("my-tool"),
+        "README should not contain old project name, got: {readme}"
+    );
+}
