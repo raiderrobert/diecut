@@ -1,6 +1,7 @@
 pub mod adapter;
 pub mod answers;
 pub mod config;
+pub mod distill;
 pub mod error;
 pub mod extract;
 pub mod hooks;
