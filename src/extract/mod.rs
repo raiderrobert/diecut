@@ -167,7 +167,7 @@ pub fn plan_extraction(options: &ExtractOptions) -> Result<ExtractionPlan> {
         "\n{}",
         style(format!("Scanning {}...", source_dir.display())).bold()
     );
-    let mut scan_result = scan_project(source_dir, &scan_excludes)?;
+    let mut scan_result = scan_project(source_dir, &scan_excludes, None)?;
 
     // Drop non-boilerplate files deeper than stub_depth before auto-detect sees them.
     // This prevents frequency analysis from detecting variables that only appear in

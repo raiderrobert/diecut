@@ -28,7 +28,15 @@ pub struct ScanResult {
 /// Scan a project directory, applying exclude patterns.
 ///
 /// Returns all non-excluded files with their content loaded (for text files).
-pub fn scan_project(project_dir: &Path, excludes: &[String]) -> crate::error::Result<ScanResult> {
+///
+/// `max_depth` limits directory traversal depth relative to `project_dir`.
+/// `Some(0)` returns only top-level files; `Some(1)` includes one level of
+/// subdirectories; `None` is unlimited.
+pub fn scan_project(
+    project_dir: &Path,
+    excludes: &[String],
+    max_depth: Option<usize>,
+) -> crate::error::Result<ScanResult> {
     let project_dir = project_dir
         .canonicalize()
         .map_err(|e| crate::error::DicecutError::Io {
@@ -39,7 +47,11 @@ pub fn scan_project(project_dir: &Path, excludes: &[String]) -> crate::error::Re
     let mut files = Vec::new();
     let mut excluded_count = 0;
 
-    for entry in WalkDir::new(&project_dir).min_depth(1) {
+    let mut walker = WalkDir::new(&project_dir).min_depth(1);
+    if let Some(depth) = max_depth {
+        walker = walker.max_depth(depth + 1);
+    }
+    for entry in walker {
         let entry = entry.map_err(|e| crate::error::DicecutError::Io {
             context: format!("walking project directory: {}", e),
             source: e
@@ -109,7 +121,7 @@ mod tests {
         std::fs::create_dir(dir.path().join("src")).unwrap();
         std::fs::write(dir.path().join("src/main.rs"), "fn main() {}").unwrap();
 
-        let result = scan_project(dir.path(), &[]).unwrap();
+        let result = scan_project(dir.path(), &[], None).unwrap();
         assert_eq!(result.files.len(), 2);
         assert_eq!(result.excluded_count, 0);
     }
@@ -122,7 +134,7 @@ mod tests {
         std::fs::write(dir.path().join(".git/config"), "").unwrap();
 
         let excludes = vec![".git".to_string()];
-        let result = scan_project(dir.path(), &excludes).unwrap();
+        let result = scan_project(dir.path(), &excludes, None).unwrap();
         assert_eq!(result.files.len(), 1);
         assert_eq!(result.excluded_count, 1);
         assert_eq!(result.files[0].relative_path, PathBuf::from("README.md"));
@@ -140,7 +152,7 @@ mod tests {
         std::fs::write(subdir.join("nested.txt"), "nested").unwrap();
         std::os::unix::fs::symlink(&subdir, dir.path().join("link-to-dir")).unwrap();
 
-        let result = scan_project(dir.path(), &[]).unwrap();
+        let result = scan_project(dir.path(), &[], None).unwrap();
         // Should find real.txt and subdir/nested.txt, but NOT choke on link-to-dir
         let paths: Vec<String> = result
             .files
@@ -162,7 +174,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = scan_project(dir.path(), &[]).unwrap();
+        let result = scan_project(dir.path(), &[], None).unwrap();
         let text_file = result
             .files
             .iter()
@@ -178,5 +190,43 @@ mod tests {
         assert!(text_file.content.is_some());
         assert!(binary_file.is_binary);
         assert!(binary_file.content.is_none());
+    }
+
+    #[test]
+    fn scan_project_respects_max_depth() {
+        let dir = Path::new("tests/fixtures/distill-project-a");
+        let excludes = vec![];
+
+        // depth 0: only top-level files
+        let result = scan_project(dir, &excludes, Some(0)).unwrap();
+        let paths: Vec<String> = result
+            .files
+            .iter()
+            .map(|f| f.relative_path.to_string_lossy().to_string())
+            .collect();
+        assert!(
+            !paths.iter().any(|p| p.contains("src/")),
+            "depth 0 should not include src/ files"
+        );
+        assert!(
+            !paths.iter().any(|p| p.contains("assets/")),
+            "depth 0 should not include assets/ files"
+        );
+
+        // depth 1: top-level + one level of subdirectories
+        let result = scan_project(dir, &excludes, Some(1)).unwrap();
+        let paths: Vec<String> = result
+            .files
+            .iter()
+            .map(|f| f.relative_path.to_string_lossy().to_string())
+            .collect();
+        assert!(
+            paths.iter().any(|p| p.contains("src/")),
+            "depth 1 should include src/ files"
+        );
+
+        // None: unlimited depth
+        let result = scan_project(dir, &excludes, None).unwrap();
+        assert!(!result.files.is_empty());
     }
 }

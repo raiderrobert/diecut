@@ -141,6 +141,29 @@ pub enum DicecutError {
     #[error("Directory already contains a diecut.toml: {path}")]
     #[diagnostic(help("This directory is already a diecut template"))]
     ExtractAlreadyTemplate { path: PathBuf },
+
+    #[error("at least 2 project directories are required for distill")]
+    #[diagnostic(help("Usage: diecut distill <project1> <project2> [project3...]"))]
+    DistillMinProjects,
+
+    #[error("no common files found across all {0} projects")]
+    #[diagnostic(help(
+        "Try increasing --depth or check that the projects share a similar structure"
+    ))]
+    DistillNoCommonFiles(usize),
+
+    #[error("invalid variable name '{0}': must match [a-z][a-z0-9_]*")]
+    DistillInvalidVarName(String),
+
+    #[error("variable value must not contain '/' (got '{0}')")]
+    DistillSlashInValue(String),
+
+    #[error("variable value must not be empty for '{0}'")]
+    DistillEmptyValue(String),
+
+    #[error("output directory '{0}' already exists")]
+    #[diagnostic(help("Use --force to overwrite"))]
+    DistillOutputExists(String),
 }
 
 pub type Result<T> = std::result::Result<T, DicecutError>;

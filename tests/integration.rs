@@ -1105,3 +1105,259 @@ fn test_extract_min_confidence_filters() {
         "high min_confidence should filter out all candidates"
     );
 }
+
+// ── Distill command tests ─────────────────────────────────────────────────────
+
+use diecut::distill::{execute_distill, plan_distill, DistillOptions};
+
+#[test]
+fn distill_two_projects_produces_template() {
+    let output = tempfile::tempdir().unwrap();
+    let output_dir = output.path().join("my-cli-template");
+
+    let options = DistillOptions {
+        projects: vec![
+            fixture_path("distill-project-a"),
+            fixture_path("distill-project-b"),
+        ],
+        variables: vec![("project_name".to_string(), "my-tool".to_string())],
+        output_dir: output_dir.clone(),
+        max_depth: None,
+        dry_run: false,
+        force: false,
+    };
+
+    let plan = plan_distill(options).unwrap();
+
+    // project_name should be active (my-tool vs other-tool differ)
+    assert!(
+        plan.active_variables
+            .iter()
+            .any(|v| v.name == "project_name"),
+        "project_name should be active"
+    );
+    assert!(
+        plan.suppressed_variables.is_empty(),
+        "no variables should be suppressed, got: {:?}",
+        plan.suppressed_variables
+            .iter()
+            .map(|(n, _)| n.as_str())
+            .collect::<Vec<_>>()
+    );
+
+    // Common files: README.md, Cargo.toml, src/main.rs, .gitignore, assets/logo.png
+    assert!(!plan.files.is_empty(), "plan should have files");
+
+    let file_paths: Vec<String> = plan
+        .files
+        .iter()
+        .map(|f| f.template_path.to_string_lossy().to_string())
+        .collect();
+
+    // README.md has "my-tool" -> gets .die suffix
+    assert!(
+        file_paths
+            .iter()
+            .any(|p| p.contains("README") && p.ends_with(".die")),
+        "README.md with replacements should have .die suffix, got: {file_paths:?}"
+    );
+
+    // config_toml should contain project_name variable
+    assert!(plan.config_toml.contains("[variables.project_name]"));
+
+    // Execute and verify output structure
+    execute_distill(&plan).unwrap();
+
+    assert!(
+        output_dir.join("diecut.toml").exists(),
+        "diecut.toml should be written"
+    );
+    assert!(
+        output_dir.join("template").exists(),
+        "template/ directory should be created"
+    );
+}
+
+#[test]
+fn distill_suppresses_static_variable() {
+    let output = tempfile::tempdir().unwrap();
+    let output_dir = output.path().join("out");
+
+    // "edition=2021" — "2021" appears in both Cargo.toml files identically and files with
+    // that literal do not vary between projects in a way that depends on this variable,
+    // BUT more directly: "missing-value" does not appear in any shared file at all,
+    // so the variable literal is never found in p0 content → suppressed.
+    let options = DistillOptions {
+        projects: vec![
+            fixture_path("distill-project-a"),
+            fixture_path("distill-project-b"),
+        ],
+        variables: vec![
+            ("project_name".to_string(), "my-tool".to_string()),
+            ("ghost_var".to_string(), "notpresent".to_string()),
+        ],
+        output_dir,
+        max_depth: None,
+        dry_run: true,
+        force: false,
+    };
+
+    let plan = plan_distill(options).unwrap();
+
+    assert!(
+        plan.active_variables
+            .iter()
+            .any(|v| v.name == "project_name"),
+        "project_name should be active"
+    );
+    assert!(
+        plan.suppressed_variables.iter().any(|(n, _)| n == "ghost_var"),
+        "ghost_var should be suppressed (literal 'notpresent' not in any shared file), suppressed: {:?}, active: {:?}",
+        plan.suppressed_variables,
+        plan.active_variables.iter().map(|v| &v.name).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn distill_three_projects_intersection() {
+    let output = tempfile::tempdir().unwrap();
+    let output_dir = output.path().join("out");
+
+    // project-c has no .gitignore and no assets/logo.png, and has a LICENSE
+    // so the intersection should only include: README.md, Cargo.toml, src/main.rs
+    let options = DistillOptions {
+        projects: vec![
+            fixture_path("distill-project-a"),
+            fixture_path("distill-project-b"),
+            fixture_path("distill-project-c"),
+        ],
+        variables: vec![("project_name".to_string(), "my-tool".to_string())],
+        output_dir,
+        max_depth: None,
+        dry_run: true,
+        force: false,
+    };
+
+    let plan = plan_distill(options).unwrap();
+
+    let file_paths: Vec<String> = plan
+        .files
+        .iter()
+        .map(|f| f.template_path.to_string_lossy().to_string())
+        .collect();
+
+    // LICENSE is only in project-c, should NOT be in intersection
+    assert!(
+        !file_paths.iter().any(|p| p.contains("LICENSE")),
+        "LICENSE should not be in output (only in project-c), got: {file_paths:?}"
+    );
+
+    // .gitignore is only in project-a and project-b, NOT in project-c
+    assert!(
+        !file_paths.iter().any(|p| p.contains(".gitignore")),
+        ".gitignore should not be in output (not in project-c), got: {file_paths:?}"
+    );
+
+    // assets/logo.png is only in project-a and project-b, NOT in project-c
+    assert!(
+        !file_paths.iter().any(|p| p.contains("logo.png")),
+        "assets/logo.png should not be in output (not in project-c), got: {file_paths:?}"
+    );
+
+    // README.md, Cargo.toml, src/main.rs ARE in all three
+    assert!(
+        file_paths.iter().any(|p| p.contains("README")),
+        "README.md should be in output (present in all 3), got: {file_paths:?}"
+    );
+    assert!(
+        file_paths.iter().any(|p| p.contains("Cargo.toml")),
+        "Cargo.toml should be in output (present in all 3), got: {file_paths:?}"
+    );
+    assert!(
+        file_paths.iter().any(|p| p.contains("main.rs")),
+        "src/main.rs should be in output (present in all 3), got: {file_paths:?}"
+    );
+}
+
+#[test]
+fn distill_errors_with_one_project() {
+    let output = tempfile::tempdir().unwrap();
+    let output_dir = output.path().join("out");
+
+    let options = DistillOptions {
+        projects: vec![fixture_path("distill-project-a")],
+        variables: vec![("project_name".to_string(), "my-tool".to_string())],
+        output_dir,
+        max_depth: None,
+        dry_run: true,
+        force: false,
+    };
+
+    let result = plan_distill(options);
+    assert!(result.is_err(), "should fail with only 1 project");
+
+    let err_str = result.err().unwrap().to_string();
+    assert!(
+        err_str.contains("2") || err_str.contains("least"),
+        "error should mention requiring at least 2 projects, got: {err_str}"
+    );
+}
+
+#[test]
+fn distill_then_new_produces_working_project() {
+    let project_a = fixture_path("distill-project-a");
+    let project_b = fixture_path("distill-project-b");
+    let template_dir = tempfile::tempdir().unwrap();
+    let output_dir = tempfile::tempdir().unwrap();
+
+    // Step 1: Distill a template from the two projects
+    let plan = plan_distill(DistillOptions {
+        projects: vec![project_a.clone(), project_b.clone()],
+        variables: vec![("project_name".to_string(), "my-tool".to_string())],
+        output_dir: template_dir.path().to_path_buf(),
+        max_depth: None,
+        dry_run: false,
+        force: true,
+    })
+    .unwrap();
+    execute_distill(&plan).unwrap();
+
+    // Verify diecut.toml exists and contains the variable
+    let config_content = std::fs::read_to_string(template_dir.path().join("diecut.toml")).unwrap();
+    assert!(
+        config_content.contains("project_name"),
+        "diecut.toml should contain project_name variable"
+    );
+
+    // Step 2: Generate a new project from the distilled template
+    let new_project_path = output_dir.path().join("new-project");
+    let gen_result = diecut::generate(diecut::GenerateOptions {
+        template: template_dir.path().to_string_lossy().to_string(),
+        output: Some(new_project_path.to_string_lossy().to_string()),
+        data: vec![("project_name".to_string(), "brand-new-tool".to_string())],
+        defaults: true,
+        overwrite: false,
+        no_hooks: true,
+    });
+    assert!(
+        gen_result.is_ok(),
+        "diecut new failed: {:?}",
+        gen_result.err()
+    );
+
+    // Step 3: Verify the generated project has correct substitutions in README.md
+    let readme_path = new_project_path.join("README.md");
+    assert!(
+        readme_path.exists(),
+        "README.md should exist in generated project"
+    );
+    let readme = std::fs::read_to_string(&readme_path).unwrap();
+    assert!(
+        readme.contains("brand-new-tool"),
+        "README should contain new project name, got: {readme}"
+    );
+    assert!(
+        !readme.contains("my-tool"),
+        "README should not contain old project name, got: {readme}"
+    );
+}
