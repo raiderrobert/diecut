@@ -274,6 +274,15 @@ fn process_files(
 
             let (rendered, count) = apply_replacements(p0_content, rules);
 
+            // Warn about existing template expressions
+            if count > 0 {
+                let brace_count = rendered.matches("{{").count();
+                if brace_count > count {
+                    eprintln!("  warning: {} contains existing '{{{{}}}}' syntax that may need {{% raw %}} blocks",
+                        file.relative_path.display());
+                }
+            }
+
             let template_path = if count > 0 {
                 // File has replacements: add .die suffix
                 let mut path = apply_path_replacements(&file.relative_path, rules);

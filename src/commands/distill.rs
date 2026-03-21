@@ -23,6 +23,29 @@ pub fn run(
         })
         .collect::<Result<Vec<_>>>()?;
 
+    // Warn on short values
+    for (name, value) in &variables {
+        if value.len() < 3 {
+            eprintln!(
+                "  warning: variable '{}' has short value '{}' — may cause false matches",
+                name, value
+            );
+        }
+    }
+
+    // Warn on duplicate values across different variable names
+    let mut seen_values: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+    for (name, value) in &variables {
+        if let Some(other_name) = seen_values.get(value.as_str()) {
+            eprintln!(
+                "  warning: variables '{}' and '{}' have the same value '{}'",
+                other_name, name, value
+            );
+        } else {
+            seen_values.insert(value, name);
+        }
+    }
+
     let options = DistillOptions {
         projects: projects.iter().map(PathBuf::from).collect(),
         variables,
