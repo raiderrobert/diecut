@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use diecut::adapter;
 use diecut::config::load_config;
+use diecut::extract::{execute_extraction, plan_extraction, ExtractOptions};
 use diecut::prompt::PromptOptions;
 use diecut::render::{build_context, execute_plan, plan_render, walk_and_render};
 use diecut::template::source::{resolve_source, resolve_source_full};
@@ -621,4 +622,157 @@ fn test_plan_generation_verbose_has_content() {
         has_project_name,
         "at least one rendered file should contain the resolved project name"
     );
+}
+
+// ── Extract command tests ────────────────────────────────────────────────
+
+#[test]
+fn test_extract_batch_basic() {
+    // Create a simple project to extract from
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("README.md"), "# my-app\nBy Jane Doe\n").unwrap();
+    std::fs::create_dir(project.path().join("src")).unwrap();
+    std::fs::write(
+        project.path().join("src/main.rs"),
+        "fn main() {\n    println!(\"Welcome to my-app!\");\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("Cargo.toml"),
+        "[package]\nname = \"my-app\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+
+    let output = tempfile::tempdir().unwrap();
+    let output_path = output.path().join("extracted");
+
+    let options = ExtractOptions {
+        source_dir: project.path().to_path_buf(),
+        variables: vec![
+            ("project_name".to_string(), "my-app".to_string()),
+            ("author".to_string(), "Jane Doe".to_string()),
+        ],
+        output_dir: Some(output_path.clone()),
+        in_place: false,
+        exclude_file: None,
+    };
+
+    let plan = plan_extraction(&options).unwrap();
+    execute_extraction(&plan).unwrap();
+
+    // Verify diecut.toml was created
+    assert!(output_path.join("diecut.toml").exists());
+    let config_content = std::fs::read_to_string(output_path.join("diecut.toml")).unwrap();
+    assert!(config_content.contains("[template]"));
+    assert!(config_content.contains("[variables.project_name]"));
+    assert!(config_content.contains("[variables.author]"));
+
+    // Verify template directory structure
+    assert!(output_path.join("template").exists());
+
+    // Verify files with replacements got .die suffix
+    let template_dir = output_path.join("template");
+    let has_die_files = walkdir::WalkDir::new(&template_dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .any(|e| e.path().to_string_lossy().ends_with(".die"));
+    assert!(has_die_files, "should have files with .die suffix");
+}
+
+#[test]
+fn test_extract_dry_run_writes_nothing() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("hello.txt"), "hello my-app").unwrap();
+
+    let output = tempfile::tempdir().unwrap();
+    let output_path = output.path().join("dry-run-output");
+
+    let options = ExtractOptions {
+        source_dir: project.path().to_path_buf(),
+        variables: vec![("project_name".to_string(), "my-app".to_string())],
+        output_dir: Some(output_path.clone()),
+        in_place: false,
+        exclude_file: None,
+    };
+
+    let plan = plan_extraction(&options).unwrap();
+    // Don't execute — just verify plan exists and no output written
+    assert!(!plan.files.is_empty());
+    assert!(!plan.config_toml.is_empty());
+    assert!(
+        !output_path.exists(),
+        "dry run should not create output directory"
+    );
+}
+
+#[test]
+fn test_extract_rejects_already_template() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("diecut.toml"),
+        "[template]\nname = \"existing\"",
+    )
+    .unwrap();
+
+    let options = ExtractOptions {
+        source_dir: project.path().to_path_buf(),
+        variables: vec![("name".to_string(), "val".to_string())],
+        output_dir: None,
+        in_place: false,
+        exclude_file: None,
+    };
+
+    let result = plan_extraction(&options);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_extract_rejects_no_variables() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("hello.txt"), "hello").unwrap();
+
+    // No --var provided → should fail with ExtractNoVariables
+    let options = ExtractOptions {
+        source_dir: project.path().to_path_buf(),
+        variables: vec![],
+        output_dir: None,
+        in_place: false,
+        exclude_file: None,
+    };
+
+    let result = plan_extraction(&options);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_extract_templates_path_components() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::create_dir(project.path().join("my-app")).unwrap();
+    std::fs::write(project.path().join("my-app/main.rs"), "fn main() {}\n").unwrap();
+
+    let output = tempfile::tempdir().unwrap();
+    let output_path = output.path().join("extracted");
+
+    let options = ExtractOptions {
+        source_dir: project.path().to_path_buf(),
+        variables: vec![("project_name".to_string(), "my-app".to_string())],
+        output_dir: Some(output_path.clone()),
+        in_place: false,
+        exclude_file: None,
+    };
+
+    let plan = plan_extraction(&options).unwrap();
+
+    // Check that path components got templated
+    let has_templated_path = plan.files.iter().any(|f| {
+        f.template_path
+            .to_string_lossy()
+            .contains("{{ project_name }}")
+    });
+    assert!(
+        has_templated_path,
+        "should template path components containing the variable value"
+    );
+
+    execute_extraction(&plan).unwrap();
 }
