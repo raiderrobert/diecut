@@ -26,6 +26,19 @@ impl std::str::FromStr for GitProtocol {
     }
 }
 
+/// Resolve the git protocol to use for shortcode expansion.
+///
+/// Precedence: CLI flag > `DIECUT_GIT_PROTOCOL` env var > built-in default (SSH).
+pub fn resolve_git_protocol(cli_flag: Option<GitProtocol>) -> Result<GitProtocol> {
+    if let Some(p) = cli_flag {
+        return Ok(p);
+    }
+    match std::env::var("DIECUT_GIT_PROTOCOL") {
+        Ok(value) => value.parse(),
+        Err(_) => Ok(GitProtocol::default()),
+    }
+}
+
 /// Resolved template source.
 pub enum TemplateSource {
     Local(PathBuf),
@@ -602,5 +615,93 @@ mod tests {
     #[test]
     fn git_protocol_default_is_ssh() {
         assert_eq!(GitProtocol::default(), GitProtocol::Ssh);
+    }
+}
+
+#[cfg(test)]
+mod protocol_resolution_tests {
+    use super::*;
+    use serial_test::serial;
+
+    fn clear_env() {
+        std::env::remove_var("DIECUT_GIT_PROTOCOL");
+    }
+
+    #[test]
+    #[serial]
+    fn no_flag_no_env_defaults_to_ssh() {
+        clear_env();
+        let result = resolve_git_protocol(None).unwrap();
+        assert_eq!(result, GitProtocol::Ssh);
+    }
+
+    #[test]
+    #[serial]
+    fn flag_ssh_returns_ssh() {
+        clear_env();
+        let result = resolve_git_protocol(Some(GitProtocol::Ssh)).unwrap();
+        assert_eq!(result, GitProtocol::Ssh);
+    }
+
+    #[test]
+    #[serial]
+    fn flag_https_returns_https() {
+        clear_env();
+        let result = resolve_git_protocol(Some(GitProtocol::Https)).unwrap();
+        assert_eq!(result, GitProtocol::Https);
+    }
+
+    #[test]
+    #[serial]
+    fn env_https_returns_https_when_no_flag() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "https");
+        let result = resolve_git_protocol(None).unwrap();
+        clear_env();
+        assert_eq!(result, GitProtocol::Https);
+    }
+
+    #[test]
+    #[serial]
+    fn env_ssh_returns_ssh_when_no_flag() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "ssh");
+        let result = resolve_git_protocol(None).unwrap();
+        clear_env();
+        assert_eq!(result, GitProtocol::Ssh);
+    }
+
+    #[test]
+    #[serial]
+    fn flag_overrides_env() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "ssh");
+        let result = resolve_git_protocol(Some(GitProtocol::Https)).unwrap();
+        clear_env();
+        assert_eq!(result, GitProtocol::Https);
+    }
+
+    #[test]
+    #[serial]
+    fn invalid_env_value_errors() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "tcp");
+        let result = resolve_git_protocol(None);
+        clear_env();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            DicecutError::InvalidProtocol { ref value, .. } if value == "tcp"
+        ));
+    }
+
+    #[test]
+    #[serial]
+    fn empty_env_value_errors() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "");
+        let result = resolve_git_protocol(None);
+        clear_env();
+        assert!(result.is_err());
     }
 }
