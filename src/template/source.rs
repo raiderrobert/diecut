@@ -4,6 +4,28 @@ use std::process::Command;
 
 use crate::error::{DicecutError, Result};
 
+/// Protocol used when expanding built-in shortcodes (`gh:`/`gl:`/`cb:`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
+pub enum GitProtocol {
+    #[default]
+    Ssh,
+    Https,
+}
+
+impl std::str::FromStr for GitProtocol {
+    type Err = DicecutError;
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "ssh" => Ok(GitProtocol::Ssh),
+            "https" => Ok(GitProtocol::Https),
+            other => Err(DicecutError::InvalidProtocol {
+                value: other.to_string(),
+                config_key: "DIECUT_GIT_PROTOCOL",
+            }),
+        }
+    }
+}
+
 /// Resolved template source.
 pub enum TemplateSource {
     Local(PathBuf),
@@ -550,5 +572,35 @@ mod tests {
             }
             _ => panic!("expected Git source"),
         }
+    }
+
+    // ── GitProtocol ────────────────────────────────────────────────────
+
+    #[test]
+    fn git_protocol_parses_ssh() {
+        let p: GitProtocol = "ssh".parse().unwrap();
+        assert_eq!(p, GitProtocol::Ssh);
+    }
+
+    #[test]
+    fn git_protocol_parses_https() {
+        let p: GitProtocol = "https".parse().unwrap();
+        assert_eq!(p, GitProtocol::Https);
+    }
+
+    #[test]
+    fn git_protocol_rejects_unknown() {
+        let result: Result<GitProtocol> = "http".parse();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(
+            err,
+            DicecutError::InvalidProtocol { ref value, .. } if value == "http"
+        ));
+    }
+
+    #[test]
+    fn git_protocol_default_is_ssh() {
+        assert_eq!(GitProtocol::default(), GitProtocol::Ssh);
     }
 }
