@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::error::{DicecutError, Result};
 
@@ -50,35 +49,32 @@ pub enum TemplateSource {
     },
 }
 
-/// Built-in abbreviation prefixes and their expansion targets.
-const ABBREVIATIONS: &[(&str, &str, &str)] = &[
-    ("gh:", "https://github.com/", ".git"),
-    ("gl:", "https://gitlab.com/", ".git"),
-    ("cb:", "https://codeberg.org/", ".git"),
-];
-
-fn detect_github_protocol() -> String {
-    Command::new("gh")
-        .args(["config", "get", "git_protocol", "-h", "github.com"])
-        .output()
-        .ok()
-        .and_then(|output| {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if stdout == "ssh" {
-                    return Some("ssh".to_string());
-                }
-            }
-            None
-        })
-        .unwrap_or_else(|| "https".to_string())
+/// A built-in shortcode → host mapping.
+struct VendorShortcode {
+    prefix: &'static str,
+    host: &'static str,
 }
 
-fn build_github_url(rest: &str, protocol: &str) -> String {
-    if protocol == "ssh" {
-        format!("git@github.com:{rest}.git")
-    } else {
-        format!("https://github.com/{rest}.git")
+const SHORTCODES: &[VendorShortcode] = &[
+    VendorShortcode {
+        prefix: "gh:",
+        host: "github.com",
+    },
+    VendorShortcode {
+        prefix: "gl:",
+        host: "gitlab.com",
+    },
+    VendorShortcode {
+        prefix: "cb:",
+        host: "codeberg.org",
+    },
+];
+
+/// Build a clone URL for a given host, repo, and protocol.
+fn build_url(host: &str, repo: &str, protocol: GitProtocol) -> String {
+    match protocol {
+        GitProtocol::Ssh => format!("git@{host}:{repo}.git"),
+        GitProtocol::Https => format!("https://{host}/{repo}.git"),
     }
 }
 
@@ -114,24 +110,9 @@ struct ExpandedSource {
     subpath: Option<String>,
 }
 
-fn expand_abbreviation(input: &str) -> Result<ExpandedSource> {
-    // Special case: GitHub abbreviation with protocol detection
-    if let Some(rest) = input.strip_prefix("gh:") {
-        if rest.is_empty() {
-            return Err(DicecutError::InvalidAbbreviation {
-                input: input.to_string(),
-            });
-        }
-        let (repo, subpath) = split_repo_subpath(rest);
-        let protocol = detect_github_protocol();
-        return Ok(ExpandedSource {
-            url: build_github_url(repo, &protocol),
-            subpath: subpath.map(String::from),
-        });
-    }
-
-    // All other abbreviations use static expansion
-    for &(prefix, base_url, suffix) in ABBREVIATIONS {
+/// Expand a built-in shortcode (`gh:`/`gl:`/`cb:`) into a git URL.
+fn expand_abbreviation(input: &str, protocol: GitProtocol) -> Result<ExpandedSource> {
+    for VendorShortcode { prefix, host } in SHORTCODES {
         if let Some(rest) = input.strip_prefix(prefix) {
             if rest.is_empty() {
                 return Err(DicecutError::InvalidAbbreviation {
@@ -140,7 +121,7 @@ fn expand_abbreviation(input: &str) -> Result<ExpandedSource> {
             }
             let (repo, subpath) = split_repo_subpath(rest);
             return Ok(ExpandedSource {
-                url: format!("{base_url}{repo}{suffix}"),
+                url: build_url(host, repo, protocol),
                 subpath: subpath.map(String::from),
             });
         }
@@ -171,10 +152,9 @@ fn expand_user_abbreviation(
     }))
 }
 
+/// Check if an input string starts with any built-in shortcode prefix.
 fn is_abbreviation(input: &str) -> bool {
-    ABBREVIATIONS
-        .iter()
-        .any(|&(prefix, _, _)| input.starts_with(prefix))
+    SHORTCODES.iter().any(|s| input.starts_with(s.prefix))
 }
 
 fn is_git_url(input: &str) -> bool {
@@ -213,7 +193,7 @@ pub fn resolve_source_full(
     }
 
     if is_abbreviation(template_arg) {
-        let expanded = expand_abbreviation(template_arg)?;
+        let expanded = expand_abbreviation(template_arg, GitProtocol::default())?;
         return Ok(TemplateSource::Git {
             url: expanded.url,
             git_ref: git_ref.map(String::from),
@@ -248,49 +228,6 @@ pub fn resolve_source_full(
 mod tests {
     use super::*;
     use rstest::rstest;
-
-    // ── Abbreviation expansion ──────────────────────────────────────────
-
-    #[test]
-    fn build_github_url_ssh() {
-        let url = build_github_url("user/repo", "ssh");
-        assert_eq!(url, "git@github.com:user/repo.git");
-    }
-
-    #[test]
-    fn build_github_url_https() {
-        let url = build_github_url("user/repo", "https");
-        assert_eq!(url, "https://github.com/user/repo.git");
-    }
-
-    #[test]
-    fn expand_github_abbreviation() {
-        let expanded = expand_abbreviation("gh:user/repo").unwrap();
-        assert!(
-            expanded.url == "https://github.com/user/repo.git"
-                || expanded.url == "git@github.com:user/repo.git",
-            "unexpected URL: {}",
-            expanded.url
-        );
-        assert!(expanded.subpath.is_none());
-    }
-
-    #[rstest]
-    #[case("gl:org/project", "https://gitlab.com/org/project.git")]
-    #[case("cb:user/repo", "https://codeberg.org/user/repo.git")]
-    fn expand_abbreviation_cases(#[case] input: &str, #[case] expected_url: &str) {
-        let expanded = expand_abbreviation(input).unwrap();
-        assert_eq!(expanded.url, expected_url);
-        assert!(expanded.subpath.is_none());
-    }
-
-    #[test]
-    fn expand_abbreviation_empty_remainder() {
-        let result = expand_abbreviation("gh:");
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(matches!(err, DicecutError::InvalidAbbreviation { ref input } if input == "gh:"));
-    }
 
     // ── Git URL detection ───────────────────────────────────────────────
 
@@ -562,7 +499,11 @@ mod tests {
         let source = resolve_source("gl:org/repo/templates/python").unwrap();
         match source {
             TemplateSource::Git { url, subpath, .. } => {
-                assert_eq!(url, "https://gitlab.com/org/repo.git");
+                assert!(
+                    url == "https://gitlab.com/org/repo.git"
+                        || url == "git@gitlab.com:org/repo.git",
+                    "unexpected URL: {url}"
+                );
                 assert_eq!(subpath.as_deref(), Some("templates/python"));
             }
             _ => panic!("expected Git source"),
@@ -615,6 +556,79 @@ mod tests {
     #[test]
     fn git_protocol_default_is_ssh() {
         assert_eq!(GitProtocol::default(), GitProtocol::Ssh);
+    }
+
+    // ── Shortcode expansion (protocol-aware) ───────────────────────────
+
+    #[rstest]
+    #[case("gh:user/repo", GitProtocol::Ssh, "git@github.com:user/repo.git")]
+    #[case("gh:user/repo", GitProtocol::Https, "https://github.com/user/repo.git")]
+    #[case("gl:org/project", GitProtocol::Ssh, "git@gitlab.com:org/project.git")]
+    #[case(
+        "gl:org/project",
+        GitProtocol::Https,
+        "https://gitlab.com/org/project.git"
+    )]
+    #[case("cb:user/repo", GitProtocol::Ssh, "git@codeberg.org:user/repo.git")]
+    #[case(
+        "cb:user/repo",
+        GitProtocol::Https,
+        "https://codeberg.org/user/repo.git"
+    )]
+    fn expand_shortcode_per_protocol(
+        #[case] input: &str,
+        #[case] protocol: GitProtocol,
+        #[case] expected_url: &str,
+    ) {
+        let expanded = expand_abbreviation(input, protocol).unwrap();
+        assert_eq!(expanded.url, expected_url);
+        assert!(expanded.subpath.is_none());
+    }
+
+    #[rstest]
+    #[case(
+        "gh:user/repo/templates/py",
+        GitProtocol::Ssh,
+        "git@github.com:user/repo.git",
+        "templates/py"
+    )]
+    #[case(
+        "gl:org/repo/templates/python",
+        GitProtocol::Https,
+        "https://gitlab.com/org/repo.git",
+        "templates/python"
+    )]
+    #[case(
+        "cb:user/repo/sub",
+        GitProtocol::Ssh,
+        "git@codeberg.org:user/repo.git",
+        "sub"
+    )]
+    fn expand_shortcode_with_subpath(
+        #[case] input: &str,
+        #[case] protocol: GitProtocol,
+        #[case] expected_url: &str,
+        #[case] expected_subpath: &str,
+    ) {
+        let expanded = expand_abbreviation(input, protocol).unwrap();
+        assert_eq!(expanded.url, expected_url);
+        assert_eq!(expanded.subpath.as_deref(), Some(expected_subpath));
+    }
+
+    #[test]
+    fn expand_shortcode_empty_remainder_errors() {
+        let result = expand_abbreviation("gh:", GitProtocol::Ssh);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            DicecutError::InvalidAbbreviation { ref input } if input == "gh:"
+        ));
+    }
+
+    #[test]
+    fn expand_shortcode_unknown_prefix_errors() {
+        let result = expand_abbreviation("xx:user/repo", GitProtocol::Ssh);
+        assert!(result.is_err());
     }
 }
 
