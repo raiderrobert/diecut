@@ -1,4 +1,5 @@
 use console::style;
+use diecut::template::GitProtocol;
 use diecut::GenerateOptions;
 use miette::Result;
 
@@ -30,6 +31,7 @@ pub fn run(
         defaults,
         overwrite,
         no_hooks,
+        protocol: GitProtocol::default(),
     };
 
     if dry_run {

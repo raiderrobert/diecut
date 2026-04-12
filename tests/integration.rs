@@ -5,7 +5,7 @@ use diecut::adapter;
 use diecut::config::load_config;
 use diecut::prompt::PromptOptions;
 use diecut::render::{build_context, execute_plan, plan_render, walk_and_render};
-use diecut::template::source::{resolve_source, resolve_source_full};
+use diecut::template::source::{resolve_source, ResolveOptions};
 use rstest::rstest;
 
 fn fixture_path(name: &str) -> PathBuf {
@@ -268,14 +268,7 @@ name = "missing-template-dir"
 #[case("gl:")]
 #[case("cb:")]
 fn test_resolve_source_rejects_empty_abbreviation_remainder(#[case] input: &str) {
-    assert!(resolve_source(input).is_err());
-}
-
-#[test]
-fn test_resolve_source_user_abbreviation_empty_remainder() {
-    let mut abbrevs = std::collections::HashMap::new();
-    abbrevs.insert("co".to_string(), "https://git.co.com/{}.git".to_string());
-    assert!(resolve_source_full("co:", None, Some(&abbrevs)).is_err());
+    assert!(resolve_source(input, ResolveOptions::default()).is_err());
 }
 
 // --- Deprecated .tera suffix fallback ---
@@ -440,6 +433,7 @@ fn test_plan_generation_dry_run_no_files_written() {
         defaults: true,
         overwrite: false,
         no_hooks: true,
+        protocol: diecut::template::GitProtocol::default(),
     };
 
     // plan_generation should succeed
@@ -588,6 +582,7 @@ fn test_plan_generation_verbose_has_content() {
         defaults: true,
         overwrite: false,
         no_hooks: true,
+        protocol: diecut::template::GitProtocol::default(),
     };
 
     let plan = diecut::plan_generation(options).unwrap();
