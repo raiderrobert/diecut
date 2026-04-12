@@ -25,6 +25,7 @@ diecut new <TEMPLATE> [OPTIONS]
 | `--no-hooks` | `false` | Skip running hooks |
 | `--dry-run` | `false` | Show what would be generated without writing files |
 | `-v, --verbose` | `false` | Show file contents (with `--dry-run`) or detailed output |
+| `--protocol <ssh\|https>` | `ssh` | Protocol for expanding built-in shortcodes (`gh:`, `gl:`, `cb:`) |
 
 ### Examples
 
@@ -51,6 +52,7 @@ diecut new ./my-template --dry-run --verbose
 - The `--data` flag can be repeated to set multiple variables.
 - When `--defaults` is set, any variable without a default value causes an error.
 - Subpaths let you point to a template inside a larger repo (e.g., `gh:user/templates/python-pkg`).
+- `DIECUT_GIT_PROTOCOL` sets the default shortcode protocol persistently (`ssh` or `https`). Overridden per-invocation by `--protocol`.
 
 ---
 

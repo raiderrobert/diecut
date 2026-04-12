@@ -17,6 +17,12 @@ diecut pulls templates from local paths or any Git host.
 
 Git templates are cached at `~/.cache/diecut/templates/`. Override with `DIECUT_CACHE_DIR`.
 
+## Protocol
+
+Built-in shortcodes (`gh:`, `gl:`, `cb:`) resolve to SSH URLs by default (e.g.,
+`gh:user/repo` → `git@github.com:user/repo.git`). To use HTTPS instead, pass
+`--protocol https` or set `DIECUT_GIT_PROTOCOL=https` in your shell environment.
+
 ## Multi-template repos (subpaths)
 
 A single repo can hold multiple templates in subdirectories. Add the subdirectory path after the repo:

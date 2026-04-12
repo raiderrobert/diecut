@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** Built-in shortcodes (`gh:`, `gl:`, `cb:`) now default to SSH
+  URLs instead of HTTPS. The `gh config get git_protocol` detection has been
+  removed — behavior is now consistent across all three vendors and independent
+  of the `gh` CLI.
+
+### Added
+
+- `--protocol <ssh|https>` flag on `diecut new` for per-invocation override of
+  shortcode protocol.
+- `DIECUT_GIT_PROTOCOL` environment variable for persistent shortcode protocol
+  preference.
+- Dry-run output now prints the resolved clone URL (or local path) before any
+  clone is attempted.
+
 ## [0.3.5](https://github.com/raiderrobert/diecut/compare/v0.3.4...v0.3.5) (2026-03-15)
 
 
