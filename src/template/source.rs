@@ -175,6 +175,29 @@ fn is_git_url(input: &str) -> bool {
         || input.ends_with(".git")
 }
 
+/// Format a [`TemplateSource`] for human-readable dry-run output.
+pub fn format_resolved_source(source: &TemplateSource) -> String {
+    match source {
+        TemplateSource::Local(path) => {
+            format!("Would use local path: {}", path.display())
+        }
+        TemplateSource::Git {
+            url,
+            git_ref,
+            subpath,
+        } => {
+            let mut out = format!("Would clone from: {url}");
+            if let Some(r) = git_ref {
+                out.push_str(&format!("\n  ref: {r}"));
+            }
+            if let Some(sp) = subpath {
+                out.push_str(&format!("\n  subpath: {sp}"));
+            }
+            out
+        }
+    }
+}
+
 /// Resolve a template argument to a [`TemplateSource`].
 ///
 /// Handles user abbreviations, built-in shortcodes, explicit git URLs, and local paths.
@@ -448,6 +471,41 @@ mod tests {
     fn expand_shortcode_unknown_prefix_errors() {
         let result = expand_abbreviation("xx:user/repo", GitProtocol::Ssh);
         assert!(result.is_err());
+    }
+
+    // ── format_resolved_source ─────────────────────────────────────────
+
+    #[test]
+    fn format_resolved_source_git_url_only() {
+        let source = TemplateSource::Git {
+            url: "git@github.com:user/repo.git".to_string(),
+            git_ref: None,
+            subpath: None,
+        };
+        let s = format_resolved_source(&source);
+        assert!(s.contains("Would clone from: git@github.com:user/repo.git"));
+        assert!(!s.contains("ref:"));
+        assert!(!s.contains("subpath:"));
+    }
+
+    #[test]
+    fn format_resolved_source_git_full() {
+        let source = TemplateSource::Git {
+            url: "https://github.com/user/repo.git".to_string(),
+            git_ref: Some("main".to_string()),
+            subpath: Some("templates/py".to_string()),
+        };
+        let s = format_resolved_source(&source);
+        assert!(s.contains("Would clone from: https://github.com/user/repo.git"));
+        assert!(s.contains("ref: main"));
+        assert!(s.contains("subpath: templates/py"));
+    }
+
+    #[test]
+    fn format_resolved_source_local() {
+        let source = TemplateSource::Local(std::path::PathBuf::from("/tmp/templates/foo"));
+        let s = format_resolved_source(&source);
+        assert!(s.contains("Would use local path: /tmp/templates/foo"));
     }
 }
 
