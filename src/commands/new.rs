@@ -1,5 +1,5 @@
 use console::style;
-use diecut::template::GitProtocol;
+use diecut::template::{resolve_git_protocol, GitProtocol};
 use diecut::GenerateOptions;
 use miette::Result;
 
@@ -13,6 +13,7 @@ pub fn run(
     no_hooks: bool,
     dry_run: bool,
     verbose: bool,
+    protocol: Option<GitProtocol>,
 ) -> Result<()> {
     let data_pairs: Vec<(String, String)> = data
         .into_iter()
@@ -24,6 +25,8 @@ pub fn run(
         })
         .collect();
 
+    let resolved_protocol = resolve_git_protocol(protocol)?;
+
     let options = GenerateOptions {
         template,
         output,
@@ -31,7 +34,7 @@ pub fn run(
         defaults,
         overwrite,
         no_hooks,
-        protocol: GitProtocol::default(),
+        protocol: resolved_protocol,
     };
 
     if dry_run {
