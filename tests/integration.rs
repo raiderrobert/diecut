@@ -617,3 +617,61 @@ fn test_plan_generation_verbose_has_content() {
         "at least one rendered file should contain the resolved project name"
     );
 }
+
+// --- End-to-end binary test: dry-run prints resolved source ---
+
+#[test]
+fn dry_run_prints_resolved_local_source() {
+    use std::process::Command;
+    use tempfile::tempdir;
+
+    let tmp = tempdir().unwrap();
+    let template_dir = tmp.path().join("my-template");
+    std::fs::create_dir_all(&template_dir).unwrap();
+    std::fs::write(
+        template_dir.join("diecut.toml"),
+        r#"[template]
+name = "dry-run-test"
+
+[variables.project_name]
+type = "string"
+prompt = "Project name"
+default = "demo"
+"#,
+    )
+    .unwrap();
+    // Template files must live under a `template/` subdirectory
+    std::fs::create_dir_all(template_dir.join("template").join("{{ project_name }}")).unwrap();
+    std::fs::write(
+        template_dir
+            .join("template")
+            .join("{{ project_name }}")
+            .join("README.md.die"),
+        "# {{ project_name }}\n",
+    )
+    .unwrap();
+
+    let output_dir = tmp.path().join("out");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_diecut"))
+        .arg("new")
+        .arg(template_dir.to_str().unwrap())
+        .arg("--dry-run")
+        .arg("--defaults")
+        .arg("-o")
+        .arg(output_dir.to_str().unwrap())
+        .output()
+        .expect("failed to run diecut binary");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "diecut new exited with failure.\nstdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("Would use local path:"),
+        "expected 'Would use local path:' in stdout, got: {stdout}"
+    );
+}
