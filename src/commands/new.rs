@@ -1,4 +1,7 @@
 use console::style;
+use diecut::template::{
+    format_resolved_source, resolve_git_protocol, resolve_source, GitProtocol, ResolveOptions,
+};
 use diecut::GenerateOptions;
 use miette::Result;
 
@@ -12,6 +15,7 @@ pub fn run(
     no_hooks: bool,
     dry_run: bool,
     verbose: bool,
+    protocol: Option<GitProtocol>,
 ) -> Result<()> {
     let data_pairs: Vec<(String, String)> = data
         .into_iter()
@@ -23,6 +27,20 @@ pub fn run(
         })
         .collect();
 
+    let resolved_protocol = resolve_git_protocol(protocol)?;
+
+    if dry_run {
+        // Resolve the source first so the URL is visible even if clone fails.
+        let source = resolve_source(
+            &template,
+            ResolveOptions {
+                protocol: resolved_protocol,
+                ..Default::default()
+            },
+        )?;
+        println!("{}", format_resolved_source(&source));
+    }
+
     let options = GenerateOptions {
         template,
         output,
@@ -30,6 +48,7 @@ pub fn run(
         defaults,
         overwrite,
         no_hooks,
+        protocol: resolved_protocol,
     };
 
     if dry_run {

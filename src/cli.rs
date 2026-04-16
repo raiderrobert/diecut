@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use diecut::template::GitProtocol;
 
 #[derive(Parser)]
 #[command(
@@ -45,8 +46,56 @@ pub enum Commands {
         /// Show file contents (with --dry-run) or detailed output
         #[arg(short, long)]
         verbose: bool,
+
+        /// Protocol for expanding shortcodes (ssh or https).
+        /// Defaults to ssh. Override with DIECUT_GIT_PROTOCOL env var.
+        #[arg(long, value_enum)]
+        protocol: Option<GitProtocol>,
     },
 
     /// List cached templates
     List,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+    use diecut::template::GitProtocol;
+
+    #[test]
+    fn parses_new_without_protocol() {
+        let cli = Cli::parse_from(["diecut", "new", "gh:user/repo"]);
+        if let Commands::New { protocol, .. } = cli.command {
+            assert!(protocol.is_none());
+        } else {
+            panic!("expected New");
+        }
+    }
+
+    #[test]
+    fn parses_new_with_protocol_ssh() {
+        let cli = Cli::parse_from(["diecut", "new", "gh:user/repo", "--protocol", "ssh"]);
+        if let Commands::New { protocol, .. } = cli.command {
+            assert_eq!(protocol, Some(GitProtocol::Ssh));
+        } else {
+            panic!("expected New");
+        }
+    }
+
+    #[test]
+    fn parses_new_with_protocol_https() {
+        let cli = Cli::parse_from(["diecut", "new", "gh:user/repo", "--protocol", "https"]);
+        if let Commands::New { protocol, .. } = cli.command {
+            assert_eq!(protocol, Some(GitProtocol::Https));
+        } else {
+            panic!("expected New");
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_protocol() {
+        let result = Cli::try_parse_from(["diecut", "new", "gh:user/repo", "--protocol", "ftp"]);
+        assert!(result.is_err());
+    }
 }

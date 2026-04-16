@@ -15,8 +15,9 @@ fn main() -> miette::Result<()> {
             no_hooks,
             dry_run,
             verbose,
+            protocol,
         } => commands::new::run(
-            template, output, data, defaults, overwrite, no_hooks, dry_run, verbose,
+            template, output, data, defaults, overwrite, no_hooks, dry_run, verbose, protocol,
         ),
         Commands::List => commands::list::run(),
     }

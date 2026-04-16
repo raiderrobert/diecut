@@ -50,6 +50,12 @@ diecut list
 
 Example templates: [diecut-templates](https://github.com/raiderrobert/diecut-templates)
 
+### Protocol
+
+Built-in shortcodes resolve to SSH URLs by default (e.g., `gh:user/repo` →
+`git@github.com:user/repo.git`). To use HTTPS instead, pass `--protocol https`
+or set `DIECUT_GIT_PROTOCOL=https` in your shell environment.
+
 ## Documentation
 
 Full documentation: **[diecut.dev](https://diecut.dev/)**

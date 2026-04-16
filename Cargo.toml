@@ -39,6 +39,7 @@ indexmap = { version = "2.11.4", features = ["serde"] }
 [dev-dependencies]
 rstest = "0.23"
 criterion = "0.5"
+serial_test = "3"
 
 [[bench]]
 name = "benchmarks"

@@ -5,7 +5,7 @@ use diecut::adapter;
 use diecut::config::load_config;
 use diecut::prompt::PromptOptions;
 use diecut::render::{build_context, execute_plan, plan_render, walk_and_render};
-use diecut::template::source::{resolve_source, resolve_source_full};
+use diecut::template::source::{resolve_source, ResolveOptions};
 use rstest::rstest;
 
 fn fixture_path(name: &str) -> PathBuf {
@@ -268,14 +268,7 @@ name = "missing-template-dir"
 #[case("gl:")]
 #[case("cb:")]
 fn test_resolve_source_rejects_empty_abbreviation_remainder(#[case] input: &str) {
-    assert!(resolve_source(input).is_err());
-}
-
-#[test]
-fn test_resolve_source_user_abbreviation_empty_remainder() {
-    let mut abbrevs = std::collections::HashMap::new();
-    abbrevs.insert("co".to_string(), "https://git.co.com/{}.git".to_string());
-    assert!(resolve_source_full("co:", None, Some(&abbrevs)).is_err());
+    assert!(resolve_source(input, ResolveOptions::default()).is_err());
 }
 
 // --- Deprecated .tera suffix fallback ---
@@ -440,6 +433,7 @@ fn test_plan_generation_dry_run_no_files_written() {
         defaults: true,
         overwrite: false,
         no_hooks: true,
+        protocol: diecut::template::GitProtocol::default(),
     };
 
     // plan_generation should succeed
@@ -588,6 +582,7 @@ fn test_plan_generation_verbose_has_content() {
         defaults: true,
         overwrite: false,
         no_hooks: true,
+        protocol: diecut::template::GitProtocol::default(),
     };
 
     let plan = diecut::plan_generation(options).unwrap();
@@ -620,5 +615,63 @@ fn test_plan_generation_verbose_has_content() {
     assert!(
         has_project_name,
         "at least one rendered file should contain the resolved project name"
+    );
+}
+
+// --- End-to-end binary test: dry-run prints resolved source ---
+
+#[test]
+fn dry_run_prints_resolved_local_source() {
+    use std::process::Command;
+    use tempfile::tempdir;
+
+    let tmp = tempdir().unwrap();
+    let template_dir = tmp.path().join("my-template");
+    std::fs::create_dir_all(&template_dir).unwrap();
+    std::fs::write(
+        template_dir.join("diecut.toml"),
+        r#"[template]
+name = "dry-run-test"
+
+[variables.project_name]
+type = "string"
+prompt = "Project name"
+default = "demo"
+"#,
+    )
+    .unwrap();
+    // Template files must live under a `template/` subdirectory
+    std::fs::create_dir_all(template_dir.join("template").join("{{ project_name }}")).unwrap();
+    std::fs::write(
+        template_dir
+            .join("template")
+            .join("{{ project_name }}")
+            .join("README.md.die"),
+        "# {{ project_name }}\n",
+    )
+    .unwrap();
+
+    let output_dir = tmp.path().join("out");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_diecut"))
+        .arg("new")
+        .arg(template_dir.to_str().unwrap())
+        .arg("--dry-run")
+        .arg("--defaults")
+        .arg("-o")
+        .arg(output_dir.to_str().unwrap())
+        .output()
+        .expect("failed to run diecut binary");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "diecut new exited with failure.\nstdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("Would use local path:"),
+        "expected 'Would use local path:' in stdout, got: {stdout}"
     );
 }

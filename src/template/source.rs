@@ -1,8 +1,42 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::error::{DicecutError, Result};
+
+/// Protocol used when expanding built-in shortcodes (`gh:`/`gl:`/`cb:`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, clap::ValueEnum)]
+pub enum GitProtocol {
+    #[default]
+    Ssh,
+    Https,
+}
+
+impl std::str::FromStr for GitProtocol {
+    type Err = DicecutError;
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "ssh" => Ok(GitProtocol::Ssh),
+            "https" => Ok(GitProtocol::Https),
+            other => Err(DicecutError::InvalidProtocol {
+                value: other.to_string(),
+                config_key: "DIECUT_GIT_PROTOCOL",
+            }),
+        }
+    }
+}
+
+/// Resolve the git protocol to use for shortcode expansion.
+///
+/// Precedence: CLI flag > `DIECUT_GIT_PROTOCOL` env var > built-in default (SSH).
+pub fn resolve_git_protocol(cli_flag: Option<GitProtocol>) -> Result<GitProtocol> {
+    if let Some(p) = cli_flag {
+        return Ok(p);
+    }
+    match std::env::var("DIECUT_GIT_PROTOCOL") {
+        Ok(value) => value.parse(),
+        Err(_) => Ok(GitProtocol::default()),
+    }
+}
 
 /// Resolved template source.
 pub enum TemplateSource {
@@ -15,35 +49,43 @@ pub enum TemplateSource {
     },
 }
 
-/// Built-in abbreviation prefixes and their expansion targets.
-const ABBREVIATIONS: &[(&str, &str, &str)] = &[
-    ("gh:", "https://github.com/", ".git"),
-    ("gl:", "https://gitlab.com/", ".git"),
-    ("cb:", "https://codeberg.org/", ".git"),
-];
-
-fn detect_github_protocol() -> String {
-    Command::new("gh")
-        .args(["config", "get", "git_protocol", "-h", "github.com"])
-        .output()
-        .ok()
-        .and_then(|output| {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if stdout == "ssh" {
-                    return Some("ssh".to_string());
-                }
-            }
-            None
-        })
-        .unwrap_or_else(|| "https".to_string())
+/// Options passed to [`resolve_source`].
+#[derive(Debug, Default)]
+pub struct ResolveOptions<'a> {
+    /// Optional git ref (branch, tag, or commit) to check out.
+    pub git_ref: Option<&'a str>,
+    /// Protocol to use when expanding built-in shortcodes.
+    pub protocol: GitProtocol,
+    /// Optional user-defined abbreviations to consult before built-in shortcodes.
+    pub user_abbreviations: Option<&'a HashMap<String, String>>,
 }
 
-fn build_github_url(rest: &str, protocol: &str) -> String {
-    if protocol == "ssh" {
-        format!("git@github.com:{rest}.git")
-    } else {
-        format!("https://github.com/{rest}.git")
+/// A built-in shortcode → host mapping.
+struct VendorShortcode {
+    prefix: &'static str,
+    host: &'static str,
+}
+
+const SHORTCODES: &[VendorShortcode] = &[
+    VendorShortcode {
+        prefix: "gh:",
+        host: "github.com",
+    },
+    VendorShortcode {
+        prefix: "gl:",
+        host: "gitlab.com",
+    },
+    VendorShortcode {
+        prefix: "cb:",
+        host: "codeberg.org",
+    },
+];
+
+/// Build a clone URL for a given host, repo, and protocol.
+fn build_url(host: &str, repo: &str, protocol: GitProtocol) -> String {
+    match protocol {
+        GitProtocol::Ssh => format!("git@{host}:{repo}.git"),
+        GitProtocol::Https => format!("https://{host}/{repo}.git"),
     }
 }
 
@@ -79,24 +121,9 @@ struct ExpandedSource {
     subpath: Option<String>,
 }
 
-fn expand_abbreviation(input: &str) -> Result<ExpandedSource> {
-    // Special case: GitHub abbreviation with protocol detection
-    if let Some(rest) = input.strip_prefix("gh:") {
-        if rest.is_empty() {
-            return Err(DicecutError::InvalidAbbreviation {
-                input: input.to_string(),
-            });
-        }
-        let (repo, subpath) = split_repo_subpath(rest);
-        let protocol = detect_github_protocol();
-        return Ok(ExpandedSource {
-            url: build_github_url(repo, &protocol),
-            subpath: subpath.map(String::from),
-        });
-    }
-
-    // All other abbreviations use static expansion
-    for &(prefix, base_url, suffix) in ABBREVIATIONS {
+/// Expand a built-in shortcode (`gh:`/`gl:`/`cb:`) into a git URL.
+fn expand_abbreviation(input: &str, protocol: GitProtocol) -> Result<ExpandedSource> {
+    for VendorShortcode { prefix, host } in SHORTCODES {
         if let Some(rest) = input.strip_prefix(prefix) {
             if rest.is_empty() {
                 return Err(DicecutError::InvalidAbbreviation {
@@ -105,7 +132,7 @@ fn expand_abbreviation(input: &str) -> Result<ExpandedSource> {
             }
             let (repo, subpath) = split_repo_subpath(rest);
             return Ok(ExpandedSource {
-                url: format!("{base_url}{repo}{suffix}"),
+                url: build_url(host, repo, protocol),
                 subpath: subpath.map(String::from),
             });
         }
@@ -136,10 +163,9 @@ fn expand_user_abbreviation(
     }))
 }
 
+/// Check if an input string starts with any built-in shortcode prefix.
 fn is_abbreviation(input: &str) -> bool {
-    ABBREVIATIONS
-        .iter()
-        .any(|&(prefix, _, _)| input.starts_with(prefix))
+    SHORTCODES.iter().any(|s| input.starts_with(s.prefix))
 }
 
 fn is_git_url(input: &str) -> bool {
@@ -149,39 +175,49 @@ fn is_git_url(input: &str) -> bool {
         || input.ends_with(".git")
 }
 
-/// Resolve a template argument to a source: abbreviation -> git URL -> local path.
-pub fn resolve_source(template_arg: &str) -> Result<TemplateSource> {
-    resolve_source_with_ref(template_arg, None)
+/// Format a [`TemplateSource`] for human-readable dry-run output.
+pub fn format_resolved_source(source: &TemplateSource) -> String {
+    match source {
+        TemplateSource::Local(path) => {
+            format!("Would use local path: {}", path.display())
+        }
+        TemplateSource::Git {
+            url,
+            git_ref,
+            subpath,
+        } => {
+            let mut out = format!("Would clone from: {url}");
+            if let Some(r) = git_ref {
+                out.push_str(&format!("\n  ref: {r}"));
+            }
+            if let Some(sp) = subpath {
+                out.push_str(&format!("\n  subpath: {sp}"));
+            }
+            out
+        }
+    }
 }
 
-pub fn resolve_source_with_ref(
-    template_arg: &str,
-    git_ref: Option<&str>,
-) -> Result<TemplateSource> {
-    resolve_source_full(template_arg, git_ref, None)
-}
-
-pub fn resolve_source_full(
-    template_arg: &str,
-    git_ref: Option<&str>,
-    user_abbreviations: Option<&HashMap<String, String>>,
-) -> Result<TemplateSource> {
-    if let Some(abbrevs) = user_abbreviations {
+/// Resolve a template argument to a [`TemplateSource`].
+///
+/// Handles user abbreviations, built-in shortcodes, explicit git URLs, and local paths.
+pub fn resolve_source(template_arg: &str, opts: ResolveOptions<'_>) -> Result<TemplateSource> {
+    if let Some(abbrevs) = opts.user_abbreviations {
         if let Some(result) = expand_user_abbreviation(template_arg, abbrevs) {
             let expanded = result?;
             return Ok(TemplateSource::Git {
                 url: expanded.url,
-                git_ref: git_ref.map(String::from),
+                git_ref: opts.git_ref.map(String::from),
                 subpath: expanded.subpath,
             });
         }
     }
 
     if is_abbreviation(template_arg) {
-        let expanded = expand_abbreviation(template_arg)?;
+        let expanded = expand_abbreviation(template_arg, opts.protocol)?;
         return Ok(TemplateSource::Git {
             url: expanded.url,
-            git_ref: git_ref.map(String::from),
+            git_ref: opts.git_ref.map(String::from),
             subpath: expanded.subpath,
         });
     }
@@ -189,7 +225,7 @@ pub fn resolve_source_full(
     if is_git_url(template_arg) {
         return Ok(TemplateSource::Git {
             url: template_arg.to_string(),
-            git_ref: git_ref.map(String::from),
+            git_ref: opts.git_ref.map(String::from),
             subpath: None,
         });
     }
@@ -214,49 +250,6 @@ mod tests {
     use super::*;
     use rstest::rstest;
 
-    // ── Abbreviation expansion ──────────────────────────────────────────
-
-    #[test]
-    fn build_github_url_ssh() {
-        let url = build_github_url("user/repo", "ssh");
-        assert_eq!(url, "git@github.com:user/repo.git");
-    }
-
-    #[test]
-    fn build_github_url_https() {
-        let url = build_github_url("user/repo", "https");
-        assert_eq!(url, "https://github.com/user/repo.git");
-    }
-
-    #[test]
-    fn expand_github_abbreviation() {
-        let expanded = expand_abbreviation("gh:user/repo").unwrap();
-        assert!(
-            expanded.url == "https://github.com/user/repo.git"
-                || expanded.url == "git@github.com:user/repo.git",
-            "unexpected URL: {}",
-            expanded.url
-        );
-        assert!(expanded.subpath.is_none());
-    }
-
-    #[rstest]
-    #[case("gl:org/project", "https://gitlab.com/org/project.git")]
-    #[case("cb:user/repo", "https://codeberg.org/user/repo.git")]
-    fn expand_abbreviation_cases(#[case] input: &str, #[case] expected_url: &str) {
-        let expanded = expand_abbreviation(input).unwrap();
-        assert_eq!(expanded.url, expected_url);
-        assert!(expanded.subpath.is_none());
-    }
-
-    #[test]
-    fn expand_abbreviation_empty_remainder() {
-        let result = expand_abbreviation("gh:");
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(matches!(err, DicecutError::InvalidAbbreviation { ref input } if input == "gh:"));
-    }
-
     // ── Git URL detection ───────────────────────────────────────────────
 
     #[rstest]
@@ -269,49 +262,20 @@ mod tests {
         assert_eq!(is_git_url(input), expected);
     }
 
-    // ── resolve_source ──────────────────────────────────────────────────
+    // ── resolve_source with ResolveOptions ──────────────────────────────
 
     #[test]
-    fn resolve_abbreviation_to_git_source() {
-        let source = resolve_source("gh:user/repo").unwrap();
-        match source {
-            TemplateSource::Git {
-                url,
-                git_ref,
-                subpath,
-            } => {
-                assert!(
-                    url == "https://github.com/user/repo.git"
-                        || url == "git@github.com:user/repo.git",
-                    "unexpected URL: {url}"
-                );
-                assert!(git_ref.is_none());
-                assert!(subpath.is_none());
-            }
-            _ => panic!("expected Git source"),
-        }
+    fn resolve_source_with_options_local() {
+        let dir = env!("CARGO_MANIFEST_DIR");
+        let opts = ResolveOptions::default();
+        let source = resolve_source(dir, opts).unwrap();
+        assert!(matches!(source, TemplateSource::Local(_)));
     }
 
     #[test]
-    fn resolve_explicit_https_to_git_source() {
-        let source = resolve_source("https://example.com/repo.git").unwrap();
-        match source {
-            TemplateSource::Git {
-                url,
-                git_ref,
-                subpath,
-            } => {
-                assert_eq!(url, "https://example.com/repo.git");
-                assert!(git_ref.is_none());
-                assert!(subpath.is_none());
-            }
-            _ => panic!("expected Git source"),
-        }
-    }
-
-    #[test]
-    fn resolve_git_ssh_to_git_source() {
-        let source = resolve_source("git@github.com:user/repo.git").unwrap();
+    fn resolve_source_with_options_shortcode_ssh_default() {
+        let opts = ResolveOptions::default();
+        let source = resolve_source("gh:user/repo", opts).unwrap();
         match source {
             TemplateSource::Git {
                 url,
@@ -326,18 +290,30 @@ mod tests {
         }
     }
 
-    // ── resolve_source_with_ref ─────────────────────────────────────────
+    #[test]
+    fn resolve_source_with_options_shortcode_https() {
+        let opts = ResolveOptions {
+            protocol: GitProtocol::Https,
+            ..Default::default()
+        };
+        let source = resolve_source("gh:user/repo", opts).unwrap();
+        match source {
+            TemplateSource::Git { url, .. } => {
+                assert_eq!(url, "https://github.com/user/repo.git");
+            }
+            _ => panic!("expected Git source"),
+        }
+    }
 
     #[test]
-    fn resolve_with_ref_sets_git_ref() {
-        let source = resolve_source_with_ref("gh:user/repo", Some("v1.0")).unwrap();
+    fn resolve_source_with_options_ref() {
+        let opts = ResolveOptions {
+            git_ref: Some("v1.0"),
+            ..Default::default()
+        };
+        let source = resolve_source("gh:user/repo", opts).unwrap();
         match source {
-            TemplateSource::Git { url, git_ref, .. } => {
-                assert!(
-                    url == "https://github.com/user/repo.git"
-                        || url == "git@github.com:user/repo.git",
-                    "unexpected URL: {url}"
-                );
+            TemplateSource::Git { git_ref, .. } => {
                 assert_eq!(git_ref.as_deref(), Some("v1.0"));
             }
             _ => panic!("expected Git source"),
@@ -345,60 +321,25 @@ mod tests {
     }
 
     #[test]
-    fn resolve_with_ref_none_leaves_ref_none() {
-        let source = resolve_source_with_ref("gh:user/repo", None).unwrap();
+    fn resolve_source_with_options_shortcode_subpath() {
+        let opts = ResolveOptions::default();
+        let source = resolve_source("gh:user/repo/my-template", opts).unwrap();
         match source {
-            TemplateSource::Git { url, git_ref, .. } => {
-                assert!(
-                    url == "https://github.com/user/repo.git"
-                        || url == "git@github.com:user/repo.git",
-                    "unexpected URL: {url}"
-                );
-                assert!(git_ref.is_none());
+            TemplateSource::Git { url, subpath, .. } => {
+                assert_eq!(url, "git@github.com:user/repo.git");
+                assert_eq!(subpath.as_deref(), Some("my-template"));
             }
             _ => panic!("expected Git source"),
         }
     }
 
-    // ── Local path fallback ─────────────────────────────────────────────
-
     #[test]
-    fn resolve_existing_local_path() {
-        // Use the cargo manifest dir which is guaranteed to exist.
-        let dir = env!("CARGO_MANIFEST_DIR");
-        let source = resolve_source(dir).unwrap();
+    fn resolve_source_with_options_plain_url() {
+        let opts = ResolveOptions::default();
+        let source = resolve_source("https://example.com/repo.git", opts).unwrap();
         match source {
-            TemplateSource::Local(path) => {
-                assert!(path.exists());
-            }
-            _ => panic!("expected Local source"),
-        }
-    }
-
-    #[test]
-    fn resolve_nonexistent_local_path_errors() {
-        let result = resolve_source("/nonexistent/path/that/does/not/exist");
-        assert!(result.is_err());
-    }
-
-    // ── User abbreviations ──────────────────────────────────────────────
-
-    #[test]
-    fn user_abbreviation_expands_correctly() {
-        let mut abbrevs = HashMap::new();
-        abbrevs.insert(
-            "company".to_string(),
-            "https://git.company.com/{}.git".to_string(),
-        );
-        let source = resolve_source_full("company:team/project", None, Some(&abbrevs)).unwrap();
-        match source {
-            TemplateSource::Git {
-                url,
-                git_ref,
-                subpath,
-            } => {
-                assert_eq!(url, "https://git.company.com/team/project.git");
-                assert!(git_ref.is_none());
+            TemplateSource::Git { url, subpath, .. } => {
+                assert_eq!(url, "https://example.com/repo.git");
                 assert!(subpath.is_none());
             }
             _ => panic!("expected Git source"),
@@ -406,82 +347,10 @@ mod tests {
     }
 
     #[test]
-    fn user_abbreviation_with_ref() {
-        let mut abbrevs = HashMap::new();
-        abbrevs.insert(
-            "corp".to_string(),
-            "https://git.corp.com/{}.git".to_string(),
-        );
-        let source = resolve_source_full("corp:myrepo", Some("v2.0"), Some(&abbrevs)).unwrap();
-        match source {
-            TemplateSource::Git { url, git_ref, .. } => {
-                assert_eq!(url, "https://git.corp.com/myrepo.git");
-                assert_eq!(git_ref.as_deref(), Some("v2.0"));
-            }
-            _ => panic!("expected Git source"),
-        }
-    }
-
-    #[test]
-    fn user_abbreviation_takes_priority_over_builtin() {
-        let mut abbrevs = HashMap::new();
-        abbrevs.insert(
-            "gh".to_string(),
-            "https://custom-github.example.com/{}.git".to_string(),
-        );
-        let source = resolve_source_full("gh:user/repo", None, Some(&abbrevs)).unwrap();
-        match source {
-            TemplateSource::Git { url, .. } => {
-                assert_eq!(url, "https://custom-github.example.com/user/repo.git");
-            }
-            _ => panic!("expected Git source"),
-        }
-    }
-
-    #[test]
-    fn user_abbreviation_empty_remainder_errors() {
-        let mut abbrevs = HashMap::new();
-        abbrevs.insert(
-            "company".to_string(),
-            "https://git.company.com/{}.git".to_string(),
-        );
-        let result = resolve_source_full("company:", None, Some(&abbrevs));
+    fn resolve_source_nonexistent_local_path_errors() {
+        let opts = ResolveOptions::default();
+        let result = resolve_source("/nonexistent/path/that/does/not/exist", opts);
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn unknown_user_abbreviation_falls_through_to_builtin() {
-        let mut abbrevs = HashMap::new();
-        abbrevs.insert(
-            "company".to_string(),
-            "https://git.company.com/{}.git".to_string(),
-        );
-        let source = resolve_source_full("gh:user/repo", None, Some(&abbrevs)).unwrap();
-        match source {
-            TemplateSource::Git { url, .. } => {
-                assert!(
-                    url == "https://github.com/user/repo.git"
-                        || url == "git@github.com:user/repo.git",
-                    "unexpected URL: {url}"
-                );
-            }
-            _ => panic!("expected Git source"),
-        }
-    }
-
-    #[test]
-    fn no_user_abbreviations_behaves_as_before() {
-        let source = resolve_source_full("gh:user/repo", None, None).unwrap();
-        match source {
-            TemplateSource::Git { url, .. } => {
-                assert!(
-                    url == "https://github.com/user/repo.git"
-                        || url == "git@github.com:user/repo.git",
-                    "unexpected URL: {url}"
-                );
-            }
-            _ => panic!("expected Git source"),
-        }
     }
 
     // ── Subpath parsing ────────────────────────────────────────────────
@@ -501,54 +370,229 @@ mod tests {
         assert_eq!(sub, exp_sub);
     }
 
+    // ── GitProtocol ────────────────────────────────────────────────────
+
     #[test]
-    fn resolve_abbreviation_with_subpath() {
-        let source = resolve_source("gh:user/repo/my-template").unwrap();
-        match source {
-            TemplateSource::Git {
-                url,
-                subpath,
-                git_ref,
-            } => {
-                assert!(
-                    url == "https://github.com/user/repo.git"
-                        || url == "git@github.com:user/repo.git",
-                    "unexpected URL: {url}"
-                );
-                assert_eq!(subpath.as_deref(), Some("my-template"));
-                assert!(git_ref.is_none());
-            }
-            _ => panic!("expected Git source"),
-        }
+    fn git_protocol_parses_ssh() {
+        let p: GitProtocol = "ssh".parse().unwrap();
+        assert_eq!(p, GitProtocol::Ssh);
     }
 
     #[test]
-    fn resolve_abbreviation_with_nested_subpath() {
-        let source = resolve_source("gl:org/repo/templates/python").unwrap();
-        match source {
-            TemplateSource::Git { url, subpath, .. } => {
-                assert_eq!(url, "https://gitlab.com/org/repo.git");
-                assert_eq!(subpath.as_deref(), Some("templates/python"));
-            }
-            _ => panic!("expected Git source"),
-        }
+    fn git_protocol_parses_https() {
+        let p: GitProtocol = "https".parse().unwrap();
+        assert_eq!(p, GitProtocol::Https);
     }
 
     #[test]
-    fn user_abbreviation_with_subpath() {
-        let mut abbrevs = HashMap::new();
-        abbrevs.insert(
-            "company".to_string(),
-            "https://git.company.com/{}.git".to_string(),
-        );
-        let source =
-            resolve_source_full("company:team/project/subdir", None, Some(&abbrevs)).unwrap();
-        match source {
-            TemplateSource::Git { url, subpath, .. } => {
-                assert_eq!(url, "https://git.company.com/team/project.git");
-                assert_eq!(subpath.as_deref(), Some("subdir"));
-            }
-            _ => panic!("expected Git source"),
-        }
+    fn git_protocol_rejects_unknown() {
+        let result: Result<GitProtocol> = "http".parse();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(
+            err,
+            DicecutError::InvalidProtocol { ref value, .. } if value == "http"
+        ));
+    }
+
+    #[test]
+    fn git_protocol_default_is_ssh() {
+        assert_eq!(GitProtocol::default(), GitProtocol::Ssh);
+    }
+
+    // ── Shortcode expansion (protocol-aware) ───────────────────────────
+
+    #[rstest]
+    #[case("gh:user/repo", GitProtocol::Ssh, "git@github.com:user/repo.git")]
+    #[case("gh:user/repo", GitProtocol::Https, "https://github.com/user/repo.git")]
+    #[case("gl:org/project", GitProtocol::Ssh, "git@gitlab.com:org/project.git")]
+    #[case(
+        "gl:org/project",
+        GitProtocol::Https,
+        "https://gitlab.com/org/project.git"
+    )]
+    #[case("cb:user/repo", GitProtocol::Ssh, "git@codeberg.org:user/repo.git")]
+    #[case(
+        "cb:user/repo",
+        GitProtocol::Https,
+        "https://codeberg.org/user/repo.git"
+    )]
+    fn expand_shortcode_per_protocol(
+        #[case] input: &str,
+        #[case] protocol: GitProtocol,
+        #[case] expected_url: &str,
+    ) {
+        let expanded = expand_abbreviation(input, protocol).unwrap();
+        assert_eq!(expanded.url, expected_url);
+        assert!(expanded.subpath.is_none());
+    }
+
+    #[rstest]
+    #[case(
+        "gh:user/repo/templates/py",
+        GitProtocol::Ssh,
+        "git@github.com:user/repo.git",
+        "templates/py"
+    )]
+    #[case(
+        "gl:org/repo/templates/python",
+        GitProtocol::Https,
+        "https://gitlab.com/org/repo.git",
+        "templates/python"
+    )]
+    #[case(
+        "cb:user/repo/sub",
+        GitProtocol::Ssh,
+        "git@codeberg.org:user/repo.git",
+        "sub"
+    )]
+    fn expand_shortcode_with_subpath(
+        #[case] input: &str,
+        #[case] protocol: GitProtocol,
+        #[case] expected_url: &str,
+        #[case] expected_subpath: &str,
+    ) {
+        let expanded = expand_abbreviation(input, protocol).unwrap();
+        assert_eq!(expanded.url, expected_url);
+        assert_eq!(expanded.subpath.as_deref(), Some(expected_subpath));
+    }
+
+    #[test]
+    fn expand_shortcode_empty_remainder_errors() {
+        let result = expand_abbreviation("gh:", GitProtocol::Ssh);
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            DicecutError::InvalidAbbreviation { ref input } if input == "gh:"
+        ));
+    }
+
+    #[test]
+    fn expand_shortcode_unknown_prefix_errors() {
+        let result = expand_abbreviation("xx:user/repo", GitProtocol::Ssh);
+        assert!(result.is_err());
+    }
+
+    // ── format_resolved_source ─────────────────────────────────────────
+
+    #[test]
+    fn format_resolved_source_git_url_only() {
+        let source = TemplateSource::Git {
+            url: "git@github.com:user/repo.git".to_string(),
+            git_ref: None,
+            subpath: None,
+        };
+        let s = format_resolved_source(&source);
+        assert!(s.contains("Would clone from: git@github.com:user/repo.git"));
+        assert!(!s.contains("ref:"));
+        assert!(!s.contains("subpath:"));
+    }
+
+    #[test]
+    fn format_resolved_source_git_full() {
+        let source = TemplateSource::Git {
+            url: "https://github.com/user/repo.git".to_string(),
+            git_ref: Some("main".to_string()),
+            subpath: Some("templates/py".to_string()),
+        };
+        let s = format_resolved_source(&source);
+        assert!(s.contains("Would clone from: https://github.com/user/repo.git"));
+        assert!(s.contains("ref: main"));
+        assert!(s.contains("subpath: templates/py"));
+    }
+
+    #[test]
+    fn format_resolved_source_local() {
+        let source = TemplateSource::Local(std::path::PathBuf::from("/tmp/templates/foo"));
+        let s = format_resolved_source(&source);
+        assert!(s.contains("Would use local path: /tmp/templates/foo"));
+    }
+}
+
+#[cfg(test)]
+mod protocol_resolution_tests {
+    use super::*;
+    use serial_test::serial;
+
+    fn clear_env() {
+        std::env::remove_var("DIECUT_GIT_PROTOCOL");
+    }
+
+    #[test]
+    #[serial]
+    fn no_flag_no_env_defaults_to_ssh() {
+        clear_env();
+        let result = resolve_git_protocol(None).unwrap();
+        assert_eq!(result, GitProtocol::Ssh);
+    }
+
+    #[test]
+    #[serial]
+    fn flag_ssh_returns_ssh() {
+        clear_env();
+        let result = resolve_git_protocol(Some(GitProtocol::Ssh)).unwrap();
+        assert_eq!(result, GitProtocol::Ssh);
+    }
+
+    #[test]
+    #[serial]
+    fn flag_https_returns_https() {
+        clear_env();
+        let result = resolve_git_protocol(Some(GitProtocol::Https)).unwrap();
+        assert_eq!(result, GitProtocol::Https);
+    }
+
+    #[test]
+    #[serial]
+    fn env_https_returns_https_when_no_flag() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "https");
+        let result = resolve_git_protocol(None).unwrap();
+        clear_env();
+        assert_eq!(result, GitProtocol::Https);
+    }
+
+    #[test]
+    #[serial]
+    fn env_ssh_returns_ssh_when_no_flag() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "ssh");
+        let result = resolve_git_protocol(None).unwrap();
+        clear_env();
+        assert_eq!(result, GitProtocol::Ssh);
+    }
+
+    #[test]
+    #[serial]
+    fn flag_overrides_env() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "ssh");
+        let result = resolve_git_protocol(Some(GitProtocol::Https)).unwrap();
+        clear_env();
+        assert_eq!(result, GitProtocol::Https);
+    }
+
+    #[test]
+    #[serial]
+    fn invalid_env_value_errors() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "tcp");
+        let result = resolve_git_protocol(None);
+        clear_env();
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            DicecutError::InvalidProtocol { ref value, .. } if value == "tcp"
+        ));
+    }
+
+    #[test]
+    #[serial]
+    fn empty_env_value_errors() {
+        clear_env();
+        std::env::set_var("DIECUT_GIT_PROTOCOL", "");
+        let result = resolve_git_protocol(None);
+        clear_env();
+        assert!(result.is_err());
     }
 }

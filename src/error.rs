@@ -78,6 +78,13 @@ pub enum DicecutError {
         source: tera::Error,
     },
 
+    #[error("Invalid git protocol value '{value}' in {config_key}")]
+    #[diagnostic(help("Expected 'ssh' or 'https'"))]
+    InvalidProtocol {
+        value: String,
+        config_key: &'static str,
+    },
+
     #[error("Invalid template abbreviation: {input}")]
     #[diagnostic(help("Supported abbreviations: gh:user/repo, gl:user/repo, cb:user/repo"))]
     InvalidAbbreviation { input: String },

@@ -18,7 +18,7 @@ use crate::answers::TemplateOrigin;
 use crate::error::{DicecutError, Result};
 use crate::prompt::{collect_variables, PromptOptions};
 use crate::render::{build_context, execute_plan, plan_render, GeneratedProject, GenerationPlan};
-use crate::template::{get_or_clone, resolve_source, TemplateSource};
+use crate::template::{get_or_clone, resolve_source, GitProtocol, ResolveOptions, TemplateSource};
 
 pub struct GenerateOptions {
     pub template: String,
@@ -27,6 +27,7 @@ pub struct GenerateOptions {
     pub defaults: bool,
     pub overwrite: bool,
     pub no_hooks: bool,
+    pub protocol: GitProtocol,
 }
 
 /// Everything needed to execute a generation that has been planned but not yet written.
@@ -44,7 +45,13 @@ pub struct FullGenerationPlan {
 /// This performs all preparation (template resolution, variable collection, pre-generate
 /// hooks, and rendering) but does **not** write any files to disk.
 pub fn plan_generation(options: GenerateOptions) -> Result<FullGenerationPlan> {
-    let source = resolve_source(&options.template)?;
+    let source = resolve_source(
+        &options.template,
+        ResolveOptions {
+            protocol: options.protocol,
+            ..Default::default()
+        },
+    )?;
     let (template_dir, origin) = match &source {
         TemplateSource::Local(path) => (path.clone(), TemplateOrigin::Local),
         TemplateSource::Git {
@@ -222,6 +229,7 @@ default = "my-project"
             defaults: false,
             overwrite: false,
             no_hooks: true,
+            protocol: GitProtocol::default(),
         };
 
         let plan = plan_generation(options).unwrap();
@@ -240,6 +248,7 @@ default = "my-project"
             defaults: true,
             overwrite: false,
             no_hooks: true,
+            protocol: GitProtocol::default(),
         };
 
         let result = plan_generation(options);
@@ -267,6 +276,7 @@ default = "my-project"
             defaults: true,
             overwrite,
             no_hooks: true,
+            protocol: GitProtocol::default(),
         };
 
         let result = plan_generation(options);
@@ -294,6 +304,7 @@ default = "my-project"
             defaults: false,
             overwrite: false,
             no_hooks: true,
+            protocol: GitProtocol::default(),
         };
 
         let plan = plan_generation(options).unwrap();
@@ -326,6 +337,7 @@ default = "my-project"
             defaults: false,
             overwrite: true,
             no_hooks: true,
+            protocol: GitProtocol::default(),
         };
 
         let plan = plan_generation(options).unwrap();
@@ -368,6 +380,7 @@ default = "test"
             defaults: true,
             overwrite: true,
             no_hooks: true,
+            protocol: GitProtocol::default(),
         };
 
         let plan = plan_generation(options).unwrap();
@@ -394,6 +407,7 @@ default = "test"
             defaults: false,
             overwrite: true,
             no_hooks: true,
+            protocol: GitProtocol::default(),
         };
 
         let result = generate(options).unwrap();
