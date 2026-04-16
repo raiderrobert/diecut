@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/raiderrobert/diecut/compare/v0.3.5...v0.3.6) (2026-04-16)
+
+
+### Bug Fixes
+
+* **#131:** SSH-default shortcodes with --protocol override ([#138](https://github.com/raiderrobert/diecut/issues/138)) ([6207369](https://github.com/raiderrobert/diecut/commit/620736945f11614bc15b1d614fc94962f2e579ad))
+
 ## [Unreleased]
 
 ### Changed
